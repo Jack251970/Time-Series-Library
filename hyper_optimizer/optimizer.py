@@ -25,6 +25,7 @@ class HyperOptimizer(object):
 
         # function to get search space
         self.search_space = get_search_space()
+        self._check_required_fieldnames(get_fieldnames('required'))
 
         # function to prepare config
         self.prepare_config = prepare_config
@@ -55,6 +56,11 @@ class HyperOptimizer(object):
 
         # init experiment
         self.Exp = None
+
+    def _check_required_fieldnames(self, fieldnames):
+        for fieldname in fieldnames:
+            if fieldname not in self.all_fieldnames:
+                raise ValueError(f'The fieldname {fieldname} is not in the all fieldnames!')
 
     def config_optimizer_settings(self, jump_csv_file_path=None, csv_file_path_format=None, max_process_index=None,
                                   seed=None):
@@ -201,9 +207,6 @@ class HyperOptimizer(object):
             self.Exp = Exp_Anomaly_Detection
         elif task_name == 'classification':
             self.Exp = Exp_Classification
-        else:
-            raise NotImplementedError("The task_name should be one of the following: long_term_forecast, "
-                                      "short_term_forecast, imputation, anomaly_detection, classification!")
 
     def _start_experiment(self, _args, try_model, first_process_and_first_exp):
         """
