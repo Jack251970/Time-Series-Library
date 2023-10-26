@@ -8,12 +8,16 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from exp.exp_anomaly_detection import Exp_Anomaly_Detection
+from exp.exp_classification import Exp_Classification
+from exp.exp_imputation import Exp_Imputation
+from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
+from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
+
 
 class HyperOptimizer(object):
-    def __init__(self, ExpMain, get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
+    def __init__(self, get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
                  get_tags=None, check_jump_experiment=None):
-        self.ExpMain = ExpMain
-
         # get fieldnames
         self.all_fieldnames = get_fieldnames('all')
         self.checked_fieldnames = get_fieldnames('checked')
@@ -48,6 +52,9 @@ class HyperOptimizer(object):
 
         # random seed
         self.seed = 2021
+
+        # init experiment
+        self.Exp = None
 
     def config_optimizer_settings(self, jump_csv_file_path=None, csv_file_path_format=None, max_process_index=None,
                                   seed=None):
@@ -133,7 +140,7 @@ class HyperOptimizer(object):
             elif search_space[key]['_type'] == 'choice':
                 ranges[key] = search_space[key]['_value']
             else:
-                raise NotImplementedError
+                raise ValueError(f'The type of {key} is not supported!')
 
         # generate all possible combinations of values within the specified ranges
         combinations = list(product(*[ranges[param] for param in params]))
@@ -166,11 +173,12 @@ class HyperOptimizer(object):
             print(f'Config in experiment:{config}')
 
             # start experiment
-            mse, mae = self._start_experiment(args, False, (_process_index == 0 and time == 1))
+            mse, mae, acc = self._start_experiment(args, False, (_process_index == 0 and time == 1))
 
             # load criteria data
             config['mse'] = mse
             config['mae'] = mae
+            config['acc'] = acc
 
             # save data if in training
             if parameter['is_training'] == 1:
@@ -182,6 +190,21 @@ class HyperOptimizer(object):
 
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
+    def _init_experiment(self, task_name):
+        if task_name == 'long_term_forecast':
+            self.Exp = Exp_Long_Term_Forecast
+        elif task_name == 'short_term_forecast':
+            self.Exp = Exp_Short_Term_Forecast
+        elif task_name == 'imputation':
+            self.Exp = Exp_Imputation
+        elif task_name == 'anomaly_detection':
+            self.Exp = Exp_Anomaly_Detection
+        elif task_name == 'classification':
+            self.Exp = Exp_Classification
+        else:
+            raise NotImplementedError("The task_name should be one of the following: long_term_forecast, "
+                                      "short_term_forecast, imputation, anomaly_detection, classification!")
+
     def _start_experiment(self, _args, try_model, first_process_and_first_exp):
         """
         If try_model is True, we will just try this model:
@@ -191,33 +214,29 @@ class HyperOptimizer(object):
         self._fix_random_seed()
 
         # build experiment
-        Exp = self.ExpMain
+        self._init_experiment(_args.task_name)
 
         # valid model
         if try_model:
-            exp = Exp(_args, True)
+            exp = self.Exp(_args, True)
             setting = self.build_setting(_args, 0)
             valid = exp.train(setting, False)
             return valid
 
-        _mse, _mae = math.inf, math.inf
+        _mse, _mae, _acc = math.inf, math.inf, 0
         if _args.is_training:
             for ii in range(_args.itr):
                 # setting record of experiments
                 setting = self.build_setting(_args, ii)
 
                 # set experiments
-                exp = Exp(_args)
+                exp = self.Exp(_args)
 
                 print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
                 exp.train(setting, check_folder=(first_process_and_first_exp and ii == 0))
 
                 print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-                _mse, _mae = exp.test(setting, check_folder=(first_process_and_first_exp and ii == 0))
-
-                if _args.do_predict:
-                    print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-                    exp.predict(setting, load=True)
+                _mse, _mae, _acc = exp.test(setting, check_folder=(first_process_and_first_exp and ii == 0))
 
                 torch.cuda.empty_cache()
         else:
@@ -225,10 +244,10 @@ class HyperOptimizer(object):
             setting = self.build_setting(_args, 0)
 
             # set experiments
-            exp = Exp(_args)
+            exp = self.Exp(_args)
 
             print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            _mse, _mae = exp.test(setting, test=1, check_folder=first_process_and_first_exp)
+            _mse, _mae, _acc = exp.test(setting, check_folder=(first_process_and_first_exp))
 
             torch.cuda.empty_cache()
 
