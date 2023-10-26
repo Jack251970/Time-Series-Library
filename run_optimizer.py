@@ -429,10 +429,13 @@ def get_search_space():
 
     model_config = {
         # model mode 1: Autoformer
-        'model': {'_type': 'single', '_value': 'Autoformer'},
+        # 'model': {'_type': 'single', '_value': 'Autoformer'},
 
-        # model mode 1: Transformer, Informer, Reformer
-        # 'model': {'_type': 'choice', '_value': ['Transformer', 'Informer', 'Reformer']},
+        # model mode 2: FEDformer
+        # 'model': {'_type': 'single', '_value': 'FEDformer'},
+
+        # model mode 2: Autoformer, FEDformer
+        'model': {'_type': 'choice', '_value': ['Autoformer', 'FEDformer']},
     }
 
     learning_config = {
@@ -465,7 +468,6 @@ def get_search_space():
         # 'e_layers': {'_type': 'single', '_value': 1},
         # 'd_layers': {'_type': 'single', '_value': 1},
         # 'factor': {'_type': 'single', '_value': 2},
-        # 'moving_avg': {'_type': 'single', '_value': 25},
 
         # mode 2: medium period
         'seq_len': {'_type': 'single', '_value': 96},
@@ -474,10 +476,9 @@ def get_search_space():
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
         'factor': {'_type': 'single', '_value': 2},
-        'moving_avg': {'_type': 'single', '_value': 41},
     }
 
-    decomp_mode_config = {
+    decomp_config = {
         # avg
         'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
         # adp_avg
@@ -486,7 +487,7 @@ def get_search_space():
         # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
     }
 
-    return {**default_config, **model_config, **learning_config, **heads_config, **period_config, **decomp_mode_config}
+    return {**default_config, **model_config, **learning_config, **heads_config, **period_config, **decomp_config}
 
 
 h = HyperOptimizer(get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
