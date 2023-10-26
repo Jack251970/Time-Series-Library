@@ -1,24 +1,24 @@
-from data_provider.data_factory import data_provider
-from data_provider.m4 import M4Meta
-from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
-from utils.losses import mape_loss, mase_loss, smape_loss
-from utils.m4_summary import M4Summary
-import torch
-import torch.nn as nn
-from torch import optim
 import os
 import time
 import warnings
+
 import numpy as np
 import pandas
+import torch
+import torch.nn as nn
+
+from data_provider.m4 import M4Meta
+from exp.exp_basic import Exp_Basic
+from utils.m4_summary import M4Summary
+from utils.tools import EarlyStopping, adjust_learning_rate, visual
 
 warnings.filterwarnings('ignore')
 
 
+# noinspection DuplicatedCode
 class Exp_Short_Term_Forecast(Exp_Basic):
-    def __init__(self, args):
-        super(Exp_Short_Term_Forecast, self).__init__(args)
+    def __init__(self, args, try_model=False):
+        super(Exp_Short_Term_Forecast, self).__init__(args, try_model)
 
     def _build_model(self):
         if self.args.data == 'm4':
@@ -26,33 +26,14 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             self.args.seq_len = 2 * self.args.pred_len  # input_len = 2*pred_len
             self.args.label_len = self.args.pred_len
             self.args.frequency_map = M4Meta.frequency_map[self.args.seasonal_patterns]
-        model = self.model_dict[self.args.model].Model(self.args).float()
+        return super()._build_model()
 
-        if self.args.use_multi_gpu and self.args.use_gpu:
-            model = nn.DataParallel(model, device_ids=self.args.device_ids)
-        return model
-
-    def _get_data(self, flag):
-        data_set, data_loader = data_provider(self.args, flag)
-        return data_set, data_loader
-
-    def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
-        return model_optim
-
-    def _select_criterion(self, loss_name='MSE'):
-        if loss_name == 'MSE':
-            return nn.MSELoss()
-        elif loss_name == 'MAPE':
-            return mape_loss()
-        elif loss_name == 'MASE':
-            return mase_loss()
-        elif loss_name == 'SMAPE':
-            return smape_loss()
-
-    def train(self, setting):
+    def train(self, setting, check_folder=False):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
+
+        if check_folder:
+            self._check_folders(self.args.checkpoints)
 
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path):
@@ -85,6 +66,16 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
 
+                # try model if needed
+                if self.try_model:
+                    with torch.cuda.amp.autocast():
+                        # noinspection PyBroadException
+                        try:
+                            self.model(batch_x, None, dec_inp, None)
+                            return True
+                        except:
+                            return False
+
                 outputs = self.model(batch_x, None, dec_inp, None)
 
                 f_dim = -1 if self.args.features == 'MS' else 0
@@ -93,26 +84,41 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
                 batch_y_mark = batch_y_mark[:, -self.args.pred_len:, f_dim:].to(self.device)
                 loss_value = criterion(batch_x, self.args.frequency_map, outputs, batch_y, batch_y_mark)
-                loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1, :]))
+                # loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1, :]))
                 loss = loss_value  # + loss_sharpness * 1e-5
                 train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
                     speed = (time.time() - time_now) / iter_count
-                    left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
-                    print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
+                    # left time for all epochs
+                    # left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
+                    # left time for current epoch
+                    left_time = speed * (train_steps - i)
+                    if left_time > 60 * 60:
+                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} hour'.format(speed, left_time / 60.0 / 60.0))
+                    elif left_time > 60:
+                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} min'.format(speed, left_time / 60.0))
+                    else:
+                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} second'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
 
                 loss.backward()
                 model_optim.step()
 
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            current_epoch_time = time.time() - epoch_time
+            if current_epoch_time > 60 * 60:
+                print("Epoch: {}; cost time: {:.4f} hour".format(epoch + 1, current_epoch_time / 60.0 / 60.0))
+            elif current_epoch_time > 60:
+                print("Epoch: {}; cost time: {:.4f} min".format(epoch + 1, current_epoch_time / 60.0))
+            else:
+                print("Epoch: {}; cost time: {:.4f} second".format(epoch + 1, current_epoch_time))
+
             train_loss = np.average(train_loss)
             vali_loss = self.vali(train_loader, vali_loader, criterion)
             test_loss = vali_loss
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
+            print("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
@@ -157,7 +163,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         self.model.train()
         return loss
 
-    def test(self, setting, test=0):
+    def test(self, setting, test=False, check_folder=False):
         _, train_loader = self._get_data(flag='train')
         _, test_loader = self._get_data(flag='test')
         x, _ = train_loader.dataset.last_insample_window()
@@ -167,7 +173,15 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
         if test:
             print('loading model')
-            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+            path = os.path.join(self.args.checkpoints, setting)
+            best_model_path = path + '/' + 'checkpoint.pth'
+            if os.path.exists(best_model_path):
+                self.model.load_state_dict(torch.load(best_model_path))
+            else:
+                raise FileNotFoundError('You need to train this model before testing it!')
+
+        if check_folder:
+            self._check_folders(['./test_results', './m4_results'])
 
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
@@ -232,4 +246,5 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             print('owa:', owa_results)
         else:
             print('After all 6 tasks are finished, you can calculate the averaged index')
-        return
+
+        return None

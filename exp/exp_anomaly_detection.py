@@ -1,44 +1,119 @@
-from data_provider.data_factory import data_provider
-from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, adjustment
-from sklearn.metrics import precision_recall_fscore_support
-from sklearn.metrics import accuracy_score
-import torch.multiprocessing
-
-torch.multiprocessing.set_sharing_strategy('file_system')
-import torch
-import torch.nn as nn
-from torch import optim
 import os
 import time
 import warnings
+
 import numpy as np
+import torch
+import torch.multiprocessing
+import torch.nn as nn
+
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_recall_fscore_support
+from exp.exp_basic import Exp_Basic
+from utils.tools import EarlyStopping, adjust_learning_rate, adjustment
 
 warnings.filterwarnings('ignore')
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 
+# noinspection DuplicatedCode
 class Exp_Anomaly_Detection(Exp_Basic):
-    def __init__(self, args):
-        super(Exp_Anomaly_Detection, self).__init__(args)
+    def __init__(self, args, try_model=False):
+        super(Exp_Anomaly_Detection, self).__init__(args, try_model)
+        self.anomaly_criterion = None
 
-    def _build_model(self):
-        model = self.model_dict[self.args.model].Model(self.args).float()
+    def train(self, setting, check_folder=False):
+        train_data, train_loader = self._get_data(flag='train')
+        vali_data, vali_loader = self._get_data(flag='val')
+        test_data, test_loader = self._get_data(flag='test')
 
-        if self.args.use_multi_gpu and self.args.use_gpu:
-            model = nn.DataParallel(model, device_ids=self.args.device_ids)
-        return model
+        if check_folder:
+            self._check_folders(self.args.checkpoints)
 
-    def _get_data(self, flag):
-        data_set, data_loader = data_provider(self.args, flag)
-        return data_set, data_loader
+        path = os.path.join(self.args.checkpoints, setting)
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-    def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
-        return model_optim
+        time_now = time.time()
 
-    def _select_criterion(self):
-        criterion = nn.MSELoss()
-        return criterion
+        train_steps = len(train_loader)
+        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+
+        model_optim = self._select_optimizer()
+        criterion = self._select_criterion('MSE')
+
+        for epoch in range(self.args.train_epochs):
+            iter_count = 0
+            train_loss = []
+
+            self.model.train()
+            epoch_time = time.time()
+            for i, (batch_x, batch_y) in enumerate(train_loader):
+                iter_count += 1
+                model_optim.zero_grad()
+
+                batch_x = batch_x.float().to(self.device)
+
+                # try model if needed
+                if self.try_model:
+                    with torch.cuda.amp.autocast():
+                        # noinspection PyBroadException
+                        try:
+                            self.model(batch_x, None, None, None)
+                            return True
+                        except:
+                            return False
+
+                outputs = self.model(batch_x, None, None, None)
+
+                f_dim = -1 if self.args.features == 'MS' else 0
+                outputs = outputs[:, :, f_dim:]
+                loss = criterion(outputs, batch_x)
+                train_loss.append(loss.item())
+
+                if (i + 1) % 100 == 0:
+                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
+                    speed = (time.time() - time_now) / iter_count
+                    # left time for all epochs
+                    # left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
+                    # left time for current epoch
+                    left_time = speed * (train_steps - i)
+                    if left_time > 60 * 60:
+                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} hour'.format(speed, left_time / 60.0 / 60.0))
+                    elif left_time > 60:
+                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} min'.format(speed, left_time / 60.0))
+                    else:
+                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} second'.format(speed, left_time))
+                    iter_count = 0
+                    time_now = time.time()
+
+                loss.backward()
+                model_optim.step()
+
+            current_epoch_time = time.time() - epoch_time
+            if current_epoch_time > 60 * 60:
+                print("Epoch: {}; cost time: {:.4f} hour".format(epoch + 1, current_epoch_time / 60.0 / 60.0))
+            elif current_epoch_time > 60:
+                print("Epoch: {}; cost time: {:.4f} min".format(epoch + 1, current_epoch_time / 60.0))
+            else:
+                print("Epoch: {}; cost time: {:.4f} second".format(epoch + 1, current_epoch_time))
+
+            train_loss = np.average(train_loss)
+            vali_loss = self.vali(vali_data, vali_loader, criterion)
+            test_loss = self.vali(test_data, test_loader, criterion)
+
+            print("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".format(
+                epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            early_stopping(vali_loss, self.model, path)
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+            adjust_learning_rate(model_optim, epoch + 1, self.args)
+
+        best_model_path = path + '/' + 'checkpoint.pth'
+        self.model.load_state_dict(torch.load(best_model_path))
+
+        return self.model
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []
@@ -60,79 +135,23 @@ class Exp_Anomaly_Detection(Exp_Basic):
         self.model.train()
         return total_loss
 
-    def train(self, setting):
-        train_data, train_loader = self._get_data(flag='train')
-        vali_data, vali_loader = self._get_data(flag='val')
-        test_data, test_loader = self._get_data(flag='test')
-
-        path = os.path.join(self.args.checkpoints, setting)
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        time_now = time.time()
-
-        train_steps = len(train_loader)
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
-
-        model_optim = self._select_optimizer()
-        criterion = self._select_criterion()
-
-        for epoch in range(self.args.train_epochs):
-            iter_count = 0
-            train_loss = []
-
-            self.model.train()
-            epoch_time = time.time()
-            for i, (batch_x, batch_y) in enumerate(train_loader):
-                iter_count += 1
-                model_optim.zero_grad()
-
-                batch_x = batch_x.float().to(self.device)
-
-                outputs = self.model(batch_x, None, None, None)
-
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, :, f_dim:]
-                loss = criterion(outputs, batch_x)
-                train_loss.append(loss.item())
-
-                if (i + 1) % 100 == 0:
-                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
-                    speed = (time.time() - time_now) / iter_count
-                    left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
-                    print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
-                    iter_count = 0
-                    time_now = time.time()
-
-                loss.backward()
-                model_optim.step()
-
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
-            train_loss = np.average(train_loss)
-            vali_loss = self.vali(vali_data, vali_loader, criterion)
-            test_loss = self.vali(test_data, test_loader, criterion)
-
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
-                epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-            early_stopping(vali_loss, self.model, path)
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
-            adjust_learning_rate(model_optim, epoch + 1, self.args)
-
-        best_model_path = path + '/' + 'checkpoint.pth'
-        self.model.load_state_dict(torch.load(best_model_path))
-
-        return self.model
-
-    def test(self, setting, test=0):
+    def test(self, setting, test=False, check_folder=False):
         test_data, test_loader = self._get_data(flag='test')
         train_data, train_loader = self._get_data(flag='train')
         if test:
             print('loading model')
-            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+            path = os.path.join(self.args.checkpoints, setting)
+            best_model_path = path + '/' + 'checkpoint.pth'
+            if os.path.exists(best_model_path):
+                self.model.load_state_dict(torch.load(best_model_path))
+            else:
+                raise FileNotFoundError('You need to train this model before testing it!')
+
+        if check_folder:
+            self._check_folders(['./test_results'])
 
         attens_energy = []
+
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
@@ -196,12 +215,14 @@ class Exp_Anomaly_Detection(Exp_Basic):
             accuracy, precision,
             recall, f_score))
 
-        f = open("result_anomaly_detection.txt", 'a')
-        f.write(setting + "  \n")
-        f.write("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} ".format(
-            accuracy, precision,
-            recall, f_score))
-        f.write('\n')
-        f.write('\n')
-        f.close()
-        return
+        # save results in txt
+        # f = open("result_anomaly_detection.txt", 'a')
+        # f.write(setting + "  \n")
+        # f.write("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} ".format(
+        #     accuracy, precision,
+        #     recall, f_score))
+        # f.write('\n')
+        # f.write('\n')
+        # f.close()
+
+        return accuracy
