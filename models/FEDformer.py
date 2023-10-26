@@ -14,7 +14,7 @@ class Model(nn.Module):
     Paper link: https://proceedings.mlr.press/v162/zhou22g.html
     """
 
-    def __init__(self, configs, version='fourier', mode_select='random', modes=32):
+    def __init__(self, configs, version='fourier', mode_select='random', modes=32, print_info=False):
         """
         version: str, for FEDformer, there are two versions to choose, options: [Fourier, Wavelets].
         mode_select: str, for FEDformer, there are two mode selection method, options: [random, low].
@@ -25,13 +25,13 @@ class Model(nn.Module):
         self.seq_len = configs.seq_len
         self.label_len = configs.label_len
         self.pred_len = configs.pred_len
-
         self.version = version
         self.mode_select = mode_select
         self.modes = modes
+        self.output_attention = configs.output_attention
 
         # Decomp
-        self.decomp = series_decomp(configs.moving_avg)
+        self.decomp = series_decomp(configs.moving_avg, series_decomp_mode=configs.series_decomp_mode)
         self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,
                                            configs.dropout)
         self.dec_embedding = DataEmbedding(configs.dec_in, configs.d_model, configs.embed, configs.freq,
@@ -49,23 +49,28 @@ class Model(nn.Module):
                                                   base='legendre',
                                                   activation='tanh')
         else:
+            # Frequency Enhance Block
             encoder_self_att = FourierBlock(in_channels=configs.d_model,
                                             out_channels=configs.d_model,
                                             seq_len=self.seq_len,
                                             modes=self.modes,
-                                            mode_select_method=self.mode_select)
+                                            mode_select_method=self.mode_select,
+                                            print_info=print_info)
             decoder_self_att = FourierBlock(in_channels=configs.d_model,
                                             out_channels=configs.d_model,
                                             seq_len=self.seq_len // 2 + self.pred_len,
                                             modes=self.modes,
-                                            mode_select_method=self.mode_select)
+                                            mode_select_method=self.mode_select,
+                                            print_info=print_info)
+            # Frequency Enhance Attention
             decoder_cross_att = FourierCrossAttention(in_channels=configs.d_model,
                                                       out_channels=configs.d_model,
                                                       seq_len_q=self.seq_len // 2 + self.pred_len,
                                                       seq_len_kv=self.seq_len,
                                                       modes=self.modes,
                                                       mode_select_method=self.mode_select,
-                                                      num_heads=configs.n_heads)
+                                                      num_heads=configs.n_heads,
+                                                      print_info=print_info)
         # Encoder
         self.encoder = Encoder(
             [
@@ -75,10 +80,11 @@ class Model(nn.Module):
                         configs.d_model, configs.n_heads),
                     configs.d_model,
                     configs.d_ff,
-                    moving_avg=configs.moving_avg,
+                    _moving_avg=configs.moving_avg,
+                    series_decomp_mode=configs.series_decomp_mode,
                     dropout=configs.dropout,
                     activation=configs.activation
-                ) for l in range(configs.e_layers)
+                ) for _ in range(configs.e_layers)
             ],
             norm_layer=LayerNorm(configs.d_model)
         )
@@ -95,11 +101,12 @@ class Model(nn.Module):
                     configs.d_model,
                     configs.c_out,
                     configs.d_ff,
-                    moving_avg=configs.moving_avg,
+                    _moving_avg=configs.moving_avg,
+                    series_decomp_mode=configs.series_decomp_mode,
                     dropout=configs.dropout,
                     activation=configs.activation,
                 )
-                for l in range(configs.d_layers)
+                for _ in range(configs.d_layers)
             ],
             norm_layer=LayerNorm(configs.d_model),
             projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
@@ -117,19 +124,27 @@ class Model(nn.Module):
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # decomp init
         mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len, 1)
-        seasonal_init, trend_init = self.decomp(x_enc)  # x - moving_avg, moving_avg
+        seasonal_init, trend_init = self.decomp(x_enc)
+
         # decoder input
         trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)
         seasonal_init = F.pad(seasonal_init[:, -self.label_len:, :], (0, 0, 0, self.pred_len))
+
         # enc
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)
-        dec_out = self.dec_embedding(seasonal_init, x_mark_dec)
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
+        enc_in = self.enc_embedding(x_enc, x_mark_enc)
+        enc_out, attns = self.encoder(enc_in, attn_mask=None)
+
         # dec
-        seasonal_part, trend_part = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None, trend=trend_init)
+        dec_in = self.dec_embedding(seasonal_init, x_mark_dec)
+        seasonal_part, trend_part = self.decoder(dec_in, enc_out, x_mask=None, cross_mask=None, trend=trend_init)
+
         # final
         dec_out = trend_part + seasonal_part
-        return dec_out
+
+        if self.output_attention:
+            return dec_out[:, -self.pred_len:, :], attns
+        else:
+            return dec_out[:, -self.pred_len:, :]  # [B, L, D]
 
     def imputation(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask):
         # enc
@@ -162,8 +177,12 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
-            dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-            return dec_out[:, -self.pred_len:, :]  # [B, L, D]
+            if self.output_attention:
+                dec_out, attentions = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+                return dec_out, attentions
+            else:
+                dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+                return dec_out  # [B, L, D]
         if self.task_name == 'imputation':
             dec_out = self.imputation(x_enc, x_mark_enc, x_dec, x_mark_dec, mask)
             return dec_out  # [B, L, D]

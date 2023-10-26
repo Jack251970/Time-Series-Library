@@ -13,82 +13,122 @@ def get_frequency_modes(seq_len, modes=64, mode_select_method='random'):
     'random' means sampling randomly;
     'else' means sampling the lowest modes;
     """
+    # get the number of the modes
     modes = min(modes, seq_len // 2)
+
+    # generate the modes
     if mode_select_method == 'random':
+        # random choose modes, e.g. [4, 3, 0, 2]
         index = list(range(0, seq_len // 2))
         np.random.shuffle(index)
         index = index[:modes]
+        index.sort()  # e.g. [0, 2, 3, 4]
     else:
+        # e.g. [0, 1, 2]
         index = list(range(0, modes))
-    index.sort()
+
     return index
 
 
-# ########## fourier layer #############
+def complex_mul1d(order, x, w):
+    """
+    Complex multiplication
+    """
+    x_complex_flag = torch.is_complex(x)
+    w_complex_flag = torch.is_complex(w)
+    if x_complex_flag is False:
+        x = torch.complex(x, torch.zeros_like(x).to(x.device))
+    if w_complex_flag is False:
+        w = torch.complex(w, torch.zeros_like(w).to(w.device))
+    if x_complex_flag is True or w_complex_flag is True:
+        return torch.complex(torch.einsum(order, x.real, w.real) - torch.einsum(order, x.imag, w.imag),
+                             torch.einsum(order, x.real, w.imag) + torch.einsum(order, x.imag, w.real))
+    else:
+        return torch.einsum(order, x.real, w.real)
+
+
 class FourierBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, seq_len, modes=0, mode_select_method='random'):
+    def __init__(self, in_channels, out_channels, seq_len, modes=0, mode_select_method='random', print_info=False):
+        """
+        1D Fourier block. It performs representation learning on frequency domain,
+        it does FFT, linear transform, and Inverse FFT.
+        """
         super(FourierBlock, self).__init__()
-        print('fourier enhanced block used!')
-        """
-        1D Fourier block. It performs representation learning on frequency domain, 
-        it does FFT, linear transform, and Inverse FFT.    
-        """
+
         # get modes on frequency domain
-        self.index = get_frequency_modes(seq_len, modes=modes, mode_select_method=mode_select_method)
-        print('modes={}, index={}'.format(modes, self.index))
+        self.index_q = get_frequency_modes(seq_len, modes=modes, mode_select_method=mode_select_method)
 
-        self.scale = (1 / (in_channels * out_channels))
-        self.weights1 = nn.Parameter(
-            self.scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index), dtype=torch.float))
-        self.weights2 = nn.Parameter(
-            self.scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index), dtype=torch.float))
+        # get the scaled factor and get the weights
+        # nn.Parameter makes the Tensor can be trained
+        self.scale = 1 / (in_channels * out_channels)
+        self.weights1 = nn.Parameter(torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
+                                                dtype=torch.float))
+        self.weights2 = nn.Parameter(torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
+                                                dtype=torch.float))
 
-    # Complex multiplication
-    def compl_mul1d(self, order, x, weights):
-        x_flag = True
-        w_flag = True
-        if not torch.is_complex(x):
-            x_flag = False
-            x = torch.complex(x, torch.zeros_like(x).to(x.device))
-        if not torch.is_complex(weights):
-            w_flag = False
-            weights = torch.complex(weights, torch.zeros_like(weights).to(weights.device))
-        if x_flag or w_flag:
-            return torch.complex(torch.einsum(order, x.real, weights.real) - torch.einsum(order, x.imag, weights.imag),
-                                 torch.einsum(order, x.real, weights.imag) + torch.einsum(order, x.imag, weights.real))
-        else:
-            return torch.einsum(order, x.real, weights.real)
+        if print_info:
+            print('fourier enhanced block used!')
+            print('modes={}, index={}'.format(modes, self.index_q))
 
     def forward(self, q, k, v, mask):
-        # size = [B, L, H, E]
-        B, L, H, E = q.shape
-        x = q.permute(0, 2, 3, 1)
+        """
+        We only process the q.
+        """
+        device = q.device
+
+        B, L, H, E = q.shape  # [B, L, H, E]
+        _q = q.permute(0, 2, 3, 1).contiguous()  # [B, H, E, L]
+
         # Compute Fourier coefficients
-        x_ft = torch.fft.rfft(x, dim=-1)
-        # Perform Fourier neural operations
-        out_ft = torch.zeros(B, H, E, L // 2 + 1, device=x.device, dtype=torch.cfloat)
-        for wi, i in enumerate(self.index):
-            if i >= x_ft.shape[3] or wi >= out_ft.shape[3]:
+        Q = torch.fft.rfft(_q, dim=-1)
+
+        # Perform Fourier neural operations in the selected index
+        Y = torch.zeros(B, H, E, len(self.index_q), device=device, dtype=torch.cfloat)
+
+        # The original codes use Torch.cfloat.
+        # for i, _index_q in enumerate(self.index_q):
+        #     if _index_q >= Q.shape[3]:
+        #         continue
+        #     QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], self.weights1[:, :, :, i])
+        #     Y[:, :, :, i] = QW
+        #
+        # # multiply the scale factor
+        # Y = Y * self.scale
+
+        # By wuhaixu2016
+        complex_weights = torch.complex(self.weights1, self.weights2)
+        for i, _index_q in enumerate(self.index_q):
+            if _index_q >= Q.shape[3]:
                 continue
-            out_ft[:, :, :, wi] = self.compl_mul1d("bhi,hio->bho", x_ft[:, :, :, i],
-                                                   torch.complex(self.weights1, self.weights2)[:, :, :, wi])
+            QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], complex_weights[:, :, :, i])
+            Y[:, :, :, i] = QW
+
+        # multiply the scale factor
+        Y = Y * self.scale * self.scale
+
         # Return to time domain
-        x = torch.fft.irfft(out_ft, n=x.size(-1))
-        return (x, None)
+        y = torch.fft.irfft(Y, n=_q.size(-1))  # pass the signal length n to make sure the outcome is correct
+
+        # Restore to original dimension sequence
+        # The original codes don't restore the original dimension sequence here, it does this operation in moving_avg!
+        y = y.permute(0, 3, 1, 2).contiguous()  # [B, L, H, E]
+
+        return y, None
 
 
-# ########## Fourier Cross Former ####################
+# noinspection DuplicatedCode
 class FourierCrossAttention(nn.Module):
     def __init__(self, in_channels, out_channels, seq_len_q, seq_len_kv, modes=64, mode_select_method='random',
-                 activation='tanh', policy=0, num_heads=8):
+                 activation='tanh', policy=0, num_heads=8, use_weights=True, print_info=False):
+        """
+        1D Fourier Cross Attention layer. It does FFT, linear transform, attention mechanism and Inverse FFT.
+        """
         super(FourierCrossAttention, self).__init__()
-        print(' fourier enhanced cross attention used!')
-        """
-        1D Fourier Cross Attention layer. It does FFT, linear transform, attention mechanism and Inverse FFT.    
-        """
+
         self.activation = activation
         self.in_channels = in_channels
         self.out_channels = out_channels
+
         # get modes for queries and keys (& values) on frequency domain
         self.index_q = get_frequency_modes(seq_len_q, modes=modes, mode_select_method=mode_select_method)
         self.index_kv = get_frequency_modes(seq_len_kv, modes=modes, mode_select_method=mode_select_method)
@@ -96,65 +136,102 @@ class FourierCrossAttention(nn.Module):
         print('modes_q={}, index_q={}'.format(len(self.index_q), self.index_q))
         print('modes_kv={}, index_kv={}'.format(len(self.index_kv), self.index_kv))
 
-        self.scale = (1 / (in_channels * out_channels))
-        self.weights1 = nn.Parameter(
-            self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads, len(self.index_q), dtype=torch.float))
-        self.weights2 = nn.Parameter(
-            self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads, len(self.index_q), dtype=torch.float))
+        # get the scaled factor and get the weights
+        # nn.Parameter makes the Tensor can be trained
+        self.scale = 1 / (in_channels * out_channels)
+        self.use_weights = use_weights
+        if use_weights:
+            self.weights1 = nn.Parameter(
+                self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                        len(self.index_q), dtype=torch.float))
+            self.weights2 = nn.Parameter(
+                self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                        len(self.index_q), dtype=torch.float))
 
-    # Complex multiplication
-    def compl_mul1d(self, order, x, weights):
-        x_flag = True
-        w_flag = True
-        if not torch.is_complex(x):
-            x_flag = False
-            x = torch.complex(x, torch.zeros_like(x).to(x.device))
-        if not torch.is_complex(weights):
-            w_flag = False
-            weights = torch.complex(weights, torch.zeros_like(weights).to(weights.device))
-        if x_flag or w_flag:
-            return torch.complex(torch.einsum(order, x.real, weights.real) - torch.einsum(order, x.imag, weights.imag),
-                                 torch.einsum(order, x.real, weights.imag) + torch.einsum(order, x.imag, weights.real))
-        else:
-            return torch.einsum(order, x.real, weights.real)
+        if print_info:
+            print('fourier enhanced cross attention used!')
+            print('modes_q={}, index_q={}'.format(len(self.index_q), self.index_q))
+            print('modes_kv={}, index_kv={}'.format(len(self.index_kv), self.index_kv))
 
     def forward(self, q, k, v, mask):
-        # size = [B, L, H, E]
-        B, L, H, E = q.shape
-        xq = q.permute(0, 2, 3, 1)  # size = [B, H, E, L]
-        xk = k.permute(0, 2, 3, 1)
-        xv = v.permute(0, 2, 3, 1)
+        """
+        formula: Padding(activation(Selected_Q*Selected_K)*Selected_V)
+        """
+        device = q.device
 
-        # Compute Fourier coefficients
-        xq_ft_ = torch.zeros(B, H, E, len(self.index_q), device=xq.device, dtype=torch.cfloat)
-        xq_ft = torch.fft.rfft(xq, dim=-1)
-        for i, j in enumerate(self.index_q):
-            if j >= xq_ft.shape[3]:
+        B, L, H, E = q.shape  # [B, L, H, E]
+        _q = q.permute(0, 2, 3, 1).contiguous()  # [B, H, E, L]
+        _k = k.permute(0, 2, 3, 1).contiguous()
+        _v = v.permute(0, 2, 3, 1).contiguous()
+
+        # get selected q
+        Q = torch.fft.rfft(_q, dim=-1)
+        Selected_Q = torch.zeros(B, H, E, len(self.index_q), device=device, dtype=torch.cfloat)
+        for i, _index_q in enumerate(self.index_q):
+            if _index_q >= Q.shape[3]:
                 continue
-            xq_ft_[:, :, :, i] = xq_ft[:, :, :, j]
-        xk_ft_ = torch.zeros(B, H, E, len(self.index_kv), device=xq.device, dtype=torch.cfloat)
-        xk_ft = torch.fft.rfft(xk, dim=-1)
-        for i, j in enumerate(self.index_kv):
-            if j >= xk_ft.shape[3]:
+            Selected_Q[:, :, :, i] = Q[:, :, :, _index_q]
+
+        # get selected K
+        K = torch.fft.rfft(_k, dim=-1)
+        Selected_K = torch.zeros(B, H, E, len(self.index_kv), device=device, dtype=torch.cfloat)
+        for i, _index_kv in enumerate(self.index_kv):
+            if _index_kv >= K.shape[3]:
                 continue
-            xk_ft_[:, :, :, i] = xk_ft[:, :, :, j]
+            Selected_K[:, :, :, i] = K[:, :, :, _index_kv]
+
+        # get selected V
+        V = torch.fft.rfft(_v, dim=-1)
+        Selected_V = torch.zeros(B, H, E, len(self.index_kv), device=device, dtype=torch.cfloat)
+        for i, _index_kv in enumerate(self.index_kv):
+            if _index_kv >= V.shape[3]:
+                continue
+            Selected_V[:, :, :, i] = V[:, :, :, _index_kv]
 
         # perform attention mechanism on frequency domain
-        xqk_ft = (self.compl_mul1d("bhex,bhey->bhxy", xq_ft_, xk_ft_))
+        Selected_QK = complex_mul1d("bhex,bhey->bhxy", Selected_Q, Selected_K)
+
+        # perform activation on multiplied outcome
         if self.activation == 'tanh':
-            xqk_ft = torch.complex(xqk_ft.real.tanh(), xqk_ft.imag.tanh())
+            Selected_QK = torch.complex(Selected_QK.real.tanh(), Selected_QK.imag.tanh())
         elif self.activation == 'softmax':
-            xqk_ft = torch.softmax(abs(xqk_ft), dim=-1)
-            xqk_ft = torch.complex(xqk_ft, torch.zeros_like(xqk_ft))
+            Selected_QK = torch.softmax(abs(Selected_QK), dim=-1)
+            Selected_QK = torch.complex(Selected_QK, torch.zeros_like(Selected_QK))
         else:
-            raise Exception('{} actiation function is not implemented'.format(self.activation))
-        xqkv_ft = self.compl_mul1d("bhxy,bhey->bhex", xqk_ft, xk_ft_)
-        xqkvw = self.compl_mul1d("bhex,heox->bhox", xqkv_ft, torch.complex(self.weights1, self.weights2))
-        out_ft = torch.zeros(B, H, E, L // 2 + 1, device=xq.device, dtype=torch.cfloat)
-        for i, j in enumerate(self.index_q):
-            if i >= xqkvw.shape[3] or j >= out_ft.shape[3]:
-                continue
-            out_ft[:, :, :, j] = xqkvw[:, :, :, i]
+            raise Exception('{} activation function is not implemented'.format(self.activation))
+
+        # continue to perform attention mechanism on frequency domain
+        # The original codes replace the Selected_V with Selected_Q.
+        # https://github.com/MAZiqing/FEDformer/issues/19
+        # https://github.com/MAZiqing/FEDformer/issues/34
+        QKV = complex_mul1d("bhxy,bhey->bhex", Selected_QK, Selected_V)
+
+        if self.use_weights:
+            # Perform Fourier neural operations in the selected index
+            # get selected qkvw as output
+            complex_weight = torch.complex(self.weights1, self.weights2)
+            QKVW = complex_mul1d("bhex,heox->bhox", QKV, complex_weight)
+            Y = torch.zeros(B, H, E, len(self.index_q), device=device, dtype=torch.cfloat)
+            for i, _index_q in enumerate(self.index_q):
+                if i >= QKVW.shape[3]:
+                    continue
+                Y[:, :, :, _index_q] = QKVW[:, :, :, i]
+
+            # original codes: the _index_q maybe larger than L//2 which leads to index-out-of-range error
+            # QKVW = torch.einsum("bhex,heox->bhox", QKV, self.weights)
+            # Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
+            # for i, _index_q in enumerate(self.index_q):
+            #     Y[:, :, :, _index_q] = QKVW[:, :, :, i]
+        else:
+            Y = QKV
+
+            # multiply the scale factor
+        Y = Y * self.scale
+
         # Return to time domain
-        out = torch.fft.irfft(out_ft / self.in_channels / self.out_channels, n=xq.size(-1))
-        return (out, None)
+        y = torch.fft.irfft(Y, n=_q.size(-1))
+
+        # Restore to original dimension sequence
+        y = y.permute(0, 3, 1, 2).contiguous()  # [B, L, H, E]
+
+        return y, None
