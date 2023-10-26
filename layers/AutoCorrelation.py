@@ -63,7 +63,7 @@ class AutoCorrelation(nn.Module):
     """
 
     def __init__(self, mask_flag=True, factor=1, scale=None, attention_dropout=0.1, output_attention=False,
-                 agg_mode='speed', norm=False, mean_dim=None, norm_var=False):
+                 agg_mode='same_head', norm=False, mean_dim=None, norm_var=False):
         super(AutoCorrelation, self).__init__()
         self.factor = factor
         self.scale = scale
