@@ -30,10 +30,14 @@ def get_frequency_modes(seq_len, modes=64, mode_select_method='random'):
     return index
 
 
-def complex_mul1d(order, x, w):
+def complex_mul1d(order, x, w, complex_operation):
     """
     Complex multiplication
+    complex_operation: if using operation for complex
     """
+    if not complex_operation:
+        return torch.einsum(order, x, w)
+
     x_complex_flag = torch.is_complex(x)
     w_complex_flag = torch.is_complex(w)
     if x_complex_flag is False:
@@ -48,7 +52,8 @@ def complex_mul1d(order, x, w):
 
 
 class FourierBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, seq_len, modes=0, mode_select_method='random', print_info=False):
+    def __init__(self, in_channels, out_channels, seq_len, modes=0, mode_select_method='random', print_info=False,
+                 complex_operation=False):
         """
         1D Fourier block. It performs representation learning on frequency domain,
         it does FFT, linear transform, and Inverse FFT.
@@ -60,11 +65,16 @@ class FourierBlock(nn.Module):
 
         # get the scaled factor and get the weights
         # nn.Parameter makes the Tensor can be trained
-        self.scale = 1 / (in_channels * out_channels)
-        self.weights1 = nn.Parameter(torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
-                                                dtype=torch.float))
-        self.weights2 = nn.Parameter(torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
-                                                dtype=torch.float))
+        scale = 1 / (in_channels * out_channels)
+        self.complex_operation = complex_operation
+        if complex_operation:
+            self.weights1 = nn.Parameter(scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
+                                                            dtype=torch.float))
+            self.weights2 = nn.Parameter(scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
+                                                            dtype=torch.float))
+        else:
+            self.weights = nn.Parameter(scale * torch.rand(8, in_channels // 8, out_channels // 8, len(self.index_q),
+                                                           dtype=torch.cfloat))
 
         if print_info:
             print('fourier enhanced block used!')
@@ -85,26 +95,23 @@ class FourierBlock(nn.Module):
         # Perform Fourier neural operations in the selected index
         Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
 
-        # The original codes use Torch.cfloat.
-        # for i, _index_q in enumerate(self.index_q):
-        #     if _index_q >= Q.shape[3]:
-        #         continue
-        #     QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], self.weights1[:, :, :, i])
-        #     Y[:, :, :, i] = QW
-        #
-        # # multiply the scale factor
-        # Y = Y * self.scale
-
-        # By wuhaixu2016
-        complex_weights = torch.complex(self.weights1, self.weights2)
-        for i, _index_q in enumerate(self.index_q):
-            if i >= Y.shape[3] or _index_q >= Q.shape[3]:
-                continue
-            QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], complex_weights[:, :, :, i])
-            Y[:, :, :, i] = QW
-
-        # multiply the scale factor
-        Y = Y * self.scale * self.scale
+        if not self.complex_operation:
+            # This is the implement of original codes using weights of cfloat type.
+            for i, _index_q in enumerate(self.index_q):
+                if i >= Y.shape[3] or _index_q >= Q.shape[3]:
+                    continue
+                QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], self.weights[:, :, :, i],
+                                   self.complex_operation)
+                Y[:, :, :, i] = QW
+        else:
+            # By wuhaixu2016
+            complex_weights = torch.complex(self.weights1, self.weights2)
+            for i, _index_q in enumerate(self.index_q):
+                if i >= Y.shape[3] or _index_q >= Q.shape[3]:
+                    continue
+                QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], complex_weights[:, :, :, i],
+                                   self.complex_operation)
+                Y[:, :, :, i] = QW
 
         # Return to time domain
         y = torch.fft.irfft(Y, n=_q.size(-1))  # pass the signal length n to make sure the outcome is correct
@@ -119,7 +126,7 @@ class FourierBlock(nn.Module):
 # noinspection DuplicatedCode
 class FourierCrossAttention(nn.Module):
     def __init__(self, in_channels, out_channels, seq_len_q, seq_len_kv, modes=64, mode_select_method='random',
-                 activation='tanh', policy=0, num_heads=8, use_weights=True, print_info=False):
+                 activation='tanh', policy=0, num_heads=8, use_weights=True, print_info=False, complex_operation=False):
         """
         1D Fourier Cross Attention layer. It does FFT, linear transform, attention mechanism and Inverse FFT.
         """
@@ -135,15 +142,21 @@ class FourierCrossAttention(nn.Module):
 
         # get the scaled factor and get the weights
         # nn.Parameter makes the Tensor can be trained
-        self.scale = 1 / (in_channels * out_channels)
+        scale = 1 / (in_channels * out_channels)
         self.use_weights = use_weights
+        self.complex_operation = complex_operation
         if use_weights:
-            self.weights1 = nn.Parameter(
-                self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
-                                        len(self.index_q), dtype=torch.float))
-            self.weights2 = nn.Parameter(
-                self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
-                                        len(self.index_q), dtype=torch.float))
+            if complex_operation:
+                self.weights1 = nn.Parameter(
+                    scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                       len(self.index_q), dtype=torch.float))
+                self.weights2 = nn.Parameter(
+                    scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                       len(self.index_q), dtype=torch.float))
+            else:
+                self.weights = nn.Parameter(
+                    scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                       len(self.index_q), dtype=torch.cfloat))
 
         if print_info:
             print('fourier enhanced cross attention used!')
@@ -186,7 +199,7 @@ class FourierCrossAttention(nn.Module):
             Selected_V[:, :, :, i] = V[:, :, :, _index_kv]
 
         # perform attention mechanism on frequency domain
-        Selected_QK = complex_mul1d("bhex,bhey->bhxy", Selected_Q, Selected_K)
+        Selected_QK = complex_mul1d("bhex,bhey->bhxy", Selected_Q, Selected_K, self.complex_operation)
 
         # perform activation on multiplied outcome
         if self.activation == 'tanh':
@@ -201,29 +214,29 @@ class FourierCrossAttention(nn.Module):
         # The original codes replace the Selected_V with Selected_Q.
         # https://github.com/MAZiqing/FEDformer/issues/19
         # https://github.com/MAZiqing/FEDformer/issues/34
-        QKV = complex_mul1d("bhxy,bhey->bhex", Selected_QK, Selected_V)
+        QKV = complex_mul1d("bhxy,bhey->bhex", Selected_QK, Selected_V, self.complex_operation)
 
+        # Perform Fourier neural operations in the selected index
         if self.use_weights:
-            # Perform Fourier neural operations in the selected index
-            # get selected qkvw as output
-            complex_weight = torch.complex(self.weights1, self.weights2)
-            QKVW = complex_mul1d("bhex,heox->bhox", QKV, complex_weight)
-            Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
-            for i, _index_q in enumerate(self.index_q):
-                if i >= QKVW.shape[3] or _index_q > Y.shape[3]:
-                    continue
-                Y[:, :, :, _index_q] = QKVW[:, :, :, i]
-
-            # original codes: the _index_q maybe larger than L//2 which leads to index-out-of-range error
-            # QKVW = torch.einsum("bhex,heox->bhox", QKV, self.weights)
-            # Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
-            # for i, _index_q in enumerate(self.index_q):
-            #     Y[:, :, :, _index_q] = QKVW[:, :, :, i]
+            if not self.complex_operation:
+                # This is the implement of original codes using weights of cfloat type.
+                QKVW = complex_mul1d("bhex,heox->bhox", QKV, self.weights, self.complex_operation)
+                Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
+                for i, _index_q in enumerate(self.index_q):
+                    if i >= QKVW.shape[3] or _index_q > Y.shape[3]:
+                        continue
+                    Y[:, :, :, _index_q] = QKVW[:, :, :, i]
+            else:
+                # By wuhaixu2016
+                complex_weight = torch.complex(self.weights1, self.weights2)
+                QKVW = complex_mul1d("bhex,heox->bhox", QKV, complex_weight, self.complex_operation)
+                Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
+                for i, _index_q in enumerate(self.index_q):
+                    if i >= QKVW.shape[3] or _index_q > Y.shape[3]:
+                        continue
+                    Y[:, :, :, _index_q] = QKVW[:, :, :, i]
         else:
             Y = QKV
-
-            # multiply the scale factor
-        Y = Y * self.scale
 
         # Return to time domain
         y = torch.fft.irfft(Y, n=_q.size(-1))

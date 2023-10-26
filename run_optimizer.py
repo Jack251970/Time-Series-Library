@@ -432,10 +432,10 @@ def get_search_space():
         # 'model': {'_type': 'single', '_value': 'Autoformer'},
 
         # model mode 2: FEDformer
-        # 'model': {'_type': 'single', '_value': 'FEDformer'},
+        'model': {'_type': 'single', '_value': 'FEDformer'},
 
         # model mode 2: Autoformer, FEDformer
-        'model': {'_type': 'choice', '_value': ['Autoformer', 'FEDformer']},
+        # 'model': {'_type': 'choice', '_value': ['Autoformer', 'FEDformer']},
     }
 
     learning_config = {
@@ -477,10 +477,10 @@ def get_search_space():
     decomp_config = {
         # avg
         'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
+        'moving_avg': {'_type': 'single', '_value': 25},
         # adp_avg
         # 'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
-        # mode 2: Transformer, Informer, Reformer
-        # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
+        # 'moving_avg': {'_type': 'single', '_value': 25},
     }
 
     return {**default_config, **model_config, **learning_config, **heads_config, **period_config, **decomp_config}
@@ -490,4 +490,4 @@ h = HyperOptimizer(get_fieldnames, get_search_space, prepare_config, build_setti
                    get_tags=get_tags, check_jump_experiment=check_jump_experiment)
 
 if __name__ == "__main__":
-    h.start_search(0, False, False)
+    h.start_search(0, False, True)

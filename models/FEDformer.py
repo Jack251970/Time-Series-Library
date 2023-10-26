@@ -14,11 +14,13 @@ class Model(nn.Module):
     Paper link: https://proceedings.mlr.press/v162/zhou22g.html
     """
 
-    def __init__(self, configs, version='fourier', mode_select='random', modes=32, print_info=False):
+    def __init__(self, configs, version='fourier', mode_select='random', modes=64, print_info=False,
+                 complex_operation=False):
         """
         version: str, for FEDformer, there are two versions to choose, options: [Fourier, Wavelets].
         mode_select: str, for FEDformer, there are two mode selection method, options: [random, low].
         modes: int, modes to be selected.
+        complex_operation: bool, whether to use two weights for more accurate calculation, it will cause more time.
         """
         super(Model, self).__init__()
         self.task_name = configs.task_name
@@ -55,13 +57,15 @@ class Model(nn.Module):
                                             seq_len=self.seq_len,
                                             modes=self.modes,
                                             mode_select_method=self.mode_select,
-                                            print_info=print_info)
+                                            print_info=print_info,
+                                            complex_operation=complex_operation)
             decoder_self_att = FourierBlock(in_channels=configs.d_model,
                                             out_channels=configs.d_model,
                                             seq_len=self.seq_len // 2 + self.pred_len,
                                             modes=self.modes,
                                             mode_select_method=self.mode_select,
-                                            print_info=print_info)
+                                            print_info=print_info,
+                                            complex_operation=complex_operation)
             # Frequency Enhance Attention
             decoder_cross_att = FourierCrossAttention(in_channels=configs.d_model,
                                                       out_channels=configs.d_model,
@@ -70,7 +74,8 @@ class Model(nn.Module):
                                                       modes=self.modes,
                                                       mode_select_method=self.mode_select,
                                                       num_heads=configs.n_heads,
-                                                      print_info=print_info)
+                                                      print_info=print_info,
+                                                      complex_operation=complex_operation)
         # Encoder
         self.encoder = Encoder(
             [
