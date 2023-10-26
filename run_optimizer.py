@@ -43,7 +43,7 @@ def parse_launch_parameters():
     parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='subset for M4')
     parser.add_argument('--inverse', action='store_true', help='inverse output data', default=False)
 
-    # inputation task
+    # imputation task
     parser.add_argument('--mask_rate', type=float, default=0.25, help='mask ratio')
 
     # anomaly detection task
@@ -124,7 +124,7 @@ def build_config_dict(_args):
         'seasonal_patterns': _args.seasonal_patterns,
         'inverse': _args.inverse,
 
-        # inputation task
+        # imputation task
         'mask_rate': _args.mask_rate,
 
         # anomaly detection task
