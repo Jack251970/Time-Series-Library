@@ -17,19 +17,13 @@ M4 Dataset
 """
 import logging
 import os
-from collections import OrderedDict
+import pathlib
+import sys
 from dataclasses import dataclass
-from glob import glob
+from urllib import request
 
 import numpy as np
 import pandas as pd
-import patoolib
-from tqdm import tqdm
-import logging
-import os
-import pathlib
-import sys
-from urllib import request
 
 
 def url_file_name(url: str) -> str:
