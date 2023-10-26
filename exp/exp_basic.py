@@ -74,7 +74,7 @@ class Exp_Basic(object):
         elif loss == 'CrossEntropy':
             return nn.CrossEntropyLoss()
         else:
-            raise NotImplementedError()
+            raise NotImplementedError
 
     def train(self, setting):
         pass
