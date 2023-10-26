@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from layers.Embed import DataEmbedding, DataEmbedding_wo_pos
 from layers.AutoCorrelation import AutoCorrelation, AutoCorrelationLayer
-from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, my_Layernorm, series_decomp
+from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, LayerNorm, series_decomp
 import math
 import numpy as np
 
@@ -45,7 +45,7 @@ class Model(nn.Module):
                     activation=configs.activation
                 ) for l in range(configs.e_layers)
             ],
-            norm_layer=my_Layernorm(configs.d_model)
+            norm_layer=LayerNorm(configs.d_model)
         )
         # Decoder
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
@@ -71,7 +71,7 @@ class Model(nn.Module):
                     )
                     for l in range(configs.d_layers)
                 ],
-                norm_layer=my_Layernorm(configs.d_model),
+                norm_layer=LayerNorm(configs.d_model),
                 projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
             )
         if self.task_name == 'imputation':

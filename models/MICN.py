@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from layers.Embed import DataEmbedding
-from layers.Autoformer_EncDec import series_decomp, series_decomp_multi
+from layers.Autoformer_EncDec import series_decomp
 import torch.nn.functional as F
 
 
@@ -129,7 +129,7 @@ class Model(nn.Module):
         self.seq_len = configs.seq_len
 
         # Multiple Series decomposition block from FEDformer
-        self.decomp_multi = series_decomp_multi(decomp_kernel)
+        self.decomp_multi = series_decomp(decomp_kernel, series_decomp_mode='moe2')
 
         # embedding
         self.dec_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,

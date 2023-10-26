@@ -5,7 +5,7 @@ from layers.Embed import DataEmbedding
 from layers.AutoCorrelation import AutoCorrelationLayer
 from layers.FourierCorrelation import FourierBlock, FourierCrossAttention
 from layers.MultiWaveletCorrelation import MultiWaveletCross, MultiWaveletTransform
-from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, my_Layernorm, series_decomp
+from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, LayerNorm, series_decomp
 
 
 class Model(nn.Module):
@@ -80,7 +80,7 @@ class Model(nn.Module):
                     activation=configs.activation
                 ) for l in range(configs.e_layers)
             ],
-            norm_layer=my_Layernorm(configs.d_model)
+            norm_layer=LayerNorm(configs.d_model)
         )
         # Decoder
         self.decoder = Decoder(
@@ -101,7 +101,7 @@ class Model(nn.Module):
                 )
                 for l in range(configs.d_layers)
             ],
-            norm_layer=my_Layernorm(configs.d_model),
+            norm_layer=LayerNorm(configs.d_model),
             projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
         )
 
