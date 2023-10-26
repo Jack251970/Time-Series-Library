@@ -5,8 +5,11 @@ from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer,
 
 
 class Exp_Basic(object):
-    def __init__(self, args):
+    def __init__(self, args, try_model=False):
         self.args = args
+        self.device = self._acquire_device(try_model)
+        self.model = self._build_model().to(self.device)
+        self.try_model = try_model
         self.model_dict = {
             'TimesNet': TimesNet,
             'Autoformer': Autoformer,
@@ -25,31 +28,30 @@ class Exp_Basic(object):
             'FiLM': FiLM,
             'iTransformer': iTransformer,
         }
-        self.device = self._acquire_device()
-        self.model = self._build_model().to(self.device)
 
     def _build_model(self):
         raise NotImplementedError
-        return None
 
-    def _acquire_device(self):
+    def _acquire_device(self, try_model):
         if self.args.use_gpu:
             os.environ["CUDA_VISIBLE_DEVICES"] = str(
                 self.args.gpu) if not self.args.use_multi_gpu else self.args.devices
             device = torch.device('cuda:{}'.format(self.args.gpu))
-            print('Use GPU: cuda:{}'.format(self.args.gpu))
+            if not try_model:
+                print('Use GPU: cuda:{}'.format(self.args.gpu))
         else:
             device = torch.device('cpu')
-            print('Use CPU')
+            if not try_model:
+                print('Use CPU')
         return device
 
     def _get_data(self):
         pass
 
-    def vali(self):
+    def train(self):
         pass
 
-    def train(self):
+    def vali(self):
         pass
 
     def test(self):
