@@ -247,4 +247,4 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         else:
             print('After all 6 tasks are finished, you can calculate the averaged index')
 
-        return None
+        return None, None, None

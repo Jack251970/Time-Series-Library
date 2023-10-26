@@ -231,4 +231,4 @@ class Exp_Imputation(Exp_Basic):
         np.save(folder_path + 'pred.npy', preds)
         np.save(folder_path + 'true.npy', trues)
 
-        return mse, mae
+        return mse, mae, None

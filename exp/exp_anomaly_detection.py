@@ -225,4 +225,4 @@ class Exp_Anomaly_Detection(Exp_Basic):
         # f.write('\n')
         # f.close()
 
-        return accuracy
+        return None, None, accuracy
