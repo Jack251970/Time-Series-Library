@@ -157,3 +157,8 @@ data_loader_all.py
 /scripts/imputation/tmp/
 /utils/self_tools.py
 /scripts/exp_scripts/
+
+/checkpoints/
+/checkpoints_1/
+/checkpoints_2/
+/results/
