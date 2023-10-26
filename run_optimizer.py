@@ -10,23 +10,21 @@ def parse_launch_parameters():
     parser = argparse.ArgumentParser(description='Time Series Library')
 
     # basic config
-    parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
+    parser.add_argument('--task_name', type=str, default='long_term_forecast',
                         help="task name, options:['long_term_forecast', 'short_term_forecast', 'imputation', "
                              "'classification', 'anomaly_detection']")
-    parser.add_argument('--is_training', type=int, required=True, default=1,
-                        help='status, 1 means training, 0 means testing')
-    parser.add_argument('--model_id', type=str, required=True, default='unknown',
-                        help='model id for interface')
-    parser.add_argument('--model', type=str, required=True, default='Autoformer',
+    parser.add_argument('--is_training', type=int, default=1, help='1: train and test, 0: only test')
+    parser.add_argument('--model_id', type=str, default='unknown', help='model id for interface')
+    parser.add_argument('--model', type=str, default='Autoformer',
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer']")
 
     # data loader
-    parser.add_argument('--data', type=str, required=True, default='ETTm1',
+    parser.add_argument('--data', type=str, default='ETTm1',
                         help="dataset type, options: ['ETTh1', 'ETTh2', 'ETTm1', 'ETTm2', 'custom', 'm4', 'PSM', "
                              "'MSL', 'SMAP', 'SMD', 'SWAT', 'UEA']")
-    parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/ETT/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate '
@@ -374,12 +372,17 @@ def get_fieldnames(mode='all'):
     # init the fieldnames need to be showed in csv data file name
     csv_data_fieldnames = ['task_name']
 
+    # init the required fieldnames
+    required_fieldnames = ['task_name', 'is_training', 'model_id', 'model', 'data']
+
     if mode == 'all':
         return all_fieldnames
     elif mode == 'checked':
         return checked_fieldnames
     elif mode == 'csv_data':
         return csv_data_fieldnames
+    elif mode == 'required':
+        return required_fieldnames
     else:
         raise ValueError("The input 'mode' of get_fieldnames() should be 'all', 'checked' or 'csv_data'!")
 
