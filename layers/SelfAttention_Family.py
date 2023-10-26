@@ -8,7 +8,7 @@ from einops import rearrange, repeat
 
 
 class DSAttention(nn.Module):
-    '''De-stationary Attention'''
+    """De-stationary Attention"""
 
     def __init__(self, mask_flag=True, factor=5, scale=None, attention_dropout=0.1, output_attention=False):
         super(DSAttention, self).__init__()
@@ -244,10 +244,10 @@ class ReformerLayer(nn.Module):
 
 
 class TwoStageAttentionLayer(nn.Module):
-    '''
+    """
     The Two Stage Attention (TSA) Layer
     input/output shape: [batch_size, Data_dim(D), Seg_num(L), d_model]
-    '''
+    """
 
     def __init__(self, configs,
                  seg_num, factor, d_model, n_heads, d_ff=None, dropout=0.1):
@@ -287,7 +287,8 @@ class TwoStageAttentionLayer(nn.Module):
         dim_in = dim_in + self.dropout(self.MLP1(dim_in))
         dim_in = self.norm2(dim_in)
 
-        # Cross Dimension Stage: use a small set of learnable vectors to aggregate and distribute messages to build the D-to-D connection
+        # Cross Dimension Stage: use a small set of learnable vectors to aggregate and distribute messages to build
+        # the D-to-D connection
         dim_send = rearrange(dim_in, '(b ts_d) seg_num d_model -> (b seg_num) ts_d d_model', b=batch)
         batch_router = repeat(self.router, 'seg_num factor d_model -> (repeat seg_num) factor d_model', repeat=batch)
         dim_buffer, attn = self.dim_sender(batch_router, dim_send, dim_send, attn_mask=None, tau=None, delta=None)
