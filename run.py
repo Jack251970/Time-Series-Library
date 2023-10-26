@@ -1,13 +1,14 @@
 import argparse
-import os
+import random
+
+import numpy as np
 import torch
-from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
-from exp.exp_imputation import Exp_Imputation
-from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
+
 from exp.exp_anomaly_detection import Exp_Anomaly_Detection
 from exp.exp_classification import Exp_Classification
-import random
-import numpy as np
+from exp.exp_imputation import Exp_Imputation
+from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
+from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 if __name__ == '__main__':
     fix_seed = 2021
@@ -19,21 +20,29 @@ if __name__ == '__main__':
 
     # basic config
     parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
-                        help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]')
-    parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
-    parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
+                        help="task name, options:['long_term_forecast', 'short_term_forecast', 'imputation', "
+                             "'classification', 'anomaly_detection']")
+    parser.add_argument('--is_training', type=int, required=True, default=1,
+                        help='status, 1 means training, 0 means testing')
+    parser.add_argument('--model_id', type=str, required=True, default='unknown',
+                        help='model id for interface')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
-                        help='model name, options: [Autoformer, Transformer, TimesNet]')
+                        help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
+                             "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
+                             "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer']")
 
     # data loader
     parser.add_argument('--data', type=str, required=True, default='ETTm1', help='dataset type')
     parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
-                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
+                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate '
+                             'predict univariate, MS:multivariate predict univariate')
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
-                        help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+                        help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, '
+                             'b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min '
+                             'or 3h')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
     # forecasting task
@@ -94,7 +103,6 @@ if __name__ == '__main__':
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
-
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
@@ -147,7 +155,7 @@ if __name__ == '__main__':
             exp.train(setting)
 
             print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            exp.test(setting)
+            exp.test(setting, test=False)
             torch.cuda.empty_cache()
     else:
         ii = 0
@@ -172,5 +180,5 @@ if __name__ == '__main__':
 
         exp = Exp(args)  # set experiments
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.test(setting, test=1)
+        exp.test(setting, test=True)
         torch.cuda.empty_cache()
