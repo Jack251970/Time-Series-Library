@@ -254,7 +254,7 @@ class HyperOptimizer(object):
 
             torch.cuda.empty_cache()
 
-        return _mse, _mae
+        return _mse, _mae, _acc
 
     def _fix_random_seed(self):
         random.seed(self.seed)
