@@ -453,11 +453,7 @@ def get_search_space():
     }
 
     heads_config = {
-        # mode 1: Autoformer
-        'n_heads': {'_type': 'single', '_value': 12},
-
-        # mode 2: Transformer, Informer, Reformer
-        # 'n_heads': {'_type': 'single', '_value': 8},
+        'n_heads': {'_type': 'single', '_value': 8},
     }
 
     period_config = {

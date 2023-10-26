@@ -83,7 +83,7 @@ class FourierBlock(nn.Module):
         Q = torch.fft.rfft(_q, dim=-1)
 
         # Perform Fourier neural operations in the selected index
-        Y = torch.zeros(B, H, E, len(self.index_q), device=device, dtype=torch.cfloat)
+        Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
 
         # The original codes use Torch.cfloat.
         # for i, _index_q in enumerate(self.index_q):
@@ -98,7 +98,7 @@ class FourierBlock(nn.Module):
         # By wuhaixu2016
         complex_weights = torch.complex(self.weights1, self.weights2)
         for i, _index_q in enumerate(self.index_q):
-            if _index_q >= Q.shape[3]:
+            if i >= Y.shape[3] or _index_q >= Q.shape[3]:
                 continue
             QW = complex_mul1d("bhi,hio->bho", Q[:, :, :, _index_q], complex_weights[:, :, :, i])
             Y[:, :, :, i] = QW
@@ -132,9 +132,6 @@ class FourierCrossAttention(nn.Module):
         # get modes for queries and keys (& values) on frequency domain
         self.index_q = get_frequency_modes(seq_len_q, modes=modes, mode_select_method=mode_select_method)
         self.index_kv = get_frequency_modes(seq_len_kv, modes=modes, mode_select_method=mode_select_method)
-
-        print('modes_q={}, index_q={}'.format(len(self.index_q), self.index_q))
-        print('modes_kv={}, index_kv={}'.format(len(self.index_kv), self.index_kv))
 
         # get the scaled factor and get the weights
         # nn.Parameter makes the Tensor can be trained
@@ -211,9 +208,9 @@ class FourierCrossAttention(nn.Module):
             # get selected qkvw as output
             complex_weight = torch.complex(self.weights1, self.weights2)
             QKVW = complex_mul1d("bhex,heox->bhox", QKV, complex_weight)
-            Y = torch.zeros(B, H, E, len(self.index_q), device=device, dtype=torch.cfloat)
+            Y = torch.zeros(B, H, E, L // 2 + 1, device=device, dtype=torch.cfloat)
             for i, _index_q in enumerate(self.index_q):
-                if i >= QKVW.shape[3]:
+                if i >= QKVW.shape[3] or _index_q > Y.shape[3]:
                     continue
                 Y[:, :, :, _index_q] = QKVW[:, :, :, i]
 
