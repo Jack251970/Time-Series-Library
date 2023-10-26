@@ -19,7 +19,7 @@ data_dict = {
 }
 
 
-def data_provider(args, flag):
+def data_provider(args, flag, try_model):
     Data = data_dict[args.data]
     timeenc = 0 if args.embed != 'timeF' else 1
 
@@ -44,7 +44,8 @@ def data_provider(args, flag):
             win_size=args.seq_len,
             flag=flag,
         )
-        print(flag, len(data_set))
+        if not try_model:
+            print(flag, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -82,7 +83,8 @@ def data_provider(args, flag):
             freq=freq,
             seasonal_patterns=args.seasonal_patterns
         )
-        print(flag, len(data_set))
+        if not try_model:
+            print(flag, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
