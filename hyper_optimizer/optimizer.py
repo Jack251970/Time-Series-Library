@@ -115,6 +115,61 @@ class HyperOptimizer(object):
 
         return format_csv_file_path
 
+    # noinspection DuplicatedCode
+    def output_script(self, _data):
+        # get all possible combinations of parameters and the blank parameter template
+        combinations, params = self._parse_search_space()
+
+        # filter combinations with the known rules and invert combination to parameters
+        parameters = self._filter_combinations(combinations, params, [], [], None,
+                                               0, try_model=False, force=True, print_info=False)
+
+        # get task name, data name, and model
+        task_name = parameters[0]['task_name']
+        model = parameters[0]['model']
+
+        # get the path of the specific script
+        script_path = f'./scripts/{task_name}/{_data}_script/{model}.sh'
+
+        # create the folder of the specific script
+        if not os.path.exists(os.path.dirname(script_path)):
+            os.makedirs(os.path.dirname(script_path))
+
+        # get the time
+        t = time.localtime()
+        _run_time = time.strftime('%Y-%m-%d %H:%M:%S', t)
+
+        # write the script
+        if not os.path.exists(script_path):
+            with open(script_path, 'w') as f:
+                # write the header of the script
+                f.write(f'# This script is created by hyper_optimizer at {_run_time}.\n')
+                f.write('\n')
+                f.write('export CUDA_VISIBLE_DEVICES=1\n')
+                f.write('\n')
+                f.write('model_name=' + f'{model}' + '\n')
+                f.write('\n')
+                # write the content of the script
+                for parameter in parameters:
+                    f.write(f'# This segment is writen at {_run_time}.\n')
+                    f.write('python -u run.py \\\n')
+                    for key in parameter:
+                        if key == 'model':
+                            f.write('\t--model $model_name\\\n')
+                        f.write(f'\t--{key} {parameter[key]} \\\n')
+                    f.write('\n')
+        else:
+            # write the content of the script
+            with open(script_path, 'a') as f:
+                for parameter in parameters:
+                    f.write(f'# This segment is writen at {_run_time}.\n')
+                    f.write('python -u run.py \\\n')
+                    for key in parameter:
+                        if key == 'model':
+                            f.write('\t--model $model_name\\\n')
+                        f.write(f'\t--{key} {parameter[key]} \\\n')
+                    f.write('\n')
+
     def start_search(self, _process_index=0, _try_model=True, _force=False):
         # run directly under script mode
         if self.script_mode:
@@ -133,9 +188,6 @@ class HyperOptimizer(object):
         # check the index of the process
         if _process_index > self.max_process_index or _process_index < 0:
             raise ValueError(f'The index of the process {_process_index} is out of range!')
-
-        # init the search space
-        search_space = self.search_space
 
         # init the name of local data file and jumped data file
         if _process_index == 0:
@@ -157,23 +209,8 @@ class HyperOptimizer(object):
             config_list.extend(_)
         jump_config_list = self._get_config_list(_jump_csv_file_path)
 
-        # build parameters to be optimized from _search_space
-        params = {}
-        for key in search_space:
-            params[key] = None  # _search_space[key]['_value']
-
-        # build range for parameters from _search_space
-        ranges = {}
-        for key in search_space:
-            if search_space[key]['_type'] == 'single':
-                ranges[key] = [search_space[key]['_value']]
-            elif search_space[key]['_type'] == 'choice':
-                ranges[key] = search_space[key]['_value']
-            else:
-                raise ValueError(f'The type of {key} is not supported!')
-
-        # generate all possible combinations of values within the specified ranges
-        combinations = list(product(*[ranges[param] for param in params]))
+        # get all possible combinations of parameters and the blank parameter template
+        combinations, params = self._parse_search_space()
 
         # filter combinations with the known rules and invert combination to parameters
         parameters = self._filter_combinations(combinations, params, jump_config_list, config_list, _jump_csv_file_path,
@@ -223,6 +260,29 @@ class HyperOptimizer(object):
             _time = _time + 1
 
         print(f"We have finished {finish_time} times, {total_times} times in total!")
+
+    def _parse_search_space(self):
+        search_space = self.search_space
+
+        # build parameters to be optimized from _search_space
+        _params = {}
+        for key in search_space:
+            _params[key] = None  # _search_space[key]['_value']
+
+        # get range of parameters for parameters from _search_space
+        _parameters_range = {}
+        for key in search_space:
+            if search_space[key]['_type'] == 'single':
+                _parameters_range[key] = [search_space[key]['_value']]
+            elif search_space[key]['_type'] == 'choice':
+                _parameters_range[key] = search_space[key]['_value']
+            else:
+                raise ValueError(f'The type of {key} is not supported!')
+
+        # generate all possible combinations of parameters within the specified ranges
+        _combinations = list(product(*[_parameters_range[param] for param in _params]))
+
+        return _combinations, _params
 
     def _init_experiment(self, task_name):
         # fix random seed
@@ -303,11 +363,12 @@ class HyperOptimizer(object):
         np.random.seed(self.seed)
 
     def _filter_combinations(self, _combinations, _params, _jump_config_list, _config_list, _jump_csv_file_path,
-                             _process_index, try_model=True, force=False):
-        print(f"We are filtering the parameters, please wait util it done to start other processes!")
+                             _process_index, try_model=True, force=False, print_info=True):
+        if print_info:
+            print(f"We are filtering the parameters, please wait util it done to start other processes!")
 
-        if force:
-            print(f'We are forced to run the experiments that we have done in the csv data!')
+            if force:
+                print(f'We are forced to run the experiments that we have done in the csv data!')
 
         jump_time = 0
         filtered_parameters = []
