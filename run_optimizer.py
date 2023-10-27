@@ -476,10 +476,13 @@ def get_search_space():
 
     decomp_config = {
         # avg
-        'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
-        'moving_avg': {'_type': 'single', '_value': 25},
+        # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
+        # 'moving_avg': {'_type': 'single', '_value': 25},
         # adp_avg
-        # 'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
+        'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
+        'moving_avg': {'_type': 'single', '_value': 25},
+        # all
+        # 'series_decomp_mode': {'_type': 'choice', '_value': ['avg', 'adp_avg']},
         # 'moving_avg': {'_type': 'single', '_value': 25},
     }
 
