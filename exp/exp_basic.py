@@ -109,7 +109,7 @@ class Exp_Basic(object):
     def _print_content(self, content, write=False):
         print(content)
         if self.save_process:
-            self.process_content = self.process_content + content
+            self.process_content = self.process_content + content + "\n"
             if write:
                 f = open(self.process_path, 'a')
                 f.write(self.process_content)
