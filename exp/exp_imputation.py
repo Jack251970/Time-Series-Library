@@ -125,7 +125,7 @@ class Exp_Imputation(Exp_Basic):
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
-        self.print_content("\n", True)
+        self.print_content("", True)
 
         return self.model
 
@@ -242,6 +242,6 @@ class Exp_Imputation(Exp_Basic):
         np.save(folder_path + 'pred.npy', preds)
         np.save(folder_path + 'true.npy', trues)
 
-        self.print_content("\n", True)
+        self.print_content("", True)
 
         return mse, mae, None

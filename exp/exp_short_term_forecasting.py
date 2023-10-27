@@ -136,7 +136,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-        self.print_content("\n", True)
+        self.print_content("", True)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
@@ -259,6 +259,6 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         else:
             self.print_content('After all 6 tasks are finished, you can calculate the averaged index')
 
-        self.print_content("\n", True)
+        self.print_content("", True)
 
         return None, None, None

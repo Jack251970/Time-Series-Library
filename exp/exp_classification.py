@@ -132,7 +132,7 @@ class Exp_Classification(Exp_Basic):
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
-        self.print_content("\n", True)
+        self.print_content("", True)
 
         return self.model
 
@@ -226,6 +226,6 @@ class Exp_Classification(Exp_Basic):
         # f.write('\n')
         # f.close()
 
-        self.print_content("\n", True)
+        self.print_content("", True)
 
         return None, None, accuracy
