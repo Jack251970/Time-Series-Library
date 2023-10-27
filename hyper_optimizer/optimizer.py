@@ -2,6 +2,7 @@ import csv
 import math
 import os
 import random
+import time
 from itertools import product
 
 import numpy as np
@@ -19,7 +20,7 @@ class HyperOptimizer(object):
     def __init__(self, get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
                  get_tags=None, check_jump_experiment=None,
                  jump_csv_file_path='jump_data.csv', csv_file_path_format="data_{}.csv",
-                 process_number=1, random_seed=2021):
+                 process_number=1, random_seed=2021, save_process=True):
         # get fieldnames
         self.all_fieldnames = get_fieldnames('all')
         self.checked_fieldnames = get_fieldnames('checked')
@@ -55,6 +56,9 @@ class HyperOptimizer(object):
 
         # random seed
         self.seed = random_seed
+
+        # whether to save process
+        self.save_process = save_process
 
         # init experiment
         self.Exp = None
@@ -167,21 +171,21 @@ class HyperOptimizer(object):
         print(f'Start total {total_times} experiments:\n')
 
         # iterate through the combinations and start searching by enumeration
-        time = 1
+        _time = 1
         finish_time = 0
         for parameter in parameters:
-            # init parameter to be optimized
-            print(f'Optimizing params in experiment:{parameter}')
-
             # prepare config: parse launch parameters and load default config
             args = self.prepare_config(parameter)
 
+            # get the experiment type
+            self._init_experiment(args.task_name)
+
             # create a dict to store the configuration values
             config = self._build_config_dict(args)
-            print(f'Config in experiment:{config}')
 
             # start experiment
-            mse, mae, acc = self._start_experiment(args, False, (_process_index == 0 and time == 1))
+            mse, mae, acc = self._start_experiment(args, parameter, config, try_model=False,
+                                                   first_process_and_first_exp=(_process_index == 0 and _time == 1))
 
             # load criteria data
             config['mse'] = mse
@@ -192,13 +196,17 @@ class HyperOptimizer(object):
             if parameter['is_training'] == 1:
                 self._save_config_dict(_csv_file_path, config)
 
-            print(f'>>>>>>> We have finished {time}/{total_times}! >>>>>>>>>>>>>>>>>>>>>>>>>>\n')
+            print(f'>>>>>>> We have finished {_time}/{total_times}! >>>>>>>>>>>>>>>>>>>>>>>>>>\n')
             finish_time = finish_time + 1
-            time = time + 1
+            _time = _time + 1
 
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
     def _init_experiment(self, task_name):
+        # fix random seed
+        self._fix_random_seed()
+
+        # build experiment
         if task_name == 'long_term_forecast':
             self.Exp = Exp_Long_Term_Forecast
         elif task_name == 'short_term_forecast':
@@ -210,20 +218,14 @@ class HyperOptimizer(object):
         elif task_name == 'classification':
             self.Exp = Exp_Classification
 
-    def _start_experiment(self, _args, try_model, first_process_and_first_exp):
+    def _start_experiment(self, _args, _parameter, _config, try_model, first_process_and_first_exp):
         """
         If try_model is True, we will just try this model:
             if this model can work, then return True.
         """
-        # fix random seed
-        self._fix_random_seed()
-
-        # build experiment
-        self._init_experiment(_args.task_name)
-
-        # valid model
+        # valid model if needed
         if try_model:
-            exp = self.Exp(_args, True)
+            exp = self.Exp(_args, try_model=True, save_process=False)
             setting = self.build_setting(_args, 0)
             valid = exp.train(setting, False)
             return valid
@@ -234,13 +236,23 @@ class HyperOptimizer(object):
                 # setting record of experiments
                 setting = self.build_setting(_args, ii)
 
-                # set experiments
-                exp = self.Exp(_args)
+                # build the experiment
+                exp = self.Exp(_args, try_model=False, save_process=self.save_process)
 
-                print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+                # print info of the experiment
+                exp.print_content(f'Optimizing params in experiment:{_parameter}')
+                exp.print_content(f'Config in experiment:{_config}')
+
+                # start training
+                now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+                exp.print_content('>>>>>>>{} - start training: {}<<<<<<<'.format(now, setting))
                 exp.train(setting, check_folder=(first_process_and_first_exp and ii == 0))
 
-                print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                # start testing
+                now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+                exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(now, setting))
+
+                # get
                 _mse, _mae, _acc = exp.test(setting, check_folder=(first_process_and_first_exp and ii == 0))
 
                 torch.cuda.empty_cache()
@@ -248,11 +260,18 @@ class HyperOptimizer(object):
             # setting record of experiments
             setting = self.build_setting(_args, 0)
 
-            # set experiments
-            exp = self.Exp(_args)
+            # build the experiment
+            exp = self.Exp(_args, try_model=False, save_process=self.save_process)
 
-            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            _mse, _mae, _acc = exp.test(setting, check_folder=(first_process_and_first_exp))
+            # print info of the experiment
+            exp.print_content(f'Optimizing params in experiment:{_parameter}')
+            exp.print_content(f'Config in experiment:{_config}')
+
+            # start testing
+            now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(now, setting))
+
+            _mse, _mae, _acc = exp.test(setting, check_folder=first_process_and_first_exp)
 
             torch.cuda.empty_cache()
 
@@ -297,7 +316,8 @@ class HyperOptimizer(object):
             # check if the model of this experiment can work
             if _process_index == 0 and try_model:
                 # check if the parameters of this experiment is improper
-                model_can_work = self._start_experiment(args, True, False)
+                model_can_work = self._start_experiment(args, parameter, config, try_model=True,
+                                                        first_process_and_first_exp=False)
                 if not model_can_work:
                     self._save_config_dict(_jump_csv_file_path, config)
                     jump_time = jump_time + 1
