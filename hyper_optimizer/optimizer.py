@@ -251,11 +251,11 @@ class HyperOptimizer(object):
             exp.print_content(f'Config in experiment:{_config}')
 
             # start training
-            exp.print_content('>>>>>>>{} - start training: {}<<<<<<<'.format(_run_time, _setting))
+            exp.print_content('>>>>>>>({}) start training: {}<<<<<<<'.format(_run_time, _setting))
             exp.train(_setting, check_folder=_check_folder)
 
             # start testing
-            exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(_run_time, _setting))
+            exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
             _mse, _mae, _acc = exp.test(_setting, check_folder=_check_folder)
 
             # clean cuda cache
@@ -269,7 +269,7 @@ class HyperOptimizer(object):
             exp.print_content(f'Config in experiment:{_config}')
 
             # start testing
-            exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(_run_time, _setting))
+            exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
             _mse, _mae, _acc = exp.test(_setting, check_folder=_check_folder)
 
             # clean cuda cache
