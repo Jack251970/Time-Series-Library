@@ -184,13 +184,17 @@ class HyperOptimizer(object):
             config = self._build_config_dict(args)
 
             # start experiment
-            mse, mae, acc = self._start_experiment(args, parameter, config, try_model=False,
-                                                   first_process_and_first_exp=(_process_index == 0 and _time == 1))
+            mse, mae, acc, run_time, setting = self._start_experiment(args, parameter, config, False,
+                                                                      (_process_index == 0 and _time == 1))
 
             # load criteria data
             config['mse'] = mse
             config['mae'] = mae
             config['acc'] = acc
+
+            # load setting and run time
+            config['setting'] = setting
+            config['run_time'] = run_time
 
             # save data if in training
             if parameter['is_training'] == 1:
@@ -218,47 +222,26 @@ class HyperOptimizer(object):
         elif task_name == 'classification':
             self.Exp = Exp_Classification
 
-    def _start_experiment(self, _args, _parameter, _config, try_model, first_process_and_first_exp):
+    def _start_experiment(self, _args, _parameter, _config, try_model, _check_folder):
         """
         If try_model is True, we will just try this model:
             if this model can work, then return True.
         """
+        # init time and setting
+        t = time.localtime()
+        _run_time = time.strftime('%Y-%m-%d %H-%M-%S', t)
+        _setting = self.build_setting(_args, _run_time)
+
         # valid model if needed
         if try_model:
             exp = self.Exp(_args, try_model=True, save_process=False)
-            setting = self.build_setting(_args, 0)
-            valid = exp.train(setting, False)
+            valid = exp.train(_setting, False)
             return valid
 
         _mse, _mae, _acc = math.inf, math.inf, 0
         if _args.is_training:
-            for ii in range(_args.itr):
-                # setting record of experiments
-                setting = self.build_setting(_args, ii)
-
-                # build the experiment
-                exp = self.Exp(_args, try_model=False, save_process=self.save_process)
-
-                # print info of the experiment
-                exp.print_content(f'Optimizing params in experiment:{_parameter}')
-                exp.print_content(f'Config in experiment:{_config}')
-
-                # start training
-                now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-                exp.print_content('>>>>>>>{} - start training: {}<<<<<<<'.format(now, setting))
-                exp.train(setting, check_folder=(first_process_and_first_exp and ii == 0))
-
-                # start testing
-                now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-                exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(now, setting))
-
-                # get
-                _mse, _mae, _acc = exp.test(setting, check_folder=(first_process_and_first_exp and ii == 0))
-
-                torch.cuda.empty_cache()
-        else:
             # setting record of experiments
-            setting = self.build_setting(_args, 0)
+            _setting = self.build_setting(_args, _run_time)
 
             # build the experiment
             exp = self.Exp(_args, try_model=False, save_process=self.save_process)
@@ -267,15 +250,32 @@ class HyperOptimizer(object):
             exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
 
+            # start training
+            exp.print_content('>>>>>>>{} - start training: {}<<<<<<<'.format(_run_time, _setting))
+            exp.train(_setting, check_folder=_check_folder)
+
             # start testing
-            now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-            exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(now, setting))
+            exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(_run_time, _setting))
+            _mse, _mae, _acc = exp.test(_setting, check_folder=_check_folder)
 
-            _mse, _mae, _acc = exp.test(setting, check_folder=first_process_and_first_exp)
+            # clean cuda cache
+            torch.cuda.empty_cache()
+        else:
+            # build the experiment
+            exp = self.Exp(_args, try_model=False, save_process=self.save_process)
 
+            # print info of the experiment
+            exp.print_content(f'Optimizing params in experiment:{_parameter}')
+            exp.print_content(f'Config in experiment:{_config}')
+
+            # start testing
+            exp.print_content('>>>>>>>{} - start testing: {}<<<<<<<'.format(_run_time, _setting))
+            _mse, _mae, _acc = exp.test(_setting, check_folder=_check_folder)
+
+            # clean cuda cache
             torch.cuda.empty_cache()
 
-        return _mse, _mae, _acc
+        return _mse, _mae, _acc, _run_time, _setting
 
     def _fix_random_seed(self):
         random.seed(self.seed)
@@ -316,8 +316,7 @@ class HyperOptimizer(object):
             # check if the model of this experiment can work
             if _process_index == 0 and try_model:
                 # check if the parameters of this experiment is improper
-                model_can_work = self._start_experiment(args, parameter, config, try_model=True,
-                                                        first_process_and_first_exp=False)
+                model_can_work = self._start_experiment(args, parameter, config, try_model=True, _check_folder=False)
                 if not model_can_work:
                     self._save_config_dict(_jump_csv_file_path, config)
                     jump_time = jump_time + 1
@@ -332,7 +331,6 @@ class HyperOptimizer(object):
 
     def _build_config_dict(self, _args):
         config_dict = self.build_config_dict_ori(_args)
-        config_dict['setting'] = self.build_setting(_args, 0)
         config_dict['seed'] = self.seed
         if self.get_tags is not None:
             config_dict['model_id'] = config_dict['model_id'] + self.get_tags(_args)

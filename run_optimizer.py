@@ -75,7 +75,6 @@ def parse_launch_parameters():
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
-    parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
@@ -152,7 +151,6 @@ def build_config_dict(_args):
 
         # optimization
         'num_workers': _args.num_workers,
-        'itr': _args.itr,
         'train_epochs': _args.train_epochs,
         'batch_size': _args.batch_size,
         'patience': _args.patience,
@@ -281,8 +279,6 @@ def prepare_config(_params):
         # optimization
         if 'num_workers' in _params:
             _args.num_workers = _params['num_workers']
-        if 'itr' in _params:
-            _args.itr = _params['itr']
         if 'train_epochs' in _params:
             _args.train_epochs = _params['train_epochs']
         if 'batch_size' in _params:
@@ -325,8 +321,8 @@ def prepare_config(_params):
 
 
 # noinspection DuplicatedCode
-def build_setting(_args, ii):
-    return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
+def build_setting(_args,  _run_time):
+    return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}_{}'.format(
         _args.task_name,
         _args.model_id,
         _args.model,
@@ -345,7 +341,8 @@ def build_setting(_args, ii):
         _args.factor,
         _args.embed,
         _args.distil,
-        _args.des, ii)
+        _args.des,
+        _run_time)
 
 
 # noinspection DuplicatedCode
@@ -361,13 +358,13 @@ def get_fieldnames(mode='all'):
                       'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in',
                       'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
                       'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention',
-                      'num_workers', 'itr', 'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss',
-                      'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'p_hidden_dims',
+                      'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss',
+                      'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims',
                       'p_hidden_layers']
 
     # init the fieldnames need to be checked
-    _removed_fieldnames = ['mse', 'mae', 'acc', 'model_id', 'root_path', 'checkpoints', 'output_attention',
-                           'num_workers', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices']
+    _removed_fieldnames = ['mse', 'mae', 'acc', 'setting', 'model_id', 'root_path', 'checkpoints', 'output_attention',
+                           'num_workers', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
     # init the fieldnames need to be showed in csv data file name
@@ -422,7 +419,6 @@ def get_search_space():
         'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
         'c_out': {'_type': 'single', '_value': 14},
         'des': {'_type': 'single', '_value': 'Exp'},
-        'itr': {'_type': 'single', '_value': 1},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
         'freq': {'_type': 'single', '_value': 't'},
