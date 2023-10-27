@@ -9,11 +9,14 @@ from utils.losses import mape_loss, mase_loss, smape_loss
 
 
 class Exp_Basic(object):
-    def __init__(self, args, try_model=False):
+    def __init__(self, args, try_model, save_process):
         self.args = args
+        self.try_model = try_model
+        self.save_process = save_process
+        self.process_path = None
+        self.process_content = ""
         self.device = self._acquire_device(try_model)
         self.model = self._build_model().to(self.device)
-        self.try_model = try_model
 
     def _build_model(self):
         # get model from model dictionary
@@ -47,11 +50,13 @@ class Exp_Basic(object):
                 self.args.gpu) if not self.args.use_multi_gpu else self.args.devices
             device = torch.device('cuda:{}'.format(self.args.gpu))
             if not try_model:
-                print('Use GPU: cuda:{}'.format(self.args.gpu))
+                if self.save_process:
+                    self._print_content('Use GPU: cuda:{}'.format(self.args.gpu))
         else:
             device = torch.device('cpu')
             if not try_model:
-                print('Use CPU')
+                if self.save_process:
+                    self._print_content('Use CPU')
         return device
 
     def _get_data(self, flag):
@@ -100,3 +105,15 @@ class Exp_Basic(object):
                     sub_folder = os.path.join(folder, path)
                     if os.path.isdir(sub_folder) and not os.listdir(sub_folder):
                         os.rmdir(sub_folder)
+
+    def _print_content(self, content, write=False):
+        print(content)
+        if self.save_process:
+            self.process_content = self.process_content + content
+            if write:
+                f = open(self.process_path, 'a')
+                f.write(self.process_content)
+                f.write('\n')
+                f.write('\n')
+                f.close()
+                self.process_content = ""
