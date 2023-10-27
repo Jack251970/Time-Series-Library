@@ -477,8 +477,8 @@ def get_search_space():
         # 'moving_avg': {'_type': 'single', '_value': 25},
         # adp_avg
         'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
-        # 'moving_avg': {'_type': 'single', '_value': 25},
-        'moving_avg': {'_type': 'choice', '_value': range(25, 42, 2)},
+        'moving_avg': {'_type': 'single', '_value': 31},
+        # 'moving_avg': {'_type': 'choice', '_value': range(25, 42, 2)},
         # all
         # 'series_decomp_mode': {'_type': 'choice', '_value': ['avg', 'adp_avg']},
         # 'moving_avg': {'_type': 'single', '_value': 25},
