@@ -17,8 +17,8 @@ warnings.filterwarnings('ignore')
 
 # noinspection DuplicatedCode
 class Exp_Short_Term_Forecast(Exp_Basic):
-    def __init__(self, args, try_model=False):
-        super(Exp_Short_Term_Forecast, self).__init__(args, try_model)
+    def __init__(self, args, try_model=False, save_process=True):
+        super(Exp_Short_Term_Forecast, self).__init__(args, try_model, save_process)
 
     def _build_model(self):
         if self.args.data == 'm4':
@@ -33,11 +33,16 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         vali_data, vali_loader = self._get_data(flag='val')
 
         if check_folder:
-            self._check_folders(self.args.checkpoints)
+            self._check_folders([self.args.checkpoints, "./process"])
 
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path):
             os.makedirs(path)
+
+        process_path = './process/' + setting + '/'
+        if not os.path.exists(process_path):
+            os.makedirs(process_path)
+        self.process_path = process_path + 'long_term_forecast.txt'
 
         time_now = time.time()
 
@@ -89,18 +94,20 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
-                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
+                    _ = "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item())
+                    self._print_content(_)
                     speed = (time.time() - time_now) / iter_count
                     # left time for all epochs
                     # left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
                     # left time for current epoch
                     left_time = speed * (train_steps - i)
                     if left_time > 60 * 60:
-                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} hour'.format(speed, left_time / 60.0 / 60.0))
+                        _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} hour'.format(speed, left_time / 60.0 / 60.0)
                     elif left_time > 60:
-                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} min'.format(speed, left_time / 60.0))
+                        _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} min'.format(speed, left_time / 60.0)
                     else:
-                        print('\tspeed: {:.4f} s/iter; left time: {:.4f} second'.format(speed, left_time))
+                        _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} second'.format(speed, left_time)
+                    self._print_content(_)
                     iter_count = 0
                     time_now = time.time()
 
@@ -109,23 +116,27 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
             current_epoch_time = time.time() - epoch_time
             if current_epoch_time > 60 * 60:
-                print("Epoch: {}; cost time: {:.4f} hour".format(epoch + 1, current_epoch_time / 60.0 / 60.0))
+                _ = "Epoch: {}; cost time: {:.4f} hour".format(epoch + 1, current_epoch_time / 60.0 / 60.0)
             elif current_epoch_time > 60:
-                print("Epoch: {}; cost time: {:.4f} min".format(epoch + 1, current_epoch_time / 60.0))
+                _ = "Epoch: {}; cost time: {:.4f} min".format(epoch + 1, current_epoch_time / 60.0)
             else:
-                print("Epoch: {}; cost time: {:.4f} second".format(epoch + 1, current_epoch_time))
+                _ = "Epoch: {}; cost time: {:.4f} second".format(epoch + 1, current_epoch_time)
+            self._print_content(_)
 
             train_loss = np.average(train_loss)
             vali_loss = self.vali(train_loader, vali_loader, criterion)
             test_loss = vali_loss
-            print("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".format(
-                epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
+                 format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            self._print_content(_)
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
-                print("Early stopping")
+                self._print_content("Early stopping")
                 break
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
+
+        self._print_content("\n", True)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
@@ -172,7 +183,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         x = x.unsqueeze(-1)
 
         if test:
-            print('loading model')
+            self._print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)
             best_model_path = path + '/' + 'checkpoint.pth'
             if os.path.exists(best_model_path):
@@ -201,7 +212,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                                                                       dec_inp[id_list[i]:id_list[i + 1]], None)
 
                 if id_list[i] % 1000 == 0:
-                    print(id_list[i])
+                    self._print_content(id_list[i])
 
             f_dim = -1 if self.args.features == 'MS' else 0
             outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -216,7 +227,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 pd = np.concatenate((x[i, :, 0], preds[i, :, 0]), axis=0)
                 visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
 
-        print('test shape:', preds.shape)
+        self._print_content('test shape:', preds.shape)
 
         # result save
         folder_path = './m4_results/' + self.args.model + '/'
@@ -229,7 +240,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         forecasts_df.set_index(forecasts_df.columns[0], inplace=True)
         forecasts_df.to_csv(folder_path + self.args.seasonal_patterns + '_forecast.csv')
 
-        print(self.args.model)
+        self._print_content(self.args.model)
+
         file_path = './m4_results/' + self.args.model + '/'
         if 'Weekly_forecast.csv' in os.listdir(file_path) \
                 and 'Monthly_forecast.csv' in os.listdir(file_path) \
@@ -240,11 +252,13 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             m4_summary = M4Summary(file_path, self.args.root_path)
             # m4_forecast.set_index(m4_winner_forecast.columns[0], inplace=True)
             smape_results, owa_results, mape, mase = m4_summary.evaluate()
-            print('smape:', smape_results)
-            print('mape:', mape)
-            print('mase:', mase)
-            print('owa:', owa_results)
+            self._print_content('smape:', smape_results)
+            self._print_content('mape:', mape)
+            self._print_content('mase:', mase)
+            self._print_content('owa:', owa_results)
         else:
-            print('After all 6 tasks are finished, you can calculate the averaged index')
+            self._print_content('After all 6 tasks are finished, you can calculate the averaged index')
+
+        self._print_content("\n", True)
 
         return None, None, None

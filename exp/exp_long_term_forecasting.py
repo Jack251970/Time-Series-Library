@@ -150,7 +150,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-        self._print_content("", True)
+        self._print_content("\n", True)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
@@ -291,10 +291,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # f.write('\n')
         # f.close()
 
-        self._print_content("", True)
-
         np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
         np.save(folder_path + 'pred.npy', preds)
         np.save(folder_path + 'true.npy', trues)
+
+        self._print_content("\n", True)
 
         return mse, mae, None
