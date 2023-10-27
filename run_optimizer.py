@@ -326,7 +326,7 @@ def prepare_config(_params):
 
 # noinspection DuplicatedCode
 def build_setting(_args, ii):
-    return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
+    return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
         _args.task_name,
         _args.model_id,
         _args.model,
@@ -340,6 +340,7 @@ def build_setting(_args, ii):
         _args.e_layers,
         _args.d_layers,
         _args.series_decomp_mode,
+        _args.moving_avg,
         _args.d_ff,
         _args.factor,
         _args.embed,
@@ -480,7 +481,8 @@ def get_search_space():
         # 'moving_avg': {'_type': 'single', '_value': 25},
         # adp_avg
         'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
-        'moving_avg': {'_type': 'single', '_value': 25},
+        # 'moving_avg': {'_type': 'single', '_value': 25},
+        'moving_avg': {'_type': 'choice', '_value': range(25, 42, 2)},
         # all
         # 'series_decomp_mode': {'_type': 'choice', '_value': ['avg', 'adp_avg']},
         # 'moving_avg': {'_type': 'single', '_value': 25},
