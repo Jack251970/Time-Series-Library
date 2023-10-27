@@ -143,12 +143,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
                  format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             self.print_content(_)
-            early_stopping(vali_loss, self.model, path)
+
+            _ = early_stopping(vali_loss, self.model, path)
+            if _ is not None:
+                self.print_content(_)
+
             if early_stopping.early_stop:
                 self.print_content("Early stopping")
                 break
 
-            adjust_learning_rate(model_optim, epoch + 1, self.args)
+            _ = adjust_learning_rate(model_optim, epoch + 1, self.args)
+            if _ is not None:
+                self.print_content(_)
 
         self.print_content("", True)
 

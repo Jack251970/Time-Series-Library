@@ -16,11 +16,17 @@ def adjust_learning_rate(optimizer, epoch, args):
         }
     else:
         raise NotImplementedError
+
     if epoch in lr_adjust.keys():
+        # get lr in dictionary
         lr = lr_adjust[epoch]
+
+        # update lr in optimizer
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-        print('Updating learning rate to {}'.format(lr))
+        return 'Updating learning rate to {}'.format(lr)
+    else:
+        return None
 
 
 class EarlyStopping:
@@ -37,24 +43,28 @@ class EarlyStopping:
         score = -val_loss
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, path)
+            _ = self.save_checkpoint(val_loss, model, path)
         elif score < self.best_score + self.delta:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            _ = f'EarlyStopping counter: {self.counter} out of {self.patience}'
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, path)
+            _ = self.save_checkpoint(val_loss, model, path)
             self.counter = 0
+        return _
 
     def save_checkpoint(self, val_loss, model, path):
         best_model_path = path + '/' + 'checkpoint.pth'
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model to '
-                  f'{best_model_path}.')
+            _ = (f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). '
+                 f'Saving model to {best_model_path}.')
+        else:
+            _ = None
         torch.save(model.state_dict(), best_model_path)
         self.val_loss_min = val_loss
+        return _
 
 
 class dotdict(dict):

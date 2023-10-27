@@ -122,12 +122,18 @@ class Exp_Classification(Exp_Basic):
                  .format(epoch + 1, train_steps, train_loss, vali_loss, val_accuracy, test_loss, test_accuracy))
             self.print_content(_)
 
-            early_stopping(-val_accuracy, self.model, path)
+            _ = early_stopping(-val_accuracy, self.model, path)
+            if _ is not None:
+                self.print_content(_)
+
             if early_stopping.early_stop:
                 self.print_content("Early stopping")
                 break
+
             if (epoch + 1) % 5 == 0:
-                adjust_learning_rate(model_optim, epoch + 1, self.args)
+                _ = adjust_learning_rate(model_optim, epoch + 1, self.args)
+                if _ is not None:
+                    self.print_content(_)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
