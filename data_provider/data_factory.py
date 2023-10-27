@@ -19,10 +19,12 @@ data_dict = {
 }
 
 
-def data_provider(args, flag, try_model):
+def data_provider(args, flag):
+    # get data class
     Data = data_dict[args.data]
-    timeenc = 0 if args.embed != 'timeF' else 1
 
+    # get data information
+    timeenc = 0 if args.embed != 'timeF' else 1
     if flag == 'test':
         shuffle_flag = False
         drop_last = True
@@ -37,6 +39,7 @@ def data_provider(args, flag, try_model):
         batch_size = args.batch_size  # bsz for train and valid
         freq = args.freq
 
+    # return dataset, data loader and information
     if args.task_name == 'anomaly_detection':
         drop_last = False
         data_set = Data(
@@ -44,22 +47,19 @@ def data_provider(args, flag, try_model):
             win_size=args.seq_len,
             flag=flag,
         )
-        if not try_model:
-            print(flag, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
-        return data_set, data_loader
+        return data_set, data_loader, f"{args.data}: {flag} {data_set}"
     elif args.task_name == 'classification':
         drop_last = False
         data_set = Data(
             root_path=args.root_path,
             flag=flag,
         )
-
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -68,7 +68,7 @@ def data_provider(args, flag, try_model):
             drop_last=drop_last,
             collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
         )
-        return data_set, data_loader
+        return data_set, data_loader, f"{args.data}: {flag} {data_set}"
     else:
         if args.data == 'm4':
             drop_last = False
@@ -83,12 +83,10 @@ def data_provider(args, flag, try_model):
             freq=freq,
             seasonal_patterns=args.seasonal_patterns
         )
-        if not try_model:
-            print(flag, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
-        return data_set, data_loader
+        return data_set, data_loader,  f"{args.data}: {flag} {data_set}"

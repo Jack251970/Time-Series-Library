@@ -60,7 +60,9 @@ class Exp_Basic(object):
         return device
 
     def _get_data(self, flag):
-        data_set, data_loader = data_provider(self.args, flag, self.try_model)
+        data_set, data_loader, info = data_provider(self.args, flag)
+        if not self.try_model:
+            self.print_content(info)
         return data_set, data_loader
 
     def _select_optimizer(self):
