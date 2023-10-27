@@ -17,7 +17,9 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 class HyperOptimizer(object):
     def __init__(self, get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
-                 get_tags=None, check_jump_experiment=None):
+                 get_tags=None, check_jump_experiment=None,
+                 jump_csv_file_path='jump_data.csv', csv_file_path_format="data_{}.csv",
+                 process_number=1, random_seed=2021):
         # get fieldnames
         self.all_fieldnames = get_fieldnames('all')
         self.checked_fieldnames = get_fieldnames('checked')
@@ -43,16 +45,16 @@ class HyperOptimizer(object):
         self.check_jump_experiment = check_jump_experiment
 
         # config data to be jumped
-        self.jump_csv_file_path = 'jump_data.csv'
+        self.jump_csv_file_path = jump_csv_file_path
 
         # config data to be stored in other processes
-        self.csv_file_path_format = r"data_{}.csv"
+        self.csv_file_path_format = csv_file_path_format
 
         # the maximum index of the processes
-        self.max_process_index = 0
+        self.max_process_index = process_number - 1
 
         # random seed
-        self.seed = 2021
+        self.seed = random_seed
 
         # init experiment
         self.Exp = None
@@ -77,8 +79,8 @@ class HyperOptimizer(object):
         return {
             'jump_csv_file_path': self.jump_csv_file_path,
             'csv_file_path_format': self.csv_file_path_format,
-            'max_process_index': self.max_process_index,
-            'seed': self.seed,
+            'process_number': self.max_process_index + 1,
+            'random_seed': self.seed,
             'search_space': self.search_space,
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
@@ -273,7 +275,7 @@ class HyperOptimizer(object):
         for combination in tqdm(_combinations):
             # invert combination to parameter
             parameter = {param: value for param, value in zip(_params.keys(), combination)}
-            
+
             # check if we need to jump this experiment according to the known rules
             if self.check_jump_experiment is not None and self.check_jump_experiment(parameter):
                 continue
