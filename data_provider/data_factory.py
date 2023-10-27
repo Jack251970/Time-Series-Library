@@ -53,7 +53,7 @@ def data_provider(args, flag):
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
-        return data_set, data_loader, f"{args.data}: {flag} {data_set}"
+        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}"
     elif args.task_name == 'classification':
         drop_last = False
         data_set = Data(
@@ -68,7 +68,7 @@ def data_provider(args, flag):
             drop_last=drop_last,
             collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
         )
-        return data_set, data_loader, f"{args.data}: {flag} {data_set}"
+        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}"
     else:
         if args.data == 'm4':
             drop_last = False
@@ -89,4 +89,4 @@ def data_provider(args, flag):
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
-        return data_set, data_loader,  f"{args.data}: {flag} {data_set}"
+        return data_set, data_loader,  f"{args.data}: {flag} {len(data_set)}"
