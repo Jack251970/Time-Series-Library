@@ -81,7 +81,7 @@ class Exp_Imputation(Exp_Basic):
 
                 if (i + 1) % 100 == 0:
                     _ = "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item())
-                    self._print_content(_)
+                    self.print_content(_)
                     speed = (time.time() - time_now) / iter_count
                     # left time for all epochs
                     # left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
@@ -93,7 +93,7 @@ class Exp_Imputation(Exp_Basic):
                         _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} min'.format(speed, left_time / 60.0)
                     else:
                         _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} second'.format(speed, left_time)
-                    self._print_content(_)
+                    self.print_content(_)
                     iter_count = 0
                     time_now = time.time()
 
@@ -107,7 +107,7 @@ class Exp_Imputation(Exp_Basic):
                 _ = "Epoch: {}; cost time: {:.4f} min".format(epoch + 1, current_epoch_time / 60.0)
             else:
                 _ = "Epoch: {}; cost time: {:.4f} second".format(epoch + 1, current_epoch_time)
-            self._print_content(_)
+            self.print_content(_)
 
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)
@@ -115,17 +115,17 @@ class Exp_Imputation(Exp_Basic):
 
             _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
                  format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-            self._print_content(_)
+            self.print_content(_)
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
-                self._print_content("Early stopping")
+                self.print_content("Early stopping")
                 break
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
-        self._print_content("\n", True)
+        self.print_content("\n", True)
 
         return self.model
 
@@ -166,7 +166,7 @@ class Exp_Imputation(Exp_Basic):
     def test(self, setting, test=False, check_folder=False):
         test_data, test_loader = self._get_data(flag='test')
         if test:
-            self._print_content('loading model')
+            self.print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)
             best_model_path = path + '/' + 'checkpoint.pth'
             if os.path.exists(best_model_path):
@@ -220,7 +220,7 @@ class Exp_Imputation(Exp_Basic):
         preds = np.concatenate(preds, 0)
         trues = np.concatenate(trues, 0)
         masks = np.concatenate(masks, 0)
-        self._print_content(f'test shape: {preds.shape}, {trues.shape}')
+        self.print_content(f'test shape: {preds.shape}, {trues.shape}')
 
         # result save
         folder_path = './results/' + setting + '/'
@@ -228,7 +228,7 @@ class Exp_Imputation(Exp_Basic):
             os.makedirs(folder_path)
 
         mae, mse, rmse, mape, mspe = metric(preds[masks == 0], trues[masks == 0])
-        self._print_content('mse:{}, mae:{}'.format(mse, mae))
+        self.print_content('mse:{}, mae:{}'.format(mse, mae))
 
         # save results in txt
         # f = open("result_imputation.txt", 'a')
@@ -242,6 +242,6 @@ class Exp_Imputation(Exp_Basic):
         np.save(folder_path + 'pred.npy', preds)
         np.save(folder_path + 'true.npy', trues)
 
-        self._print_content("\n", True)
+        self.print_content("\n", True)
 
         return mse, mae, None

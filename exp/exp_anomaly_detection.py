@@ -78,7 +78,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
 
                 if (i + 1) % 100 == 0:
                     _ = "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item())
-                    self._print_content(_)
+                    self.print_content(_)
                     speed = (time.time() - time_now) / iter_count
                     # left time for all epochs
                     # left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
@@ -90,7 +90,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
                         _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} min'.format(speed, left_time / 60.0)
                     else:
                         _ = '\tspeed: {:.4f} s/iter; left time: {:.4f} second'.format(speed, left_time)
-                    self._print_content(_)
+                    self.print_content(_)
                     iter_count = 0
                     time_now = time.time()
 
@@ -104,7 +104,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
                 _ = "Epoch: {}; cost time: {:.4f} min".format(epoch + 1, current_epoch_time / 60.0)
             else:
                 _ = "Epoch: {}; cost time: {:.4f} second".format(epoch + 1, current_epoch_time)
-            self._print_content(_)
+            self.print_content(_)
 
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)
@@ -112,17 +112,17 @@ class Exp_Anomaly_Detection(Exp_Basic):
 
             _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
                  format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-            self._print_content(_)
+            self.print_content(_)
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
-                self._print_content("Early stopping")
+                self.print_content("Early stopping")
                 break
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
-        self._print_content("\n", True)
+        self.print_content("\n", True)
 
         return self.model
 
@@ -150,7 +150,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         train_data, train_loader = self._get_data(flag='train')
         if test:
-            self._print_content('loading model')
+            self.print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)
             best_model_path = path + '/' + 'checkpoint.pth'
             if os.path.exists(best_model_path):
@@ -201,7 +201,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
         test_energy = np.array(attens_energy)
         combined_energy = np.concatenate([train_energy, test_energy], axis=0)
         threshold = np.percentile(combined_energy, 100 - self.args.anomaly_ratio)
-        self._print_content("Threshold :", threshold)
+        self.print_content("Threshold :", threshold)
 
         # (3) evaluation on the test set
         pred = (test_energy > threshold).astype(int)
@@ -209,22 +209,22 @@ class Exp_Anomaly_Detection(Exp_Basic):
         test_labels = np.array(test_labels)
         gt = test_labels.astype(int)
 
-        self._print_content(f"pred:   {pred.shape}")
-        self._print_content(f"gt:     {gt.shape}")
+        self.print_content(f"pred:   {pred.shape}")
+        self.print_content(f"gt:     {gt.shape}")
 
         # (4) detection adjustment
         gt, pred = adjustment(gt, pred)
 
         pred = np.array(pred)
         gt = np.array(gt)
-        self._print_content(f"pred:   {pred.shape}")
-        self._print_content(f"gt:     {gt.shape}", )
+        self.print_content(f"pred:   {pred.shape}")
+        self.print_content(f"gt:     {gt.shape}", )
 
         accuracy = accuracy_score(gt, pred)
         precision, recall, f_score, support = precision_recall_fscore_support(gt, pred, average='binary')
         _ = ("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} "
              .format(accuracy, precision, recall, f_score))
-        self._print_content(_)
+        self.print_content(_)
 
         # save results in txt
         # f = open("result_anomaly_detection.txt", 'a')
@@ -236,6 +236,6 @@ class Exp_Anomaly_Detection(Exp_Basic):
         # f.write('\n')
         # f.close()
 
-        self._print_content("\n", True)
+        self.print_content("\n", True)
 
         return None, None, accuracy

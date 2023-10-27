@@ -51,12 +51,12 @@ class Exp_Basic(object):
             device = torch.device('cuda:{}'.format(self.args.gpu))
             if not try_model:
                 if self.save_process:
-                    self._print_content('Use GPU: cuda:{}'.format(self.args.gpu))
+                    self.print_content('Use GPU: cuda:{}'.format(self.args.gpu))
         else:
             device = torch.device('cpu')
             if not try_model:
                 if self.save_process:
-                    self._print_content('Use CPU')
+                    self.print_content('Use CPU')
         return device
 
     def _get_data(self, flag):
@@ -106,7 +106,7 @@ class Exp_Basic(object):
                     if os.path.isdir(sub_folder) and not os.listdir(sub_folder):
                         os.rmdir(sub_folder)
 
-    def _print_content(self, content, write=False):
+    def print_content(self, content, write=False):
         print(content)
         if self.save_process:
             self.process_content = self.process_content + content + "\n"
