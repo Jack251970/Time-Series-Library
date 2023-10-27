@@ -17,18 +17,11 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 
 class HyperOptimizer(object):
-    def __init__(self, get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
-                 get_tags=None, check_jump_experiment=None,
-                 jump_csv_file_path='jump_data.csv', csv_file_path_format="data_{}.csv",
-                 process_number=1, random_seed=2021, save_process=True):
-        # get fieldnames
-        self.all_fieldnames = get_fieldnames('all')
-        self.checked_fieldnames = get_fieldnames('checked')
-        self.csv_data_fieldnames = get_fieldnames('csv_data')
-
-        # function to get search space
-        self.search_space = get_search_space()
-        self._check_required_fieldnames(get_fieldnames('required'))
+    def __init__(self, script_mode, prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
+                 get_model_id_tags=None, check_jump_experiment=None, jump_csv_file_path='jump_data.csv',
+                 csv_file_path_format="data_{}.csv", process_number=1, random_seed=2021, save_process=True):
+        # script mode
+        self.script_mode = script_mode
 
         # function to prepare config
         self.prepare_config = prepare_config
@@ -40,19 +33,10 @@ class HyperOptimizer(object):
         self.build_config_dict_ori = build_config_dict
 
         # function to get tags
-        self.get_tags = get_tags
+        self.get_tags = get_model_id_tags
 
-        # function to check if we need to jump the experiment
-        self.check_jump_experiment = check_jump_experiment
-
-        # config data to be jumped
-        self.jump_csv_file_path = jump_csv_file_path
-
-        # config data to be stored in other processes
-        self.csv_file_path_format = csv_file_path_format
-
-        # the maximum index of the processes
-        self.max_process_index = process_number - 1
+        # init experiment
+        self.Exp = None
 
         # random seed
         self.seed = random_seed
@@ -60,8 +44,27 @@ class HyperOptimizer(object):
         # whether to save process
         self.save_process = save_process
 
-        # init experiment
-        self.Exp = None
+        if not self.script_mode:
+            # get fieldnames
+            self.all_fieldnames = get_fieldnames('all')
+            self.checked_fieldnames = get_fieldnames('checked')
+            self.csv_data_fieldnames = get_fieldnames('csv_data')
+
+            # function to get search space
+            self.search_space = get_search_space()
+            self._check_required_fieldnames(get_fieldnames('required'))
+
+            # function to check if we need to jump the experiment
+            self.check_jump_experiment = check_jump_experiment
+
+            # config data to be jumped
+            self.jump_csv_file_path = jump_csv_file_path
+
+            # config data to be stored in other processes
+            self.csv_file_path_format = csv_file_path_format
+
+            # the maximum index of the processes
+            self.max_process_index = process_number - 1
 
     def _check_required_fieldnames(self, fieldnames):
         for fieldname in fieldnames:
@@ -81,6 +84,7 @@ class HyperOptimizer(object):
 
     def get_optimizer_settings(self):
         return {
+            'script_mode': self.script_mode,
             'jump_csv_file_path': self.jump_csv_file_path,
             'csv_file_path_format': self.csv_file_path_format,
             'process_number': self.max_process_index + 1,
@@ -112,6 +116,20 @@ class HyperOptimizer(object):
         return format_csv_file_path
 
     def start_search(self, _process_index=0, _try_model=True, _force=False):
+        # run directly under script mode
+        if self.script_mode:
+            # parse launch parameters and load default config
+            args = self.prepare_config(None, True)
+
+            # get the experiment type
+            self._init_experiment(args.task_name)
+
+            # create a dict to store the configuration values
+            config = self._build_config_dict(args)
+
+            # start experiment
+            self._start_experiment(args, None, config, _try_model=False, _check_folder=False)
+
         # check the index of the process
         if _process_index > self.max_process_index or _process_index < 0:
             raise ValueError(f'The index of the process {_process_index} is out of range!')
@@ -174,7 +192,7 @@ class HyperOptimizer(object):
         _time = 1
         finish_time = 0
         for parameter in parameters:
-            # prepare config: parse launch parameters and load default config
+            # parse launch parameters and load default config
             args = self.prepare_config(parameter)
 
             # get the experiment type
@@ -222,7 +240,7 @@ class HyperOptimizer(object):
         elif task_name == 'classification':
             self.Exp = Exp_Classification
 
-    def _start_experiment(self, _args, _parameter, _config, try_model, _check_folder):
+    def _start_experiment(self, _args, _parameter, _config, _try_model, _check_folder):
         """
         If try_model is True, we will just try this model:
             if this model can work, then return True.
@@ -232,8 +250,8 @@ class HyperOptimizer(object):
         _run_time = time.strftime('%Y-%m-%d %H-%M-%S', t)
         _setting = self.build_setting(_args, _run_time)
 
-        # valid model if needed
-        if try_model:
+        # try model if needed
+        if _try_model:
             exp = self.Exp(_args, try_model=True, save_process=False)
             valid = exp.train(_setting, False)
             return valid
@@ -247,7 +265,8 @@ class HyperOptimizer(object):
             exp = self.Exp(_args, try_model=False, save_process=self.save_process)
 
             # print info of the experiment
-            exp.print_content(f'Optimizing params in experiment:{_parameter}')
+            if _parameter is not None:
+                exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
 
             # start training
@@ -265,7 +284,8 @@ class HyperOptimizer(object):
             exp = self.Exp(_args, try_model=False, save_process=self.save_process)
 
             # print info of the experiment
-            exp.print_content(f'Optimizing params in experiment:{_parameter}')
+            if _parameter is not None:
+                exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
 
             # start testing
@@ -299,7 +319,7 @@ class HyperOptimizer(object):
             if self.check_jump_experiment is not None and self.check_jump_experiment(parameter):
                 continue
 
-            # prepare config: parse launch parameters and load default config
+            # parse launch parameters and load default config
             args = self.prepare_config(parameter)
 
             # create a dict to store the configuration values
@@ -316,7 +336,7 @@ class HyperOptimizer(object):
             # check if the model of this experiment can work
             if _process_index == 0 and try_model:
                 # check if the parameters of this experiment is improper
-                model_can_work = self._start_experiment(args, parameter, config, try_model=True, _check_folder=False)
+                model_can_work = self._start_experiment(args, parameter, config, _try_model=True, _check_folder=False)
                 if not model_can_work:
                     self._save_config_dict(_jump_csv_file_path, config)
                     jump_time = jump_time + 1

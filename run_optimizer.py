@@ -6,22 +6,25 @@ from hyper_optimizer.optimizer import HyperOptimizer
 
 
 # noinspection DuplicatedCode
-def parse_launch_parameters():
+def parse_launch_parameters(_script_mode):
     parser = argparse.ArgumentParser(description='Time Series Library')
 
     # basic config
-    parser.add_argument('--task_name', type=str, default='long_term_forecast',
+    parser.add_argument('--task_name', type=str, required=_script_mode, default='long_term_forecast',
                         help="task name, options:['long_term_forecast', 'short_term_forecast', 'imputation', "
                              "'classification', 'anomaly_detection']")
-    parser.add_argument('--is_training', type=int, default=1, help='1: train and test, 0: only test')
-    parser.add_argument('--model_id', type=str, default='unknown', help='model id for interface')
-    parser.add_argument('--model', type=str, default='Autoformer',
+    parser.add_argument('--is_training', type=int, required=_script_mode, default=1,
+                        help='1: train and test, 0: only test')
+    parser.add_argument('--model_id', type=str, required=_script_mode, default='unknown',
+                        help='model id for interface')
+    parser.add_argument('--model', type=str, required=_script_mode, default='Autoformer',
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
-                             "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer']")
+                             "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
+                             "'Koopa']")
 
     # data loader
-    parser.add_argument('--data', type=str, default='ETTm1',
+    parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
                         help="dataset type, options: ['ETTh1', 'ETTh2', 'ETTm1', 'ETTm2', 'custom', 'm4', 'PSM', "
                              "'MSL', 'SMAP', 'SMD', 'SWAT', 'UEA']")
     parser.add_argument('--root_path', type=str, default='./dataset/ETT/', help='root path of the data file')
@@ -75,6 +78,7 @@ def parse_launch_parameters():
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
+    parser.add_argument('--itr', type=int, default=1, help='deprecated')
     parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
@@ -173,9 +177,9 @@ def build_config_dict(_args):
 
 
 # noinspection DuplicatedCode
-def prepare_config(_params):
+def prepare_config(_params, _script_mode=False):
     # parse launch parameters
-    _args = parse_launch_parameters()
+    _args = parse_launch_parameters(_script_mode)
 
     # load device config
     _args.use_gpu = True if torch.cuda.is_available() and _args.use_gpu else False
@@ -188,7 +192,7 @@ def prepare_config(_params):
     # build model_id for interface
     _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
-    if _params is None:
+    if _script_mode is True:
         return _args
     else:
         # load optimized parameters from _params
@@ -386,7 +390,7 @@ def get_fieldnames(mode='all'):
 
 
 # noinspection DuplicatedCode
-def get_tags(_args):
+def get_model_id_tags(_args):
     tags = []
     if _args.learning_rate == 0.0001:
         tags.append('large_lr')
@@ -487,8 +491,8 @@ def get_search_space():
     return {**default_config, **model_config, **learning_config, **heads_config, **period_config, **decomp_config}
 
 
-h = HyperOptimizer(get_fieldnames, get_search_space, prepare_config, build_setting, build_config_dict,
-                   get_tags=get_tags, check_jump_experiment=check_jump_experiment)
+h = HyperOptimizer(False, prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
+                   get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 
 if __name__ == "__main__":
     h.start_search(0, False, False)
