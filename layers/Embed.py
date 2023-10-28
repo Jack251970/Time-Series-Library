@@ -213,6 +213,7 @@ class DSWEmbedding(nn.Module):
 
         # segment the input sequence and flatten the batch and feature dimensions: [32, (2 * 12), 14] -> [896, 12]
         x_segment = rearrange(x, 'b (seg_num seg_len) d -> (b d seg_num) seg_len', seg_len=self.seg_len)
+
         # embed the segmented input sequence
         x_embed = self.value_embedding(x_segment)
 
@@ -250,16 +251,16 @@ class PatchEmbedding(nn.Module):
         x : [B, F, S]
         B: batch size, F: feature dimension, S: sequence length
         """
-        B, F, S = x.shape
+        B, F, S = x.shape  # [32, 14, 16]
 
         # padding in the end of the sequence
-        x = self.padding_patch_layer(x)
+        x = self.padding_patch_layer(x)  # [32, 14, 24]
 
         # unfold the sequence (segment it)
-        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)  # [32, 14, 2, 12]
 
         # flatten the batch dimension and feature dimension
-        x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))
+        x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))  # [32, 14, 2, 12] -> [448, 2, 12]
 
         # input encoding
         x = self.value_embedding(x) + self.position_embedding(x)
