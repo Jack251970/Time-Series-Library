@@ -13,9 +13,11 @@ from models.PatchTST import FlattenHead
 class Model(nn.Module):
     """
     Paper link: https://openreview.net/pdf?id=vSVLM2j9eie
+
+    The codes of the original paper pad in the start of a sequence, which means padding_start equals True.
     """
 
-    def __init__(self, configs, seg_len=12, win_size=2):
+    def __init__(self, configs, seg_len=12, win_size=2, padding_start=True):
         super(Model, self).__init__()
         self.task_name = configs.task_name
         self.enc_in = configs.enc_in
@@ -23,6 +25,7 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         self.seg_len = seg_len
         self.win_size = win_size
+        self.padding_start = padding_start
 
         # The padding operation to handle invisible segment length
         self.pad_in_len = ceil(1.0 * configs.seq_len / self.seg_len) * self.seg_len
@@ -33,7 +36,7 @@ class Model(nn.Module):
         self.head_nf = configs.d_model * self.out_seg_num
 
         # Embedding
-        self.enc_value_embedding = DSWEmbedding(self.seg_len, configs.d_model, self.in_len_add)
+        self.enc_value_embedding = DSWEmbedding(self.seg_len, configs.d_model)
         # the learnable position embedding for position
         self.enc_pos_embedding = nn.Parameter(torch.randn(1, configs.enc_in, self.in_seg_num, configs.d_model))
         # the normalization layer for embedding
@@ -56,8 +59,7 @@ class Model(nn.Module):
             [
                 DecoderLayer(
                     TwoStageAttentionLayer(configs, (self.pad_out_len // self.seg_len), configs.factor, configs.d_model,
-                                           configs.n_heads,
-                                           configs.d_ff, configs.dropout),
+                                           configs.n_heads, configs.d_ff, configs.dropout),
                     AttentionLayer(
                         FullAttention(False, configs.factor, attention_dropout=configs.dropout,
                                       output_attention=False),
@@ -72,8 +74,7 @@ class Model(nn.Module):
             ],
         )
         if self.task_name == 'imputation' or self.task_name == 'anomaly_detection':
-            self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
-                                    head_dropout=configs.dropout)
+            self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len, head_dropout=configs.dropout)
         elif self.task_name == 'classification':
             self.flatten = nn.Flatten(start_dim=-2)
             self.dropout = nn.Dropout(configs.dropout)
@@ -81,7 +82,21 @@ class Model(nn.Module):
                 self.head_nf * configs.enc_in, configs.num_class)
 
     def _enc_embedding(self, x_enc):
-        e_s = self.enc_value_embedding(x_enc)
+        # padding for input sequence
+        if self.in_len_add != 0:
+            if self.padding_start:
+                # padding for input sequence on the left side
+                # This is the codes of the original paper.
+                x_padding = torch.cat((x_enc, x_enc[:, 1:, :].expand(-1, self.padding, -1)), dim=1)
+            else:
+                # padding for input sequence on the right side
+                # This is the implementation of the codes of PatchEmbedding in PatchTSE model.
+                x_padding = torch.cat((x_enc[:, :1, :].expand(-1, self.padding, -1), x_enc), dim=1)
+        else:
+            x_padding = x_enc
+
+        # apply value embedding and position embedding
+        e_s = self.enc_value_embedding(x_padding)
         e_pos = self.enc_pos_embedding
         h = e_s + e_pos
         h = self.pre_norm(h)
