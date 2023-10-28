@@ -50,7 +50,7 @@ def analysis_error(preds, trues, k=10, inverse=False, print_feature_num=True, pr
     trues = np.reshape(trues, (-1, trues.shape[-1]))
 
     if inverse:
-        config = h.get_optimizer_settings()['search_space']
+        config = h.get_optimizer_settings()['search_space']['Autoformer']
 
         data_set = Dataset_Custom(
             root_path=config['root_path']['_value'],

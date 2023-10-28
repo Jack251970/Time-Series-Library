@@ -501,9 +501,10 @@ def get_search_space(_model):
 
 h = HyperOptimizer(False, ['Autoformer', 'Crossformer'],
                    prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
-                   get_model_id_tags=get_model_id_tags, add_tags=[],
+                   get_model_id_tags=get_model_id_tags,
                    check_jump_experiment=check_jump_experiment)
+# h.output_script('Power')
+h.config_optimizer_settings(save_process=True, add_tags=[])
 
 if __name__ == "__main__":
-    # h.output_script('Power')
     h.start_search(0, False, False)

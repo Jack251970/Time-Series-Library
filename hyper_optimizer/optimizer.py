@@ -18,46 +18,31 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 class HyperOptimizer(object):
     def __init__(self, script_mode, models, prepare_config, build_setting, build_config_dict, get_fieldnames,
-                 get_search_space, get_model_id_tags=None, add_tags=None, check_jump_experiment=None,
-                 jump_csv_file_path='jump_data.csv', csv_file_path_format="data_{}.csv", process_number=1,
-                 random_seed=2021, save_process=True):
-        # script mode
-        self.script_mode = script_mode
+                 get_search_space, get_model_id_tags=None, check_jump_experiment=None):
+        # core settings
+        self.script_mode = script_mode  # script mode
 
-        # function to prepare config
-        self.prepare_config = prepare_config
+        # core functions
+        self.prepare_config = prepare_config  # function to prepare config
+        self.build_setting = build_setting  # function to build setting, which is the unique identifier of the model
+        self.build_config_dict_ori = build_config_dict  # function to build config dict - the data to be stored in files
+        self.get_tags = get_model_id_tags  # function to get tags
 
-        # function to build setting, which is the unique identifier of the model
-        self.build_setting = build_setting
-
-        # function to build config dict, which is the data stored in the file
-        self.build_config_dict_ori = build_config_dict
-
-        # function to get tags
-        self.get_tags = get_model_id_tags
-
-        # added tags
-        if add_tags is None:
-            add_tags = []
-        self.add_tags = add_tags
+        # all mode settings
+        self.seed = 2021  # random seed
+        self.add_tags = []  # added tags in the model id
+        self.jump_csv_file_path = 'jump_data.csv'  # config data to be jumped
+        self.csv_file_path_format = 'data_{}.csv'  # config data to be stored in other processes
+        self.max_process_index = 0  # the maximum index of the processes
+        self.save_process = True  # whether to save process
 
         # init experiment
         self.Exp = None
 
-        # random seed
-        self.seed = random_seed
-
-        # whether to save process
-        self.save_process = save_process
-
         if not self.script_mode:
+            # non script mode settings
             # models
             self.models = models
-
-            # get fieldnames
-            self.all_fieldnames = get_fieldnames('all')
-            self.checked_fieldnames = get_fieldnames('checked')
-            self.csv_data_fieldnames = get_fieldnames('csv_data')
 
             # search spaces
             self.search_spaces = {}
@@ -65,17 +50,13 @@ class HyperOptimizer(object):
                 self.search_spaces[model] = get_search_space(model)
             self._check_required_fieldnames(get_fieldnames('required'))
 
-            # function to check if we need to jump the experiment
-            self.check_jump_experiment = check_jump_experiment
+            # fieldnames
+            self.all_fieldnames = get_fieldnames('all')  # all fieldnames
+            self.checked_fieldnames = get_fieldnames('checked')  # checked fieldnames
+            self.csv_data_fieldnames = get_fieldnames('csv_data')  # csv data fieldnames
 
-            # config data to be jumped
-            self.jump_csv_file_path = jump_csv_file_path
-
-            # config data to be stored in other processes
-            self.csv_file_path_format = csv_file_path_format
-
-            # the maximum index of the processes
-            self.max_process_index = process_number - 1
+            # non script mode functions
+            self.check_jump_experiment = check_jump_experiment  # check if we need to jump the experiment
 
     def _check_required_fieldnames(self, fieldnames):
         for model in self.models:
@@ -88,32 +69,47 @@ class HyperOptimizer(object):
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
-    def config_optimizer_settings(self, jump_csv_file_path=None, csv_file_path_format=None, max_process_index=None,
-                                  seed=None):
+    def config_optimizer_settings(self, random_seed=None, add_tags=None, jump_csv_file_path=None,
+                                  csv_file_path_format=None, process_number=None, save_process=None):
+        if random_seed is not None:
+            self.seed = random_seed
+        if add_tags is not None:
+            self.add_tags = add_tags
         if jump_csv_file_path is not None:
             self.jump_csv_file_path = jump_csv_file_path
         if csv_file_path_format is not None:
             self.csv_file_path_format = csv_file_path_format
-        if max_process_index is not None:
-            self.max_process_index = max_process_index
-        if seed is not None:
-            self.seed = seed
+        if process_number is not None:
+            self.max_process_index = process_number + 1
+        if save_process is not None:
+            self.save_process = save_process
 
     def get_optimizer_settings(self):
-        return {
+        core_setting = {
             'script_mode': self.script_mode,
+        }
+
+        all_mode_settings = {
+            'random_seed': self.seed,
+            'add_tags': self.add_tags,
             'jump_csv_file_path': self.jump_csv_file_path,
             'csv_file_path_format': self.csv_file_path_format,
             'process_number': self.max_process_index + 1,
-            'random_seed': self.seed,
+            'save_process': self.save_process,
+        }
+
+        non_script_mode_settings = {
+            'models': self.models,
+            'search_spaces': self.search_spaces,
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
             'csv_data_fieldnames': self.csv_data_fieldnames,
-            'add_tags': self.add_tags,
-            'save_process': self.save_process,
-            'models': self.models,
-            'search_spaces': self.search_spaces
         }
+
+        if self.script_mode:
+            return {**core_setting, **all_mode_settings}
+        else:
+            return {**core_setting, **all_mode_settings, **non_script_mode_settings}
 
     def get_csv_file_path(self):
         """
