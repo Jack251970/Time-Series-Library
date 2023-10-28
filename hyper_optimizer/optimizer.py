@@ -33,6 +33,7 @@ class HyperOptimizer(object):
         self.add_tags = []  # added tags in the model id
         self.jump_csv_file = 'jump_data.csv'  # config data to be jumped
         self.data_csv_file_format = 'data_{}.csv'  # config data to be stored in other processes
+        self.scan_all_csv = False
         self.max_process_index = 0  # the maximum index of the processes
         self.save_process = True  # whether to save process
 
@@ -70,7 +71,7 @@ class HyperOptimizer(object):
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
     def config_optimizer_settings(self, random_seed=None, add_tags=None, jump_csv_file=None, data_csv_file_format=None,
-                                  process_number=None, save_process=None):
+                                  scan_all_csv=None, process_number=None, save_process=None):
         if random_seed is not None:
             self.seed = random_seed
         if add_tags is not None:
@@ -79,6 +80,8 @@ class HyperOptimizer(object):
             self.jump_csv_file = jump_csv_file
         if data_csv_file_format is not None:
             self.data_csv_file_format = data_csv_file_format
+        if scan_all_csv is not None:
+            self.scan_all_csv = scan_all_csv
         if process_number is not None:
             self.max_process_index = process_number + 1
         if save_process is not None:
@@ -94,6 +97,7 @@ class HyperOptimizer(object):
             'add_tags': self.add_tags,
             'jump_csv_file': self.jump_csv_file,
             'data_csv_file_format': self.data_csv_file_format,
+            'scan_all_csv': self.scan_all_csv,
             'process_number': self.max_process_index + 1,
             'save_process': self.save_process,
         }
@@ -242,9 +246,10 @@ class HyperOptimizer(object):
 
         # load config list in local data file and jumped data file
         if _process_index == 0:
-            config_list = self._get_config_list(_csv_file_path)
+            config_list = self._get_config_list(_csv_file_path, scan_all_csv=self.scan_all_csv)
         else:
-            config_list = self._get_config_list([_csv_file_path, self.get_csv_file_path(_process_index=0)])
+            config_list = self._get_config_list([_csv_file_path, self.get_csv_file_path(_process_index=0)],
+                                                scan_all_csv=self.scan_all_csv)
         jump_config_list = self._get_config_list(_jump_csv_file_path)
 
         # get all possible parameters
@@ -470,9 +475,20 @@ class HyperOptimizer(object):
                 _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
                 _writer.writeheader()
 
-    def _get_config_list(self, file_paths):
+    def _get_config_list(self, file_paths, scan_all_csv=False):
         if not isinstance(file_paths, list):
             file_paths = [file_paths]
+
+        task_name = self.parameters[0]['task_name']
+        root_path = f'./data/{task_name}'
+        if scan_all_csv:
+            # get all csv file under the path
+            for root, dirs, files in os.walk(root_path):
+                for file in files:
+                    if file == self.jump_csv_file:
+                        continue
+                    if file.endswith('.csv') and file not in file_paths:
+                        file_paths.append(f'{root}/{file}')
 
         _config_list = []
         for file_path in file_paths:

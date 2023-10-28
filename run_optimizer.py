@@ -325,7 +325,7 @@ def prepare_config(_params, _script_mode=False):
 
 
 # noinspection DuplicatedCode
-def build_setting(_args,  _run_time):
+def build_setting(_args, _run_time):
     return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}_{}'.format(
         _args.task_name,
         _args.model_id,
@@ -463,10 +463,10 @@ def get_search_space(_model):
 
         # avg
         # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
-        # 'moving_avg': {'_type': 'single', '_value': 25},
+        'moving_avg': {'_type': 'single', '_value': 25},
         # adp_avg
-        'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
-        'moving_avg': {'_type': 'single', '_value': 41},
+        # 'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
+        # 'moving_avg': {'_type': 'single', '_value': 41},
     }
 
     fedformer_config = {
@@ -494,12 +494,12 @@ def get_search_space(_model):
     return {**default_config, **learning_config, **period_config, **model_config}
 
 
-h = HyperOptimizer(False, ['Autoformer', 'Crossformer'],
+h = HyperOptimizer(False, ['Autoformer', 'FEDformer', 'Crossformer'],
                    prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags,
                    check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(save_process=True, add_tags=[])
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0, False, False)
