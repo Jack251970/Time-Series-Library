@@ -115,17 +115,19 @@ class HyperOptimizer(object):
         """
         get the path of the specific data
         """
-        # get csv file name for other process under the root folder
-        if not _jump_data and _process_index != 0:
-            csv_file_path = self.data_csv_file_format.format(_process_index)
-            return csv_file_path
-
-        if not _jump_data:
-            # get csv file name for core process
-            csv_file_path = f'./data/{task_name}/data.csv'
-        else:
+        if _jump_data:
             # get csv file name for jump data
-            csv_file_path = f'./data/{self.jump_csv_file}'
+            csv_file_name = self.jump_csv_file
+            csv_file_path = f'./data/{csv_file_name}'
+        else:
+            if _process_index == 0:
+                # get csv file name for core process
+                csv_file_name = 'data.csv'
+                csv_file_path = f'./data/{task_name}/{csv_file_name}'
+            else:
+                # get csv file name for other processes
+                csv_file_name = self.data_csv_file_format.format(_process_index)
+                csv_file_path = f'./data/{task_name}/{csv_file_name}'
 
         return csv_file_path
 

@@ -3,23 +3,34 @@ import os
 from run_optimizer import h
 
 
-def contact_data_to_file(ori_file_format, dst_file, _process_number):
-    _max_process_index = _process_number - 1
-    for process_index in range(_max_process_index):
-        file = ori_file_format.format(process_index + 1)
-        if os.path.exists(file):
-            with open(file, "r") as f:
-                with open(dst_file, "a") as f1:
+def contact_data_to_file(core_process_file, other_process_files):
+    print(other_process_files + ' to ' + core_process_file)
+
+    if os.path.exists(core_process_file):
+        if os.path.exists(other_process_files):
+            with open(other_process_files, "r") as f:
+                with open(core_process_file, "a") as f1:
                     # skip the first line and write the remaining lines
                     f.readline()
                     for line in f:
                         f1.write(line)
             # delete file
-            os.remove(file)
+            os.remove(other_process_files)
+    else:
+        if os.path.exists(other_process_files):
+            with open(other_process_files, "r") as f:
+                with open(core_process_file, "a") as f1:
+                    for line in f:
+                        f1.write(line)
+            # delete file
+            os.remove(other_process_files)
 
 
 optimizer_settings = h.get_optimizer_settings()
 task_names = h.get_all_task_names()
+_max_process_index = optimizer_settings['process_number'] - 1
 for task_name in task_names:
-    contact_data_to_file(optimizer_settings['data_csv_file_format'], h.get_csv_file_path(task_name),
-                         optimizer_settings['process_number'])
+    for process_index in range(_max_process_index):
+        if process_index == 0:
+            continue
+        contact_data_to_file(h.get_csv_file_path(task_name), h.get_csv_file_path(task_name, process_index))
