@@ -2,6 +2,7 @@ import math
 
 import torch
 import torch.nn as nn
+from einops import rearrange
 
 
 # You can know more in https://zhuanlan.zhihu.com/p/374936725.
@@ -186,6 +187,67 @@ class DataEmbedding_no_pos(nn.Module):
         return self.dropout(x)
 
 
+class DSWEmbedding(nn.Module):
+    """
+    Dimension-Segment-Wise (DSW) embedding
+    Paper: CROSSFORMER: TRANSFORMER UTILIZING CROSS-DIMENSION DEPENDENCY FOR MULTIVARIATE TIME SERIES FORECASTING
+    """
+    def __init__(self, seg_len, d_model, padding, pos_embed=False, padding_start=True):
+        super(DSWEmbedding, self).__init__()
+        self.seg_len = seg_len
+
+        # CHANGE: We set the bias to False compared to the codes of the original paper.
+        self.value_embedding = nn.Linear(seg_len, d_model, bias=False)
+
+        # CHANGE: The codes of the original paper do not have the positional embedding.
+        self.pos_embed = pos_embed
+        if pos_embed:
+            self.position_embedding = PositionalEmbedding(d_model)
+
+        # CHANGE: The codes of the original paper pad in the start of a sequence, which means padding_start equals True.
+        self.padding = padding
+        self.padding_start = padding_start
+
+    def forward(self, x):  # [32, 16, 14]
+        """
+        x : [B, S, F]
+        B: batch size, S: sequence lengt, F: feature dimension
+        x_padding : [B, L, F]
+        B: batch size, L: (sequence length + padding length), F: feature dimension
+        """
+        # padding for input sequence
+        if self.padding != 0:
+            if self.padding_start:
+                # padding for input sequence on the left side
+                # This is the codes of the original paper.
+                x_padding = torch.cat((x, x[:, 1:, :].expand(-1, self.padding, -1)), dim=1)
+            else:
+                # padding for input sequence on the right side
+                # This is the implementation of the codes of PatchEmbedding in PatchTSE model.
+                x_padding = torch.cat((x[:, :1, :].expand(-1, self.padding, -1), x), dim=1)
+        else:
+            x_padding = x
+
+        # get the shape of input sequence
+        B, _, F = x_padding.shape  # [32, 24, 14]
+
+        # segment the input sequence and flatten the batch and feature dimensions: [32, (2 * 12), 14] -> [896, 12]
+        x_segment = rearrange(x_padding, 'b (seg_num seg_len) d -> (b d seg_num) seg_len', seg_len=self.seg_len)
+        # embed the segmented input sequence
+        x_embed = self.value_embedding(x_segment)
+
+        if self.pos_embed:
+            x_embed = rearrange(x_padding, '(b d seg_num) seg_len -> (b d) seg_num seg_len', seg_len=self.seg_len,
+                                seg_num=self.seg_num)
+            x_embed += self.position_embedding(x_embed)
+            x_embed = rearrange(x_embed, '(b d) seg_num seg_len -> (b d seg_num) seg_len', seg_len=self.seg_len)
+
+        # reshape the embedded sequence: [(32 * 14 * 2), 512] -> [32, 14, 2, 512]
+        x_embed = rearrange(x_embed, '(b d seg_num) d_model -> b d seg_num d_model', b=B, d=F)
+
+        return x_embed
+
+
 class PatchEmbedding(nn.Module):
     def __init__(self, d_model, patch_len, stride, padding, dropout):
         super(PatchEmbedding, self).__init__()
@@ -204,11 +266,22 @@ class PatchEmbedding(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        # do patching
-        n_vars = x.shape[1]
+        """
+        x : [B, F, S]
+        B: batch size, F: feature dimension, S: sequence length
+        """
+        B, F, S = x.shape
+
+        # padding in the end of the sequence
         x = self.padding_patch_layer(x)
+
+        # unfold the sequence (segment it)
         x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+
+        # flatten the batch dimension and feature dimension
         x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))
-        # Input encoding
+
+        # input encoding
         x = self.value_embedding(x) + self.position_embedding(x)
-        return self.dropout(x), n_vars
+
+        return self.dropout(x), F
