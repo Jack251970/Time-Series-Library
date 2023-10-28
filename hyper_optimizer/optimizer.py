@@ -31,13 +31,14 @@ class HyperOptimizer(object):
         # all mode settings
         self.seed = 2021  # random seed
         self.add_tags = []  # added tags in the model id
-        self.jump_csv_file_path = 'jump_data.csv'  # config data to be jumped
-        self.csv_file_path_format = 'data_{}.csv'  # config data to be stored in other processes
+        self.jump_csv_file = 'jump_data.csv'  # config data to be jumped
+        self.data_csv_file_format = 'data_{}.csv'  # config data to be stored in other processes
         self.max_process_index = 0  # the maximum index of the processes
         self.save_process = True  # whether to save process
 
-        # init experiment
+        # init experiment and parameters
         self.Exp = None
+        self.parameters = None
 
         if not self.script_mode:
             # non script mode settings
@@ -53,7 +54,6 @@ class HyperOptimizer(object):
             # fieldnames
             self.all_fieldnames = get_fieldnames('all')  # all fieldnames
             self.checked_fieldnames = get_fieldnames('checked')  # checked fieldnames
-            self.csv_data_fieldnames = get_fieldnames('csv_data')  # csv data fieldnames
 
             # non script mode functions
             self.check_jump_experiment = check_jump_experiment  # check if we need to jump the experiment
@@ -69,16 +69,16 @@ class HyperOptimizer(object):
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
-    def config_optimizer_settings(self, random_seed=None, add_tags=None, jump_csv_file_path=None,
-                                  csv_file_path_format=None, process_number=None, save_process=None):
+    def config_optimizer_settings(self, random_seed=None, add_tags=None, jump_csv_file=None, data_csv_file_format=None,
+                                  process_number=None, save_process=None):
         if random_seed is not None:
             self.seed = random_seed
         if add_tags is not None:
             self.add_tags = add_tags
-        if jump_csv_file_path is not None:
-            self.jump_csv_file_path = jump_csv_file_path
-        if csv_file_path_format is not None:
-            self.csv_file_path_format = csv_file_path_format
+        if jump_csv_file is not None:
+            self.jump_csv_file = jump_csv_file
+        if data_csv_file_format is not None:
+            self.data_csv_file_format = data_csv_file_format
         if process_number is not None:
             self.max_process_index = process_number + 1
         if save_process is not None:
@@ -92,8 +92,8 @@ class HyperOptimizer(object):
         all_mode_settings = {
             'random_seed': self.seed,
             'add_tags': self.add_tags,
-            'jump_csv_file_path': self.jump_csv_file_path,
-            'csv_file_path_format': self.csv_file_path_format,
+            'jump_csv_file': self.jump_csv_file,
+            'data_csv_file_format': self.data_csv_file_format,
             'process_number': self.max_process_index + 1,
             'save_process': self.save_process,
         }
@@ -103,7 +103,6 @@ class HyperOptimizer(object):
             'search_spaces': self.search_spaces,
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
-            'csv_data_fieldnames': self.csv_data_fieldnames,
         }
 
         if self.script_mode:
@@ -111,30 +110,44 @@ class HyperOptimizer(object):
         else:
             return {**core_setting, **all_mode_settings, **non_script_mode_settings}
 
-    def get_csv_file_path(self):
+    def get_csv_file_path(self, _process_index=0, _jump_data=False):
         """
         get the path of the specific data
         """
-        csv_file_path = 'data.csv'
+        # get all possible parameters
+        if self.parameters is None:
+            self.parameters = self._parse_search_space()
+        parameters = self.parameters
 
-        fieldnames = self.csv_data_fieldnames
-        search_space = self.search_spaces[self.models[0]]
+        # get csv file name for other process under the root folder
+        if not _jump_data and _process_index != 0:
+            csv_file = self.data_csv_file_format.format(_process_index)
+            return csv_file
 
-        format_csv_file_path = csv_file_path[:-4]
-        for key in fieldnames:
-            if search_space[key]['_type'] == 'single':
-                value = search_space[key]['_value']
-            else:
-                raise NotImplementedError
-            format_csv_file_path = format_csv_file_path + '_' + str(value)
-        format_csv_file_path = format_csv_file_path + '.csv'
+        if not _jump_data:
+            # get csv file name for core process
+            csv_file = 'data.csv'
+        else:
+            # get csv file name for jump data
+            csv_file = self.jump_csv_file
 
-        return format_csv_file_path
+        # get the task name
+        task_name = parameters[0]['task_name']
+        file_path = f'./data/{task_name}'
+
+        # check the folder path
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+
+        csv_file_path = f'{file_path}/{csv_file}'
+        return csv_file_path
 
     # noinspection DuplicatedCode
     def output_script(self, _data):
         # get all possible parameters
-        parameters = self._parse_search_space()
+        if self.parameters is None:
+            self.parameters = self._parse_search_space()
+        parameters = self.parameters
 
         # get the task name
         task_name = parameters[0]['task_name']
@@ -192,7 +205,7 @@ class HyperOptimizer(object):
                                 f.write('\t--model $model_name\\\n')
                             f.write(f'\t--{key} {parameter[key]} \\\n')
                         f.write('\n')
-        
+
         # print the info of the successful output
         print(f'We successfully output the scripts in ./scripts/{task_name}/{_data}_script/')
 
@@ -220,11 +233,8 @@ class HyperOptimizer(object):
             raise ValueError(f'The index of the process {_process_index} is out of range!')
 
         # init the name of local data file and jumped data file
-        if _process_index == 0:
-            _csv_file_path = self.get_csv_file_path()
-        else:
-            _csv_file_path = self.csv_file_path_format.format(_process_index)
-        _jump_csv_file_path = self.jump_csv_file_path
+        _csv_file_path = self.get_csv_file_path(_process_index=_process_index, _jump_data=False)
+        _jump_csv_file_path = self.get_csv_file_path(_process_index=_process_index, _jump_data=True)
 
         # init the head of local data file and jumped data file
         self._init_header(_csv_file_path)
@@ -234,13 +244,11 @@ class HyperOptimizer(object):
         if _process_index == 0:
             config_list = self._get_config_list(_csv_file_path)
         else:
-            config_list = self._get_config_list(_csv_file_path)
-            _ = self._get_config_list(self.get_csv_file_path())
-            config_list.extend(_)
+            config_list = self._get_config_list([_csv_file_path, self.get_csv_file_path(_process_index=0)])
         jump_config_list = self._get_config_list(_jump_csv_file_path)
 
         # get all possible parameters
-        parameters = self._parse_search_space()
+        parameters = self.parameters
 
         # filter combinations with the known rules or trying models
         filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
@@ -462,12 +470,19 @@ class HyperOptimizer(object):
                 _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
                 _writer.writeheader()
 
-    def _get_config_list(self, file_path):
+    def _get_config_list(self, file_paths):
+        if not isinstance(file_paths, list):
+            file_paths = [file_paths]
+
         _config_list = []
-        with open(file_path, 'r') as csv_file:
-            reader = csv.DictReader(csv_file, fieldnames=self.all_fieldnames)
-            for row in reader:
-                _config_list.append(row)
+        for file_path in file_paths:
+            _ = []
+            with open(file_path, 'r') as csv_file:
+                reader = csv.DictReader(csv_file, fieldnames=self.all_fieldnames)
+                for row in reader:
+                    _.append(row)
+            _config_list.extend(_)
+
         return _config_list
 
     def _check_config_data(self, config_data, _config_list):

@@ -371,9 +371,6 @@ def get_fieldnames(mode='all'):
                            'num_workers', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
-    # init the fieldnames need to be showed in csv data file name
-    csv_data_fieldnames = ['task_name']
-
     # init the required fieldnames
     required_fieldnames = ['task_name', 'is_training', 'model', 'data']
 
@@ -381,8 +378,6 @@ def get_fieldnames(mode='all'):
         return all_fieldnames
     elif mode == 'checked':
         return checked_fieldnames
-    elif mode == 'csv_data':
-        return csv_data_fieldnames
     elif mode == 'required':
         return required_fieldnames
     else:
