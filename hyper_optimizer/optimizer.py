@@ -47,9 +47,8 @@ class HyperOptimizer(object):
             self.models = models
 
             # search spaces
-            self.search_spaces = {}
-            for model in self.models:
-                self.search_spaces[model] = get_search_space(model)
+            self.get_search_space = get_search_space
+            self.search_spaces = None
             self._check_required_fieldnames(get_fieldnames('required'))
 
             # fieldnames
@@ -61,12 +60,9 @@ class HyperOptimizer(object):
 
     def _check_required_fieldnames(self, fieldnames):
         for model in self.models:
-            search_space = self.search_spaces[model]
+            search_space = self._get_search_spaces()[model]
             # check if the required fieldnames are in the search space
             for fieldname in fieldnames:
-                if fieldname == 'task_name':
-                    if search_space[fieldname]['_type'] != 'single':
-                        raise ValueError(f'The type of {fieldname} should be single!')
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
@@ -104,7 +100,7 @@ class HyperOptimizer(object):
 
         non_script_mode_settings = {
             'models': self.models,
-            'search_spaces': self.search_spaces,
+            'search_spaces': self._get_search_spaces(),
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
         }
@@ -300,13 +296,30 @@ class HyperOptimizer(object):
 
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
+    def _get_search_spaces(self):
+        """
+
+        """
+        if self.search_spaces is not None:
+            return self.search_spaces
+
+        search_spaces = {}
+        for model in self.models:
+            search_spaces[model] = self.get_search_space(model)
+
+        self.search_spaces = search_spaces
+        return search_spaces
+
     def _get_parameters(self):
+        """
+
+        """
         if self._parameters is not None:
             return self._parameters
 
         _parameters = []
         for model in self.models:
-            search_space = self.search_spaces[model]
+            search_space = self._get_search_spaces()[model]
 
             # build parameters to be optimized from _search_space
             _params = {}
