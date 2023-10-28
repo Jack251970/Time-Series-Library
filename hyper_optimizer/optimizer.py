@@ -39,7 +39,7 @@ class HyperOptimizer(object):
 
         # init experiment and parameters
         self.Exp = None
-        self.parameters = None
+        self._parameters = None
 
         if not self.script_mode:
             # non script mode settings
@@ -119,9 +119,7 @@ class HyperOptimizer(object):
         get the path of the specific data
         """
         # get all possible parameters
-        if self.parameters is None:
-            self.parameters = self._parse_search_space()
-        parameters = self.parameters
+        parameters = self._get_parameters()
 
         # get csv file name for other process under the root folder
         if not _jump_data and _process_index != 0:
@@ -149,9 +147,7 @@ class HyperOptimizer(object):
     # noinspection DuplicatedCode
     def output_script(self, _data):
         # get all possible parameters
-        if self.parameters is None:
-            self.parameters = self._parse_search_space()
-        parameters = self.parameters
+        parameters = self._get_parameters()
 
         # get the task name
         task_name = parameters[0]['task_name']
@@ -253,7 +249,7 @@ class HyperOptimizer(object):
         jump_config_list = self._get_config_list(_jump_csv_file_path)
 
         # get all possible parameters
-        parameters = self.parameters
+        parameters = self._get_parameters()
 
         # filter combinations with the known rules or trying models
         filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
@@ -304,9 +300,11 @@ class HyperOptimizer(object):
 
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
-    def _parse_search_space(self):
-        _parameters = []
+    def _get_parameters(self):
+        if self._parameters is not None:
+            return self._parameters
 
+        _parameters = []
         for model in self.models:
             search_space = self.search_spaces[model]
 
@@ -333,6 +331,7 @@ class HyperOptimizer(object):
                 parameter = {param: value for param, value in zip(_params.keys(), combination)}
                 _parameters.append(parameter)
 
+        self._parameters = _parameters
         return _parameters
 
     def _filter_parameters(self, _parameters, _jump_config_list, _config_list, _jump_csv_file_path,
@@ -478,7 +477,7 @@ class HyperOptimizer(object):
         if not isinstance(file_paths, list):
             file_paths = [file_paths]
 
-        task_name = self.parameters[0]['task_name']
+        task_name = self._get_parameters()[0]['task_name']
         root_path = f'./data/{task_name}'
         if scan_all_csv:
             # get all csv file under the path
