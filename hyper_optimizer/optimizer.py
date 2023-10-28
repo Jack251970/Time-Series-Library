@@ -145,9 +145,6 @@ class HyperOptimizer(object):
         # get all possible parameters
         parameters = self._get_parameters()
 
-        # get the task name
-        task_name = parameters[0]['task_name']
-
         # filter the parameters according to the model
         model_parameters = {}
         for parameter in parameters:
@@ -158,56 +155,64 @@ class HyperOptimizer(object):
 
         # save the script of each model
         for model in model_parameters:
-            parameters = model_parameters[model]
+            model_parameter = model_parameters[model]
 
-            # get the path of the specific script
-            script_path = f'./scripts/{task_name}/{_data}_script/{model}.sh'
+            # filter the parameters according to the task name
+            task_parameters = {}
+            for parameter in model_parameter:
+                task_name = parameter['task_name']
+                if task_name not in task_parameters:
+                    task_parameters[task_name] = []
+                task_parameters[task_name].append(parameter)
 
-            # create the folder of the specific script
-            if not os.path.exists(os.path.dirname(script_path)):
-                os.makedirs(os.path.dirname(script_path))
+            for task in task_parameters:
+                parameters = task_parameters[task]
 
-            # get the time
-            t = time.localtime()
-            _run_time = time.strftime('%Y-%m-%d %H:%M:%S', t)
+                # get the path of the specific script
+                script_path = f'./scripts/{task}/{_data}_script'
 
-            # write the script
-            if not os.path.exists(script_path):
-                with open(script_path, 'w') as f:
-                    # write the header of the script
-                    f.write(f'# This script is created by hyper_optimizer at {_run_time}.\n')
-                    f.write('\n')
-                    f.write('export CUDA_VISIBLE_DEVICES=1\n')
-                    f.write('\n')
-                    f.write('model_name=' + f'{model}' + '\n')
-                    f.write('\n')
+                # create the folder of the specific script
+                if not os.path.exists(script_path):
+                    os.makedirs(script_path)
+
+                # get the time
+                t = time.localtime()
+                _run_time = time.strftime('%Y-%m-%d %H:%M:%S', t)
+
+                # write the script of the same model and same task
+                script_file = f'{script_path}/{model}.sh'
+                if not os.path.exists(script_file):
+                    with open(script_file, 'w') as f:
+                        # write the header of the script
+                        f.write(f'# This script is created by hyper_optimizer at {_run_time}.\n')
+                        f.write('\n')
+                        f.write('export CUDA_VISIBLE_DEVICES=1\n')
+                        f.write('\n')
+                        f.write('model_name=' + f'{model}' + '\n')
+                        f.write('\n')
+                        # write the content of the script
+                        for parameter in parameters:
+                            f.write(f'# This segment is writen at {_run_time}.\n')
+                            f.write('python -u run.py \\\n')
+                            for key in parameter:
+                                if key == 'model':
+                                    f.write('\t--model $model_name\\\n')
+                                f.write(f'\t--{key} {parameter[key]} \\\n')
+                            f.write('\n')
+                else:
                     # write the content of the script
-                    for parameter in parameters:
-                        f.write(f'# This segment is writen at {_run_time}.\n')
-                        f.write('python -u run.py \\\n')
-                        for key in parameter:
-                            if key == 'model':
-                                f.write('\t--model $model_name\\\n')
-                            f.write(f'\t--{key} {parameter[key]} \\\n')
-                        f.write('\n')
-            else:
-                # write the content of the script
-                with open(script_path, 'a') as f:
-                    for parameter in parameters:
-                        f.write(f'# This segment is writen at {_run_time}.\n')
-                        f.write('python -u run.py \\\n')
-                        for key in parameter:
-                            if key == 'model':
-                                f.write('\t--model $model_name\\\n')
-                            f.write(f'\t--{key} {parameter[key]} \\\n')
-                        f.write('\n')
+                    with open(script_file, 'a') as f:
+                        for parameter in parameters:
+                            f.write(f'# This segment is writen at {_run_time}.\n')
+                            f.write('python -u run.py \\\n')
+                            for key in parameter:
+                                if key == 'model':
+                                    f.write('\t--model $model_name\\\n')
+                                f.write(f'\t--{key} {parameter[key]} \\\n')
+                            f.write('\n')
 
         # print the info of the successful output
-        print(f'We successfully output the scripts in ./scripts/{task_name}/{_data}_script/')
-
-        # print the command to run the script
-        print(f'You can run the following command to run the script:')
-        print(f'bash ./scripts/{task_name}/{_data}_script/*.sh')
+        print(f'We successfully output the scripts in scripts folder!')
 
     def start_search(self, _process_index=0, _try_model=True, _force=False):
         # run directly under script mode
@@ -297,23 +302,18 @@ class HyperOptimizer(object):
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
     def _get_search_spaces(self):
-        """
-
-        """
         if self.search_spaces is not None:
             return self.search_spaces
 
         search_spaces = {}
         for model in self.models:
-            search_spaces[model] = self.get_search_space(model)
+            search_space = self.get_search_space(model)
+            search_spaces[model] = search_space
 
         self.search_spaces = search_spaces
         return search_spaces
 
     def _get_parameters(self):
-        """
-
-        """
         if self._parameters is not None:
             return self._parameters
 
