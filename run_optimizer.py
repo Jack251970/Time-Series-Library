@@ -375,7 +375,7 @@ def get_fieldnames(mode='all'):
     csv_data_fieldnames = ['task_name']
 
     # init the required fieldnames
-    required_fieldnames = ['task_name', 'is_training', 'model_id', 'model', 'data']
+    required_fieldnames = ['task_name', 'is_training', 'model', 'data']
 
     if mode == 'all':
         return all_fieldnames
@@ -413,7 +413,7 @@ def get_model_id_tags(_args, _add_tags):
 
 
 # noinspection DuplicatedCode
-def get_search_space(_model='Autoformer'):
+def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'long_term_forecast'},
         'is_training': {'_type': 'single', '_value': 1},
@@ -499,9 +499,11 @@ def get_search_space(_model='Autoformer'):
     return {**default_config, **learning_config, **period_config, **model_config}
 
 
-h = HyperOptimizer(False, prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
+h = HyperOptimizer(False, ['Autoformer', 'Crossformer'],
+                   prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, add_tags=[],
                    check_jump_experiment=check_jump_experiment)
 
 if __name__ == "__main__":
+    # h.output_script('Power')
     h.start_search(0, False, False)

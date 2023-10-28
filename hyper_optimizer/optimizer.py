@@ -17,9 +17,10 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 
 class HyperOptimizer(object):
-    def __init__(self, script_mode, prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
-                 get_model_id_tags=None, add_tags=None, check_jump_experiment=None, jump_csv_file_path='jump_data.csv',
-                 csv_file_path_format="data_{}.csv", process_number=1, random_seed=2021, save_process=True):
+    def __init__(self, script_mode, models, prepare_config, build_setting, build_config_dict, get_fieldnames,
+                 get_search_space, get_model_id_tags=None, add_tags=None, check_jump_experiment=None,
+                 jump_csv_file_path='jump_data.csv', csv_file_path_format="data_{}.csv", process_number=1,
+                 random_seed=2021, save_process=True):
         # script mode
         self.script_mode = script_mode
 
@@ -50,13 +51,18 @@ class HyperOptimizer(object):
         self.save_process = save_process
 
         if not self.script_mode:
+            # models
+            self.models = models
+
             # get fieldnames
             self.all_fieldnames = get_fieldnames('all')
             self.checked_fieldnames = get_fieldnames('checked')
             self.csv_data_fieldnames = get_fieldnames('csv_data')
 
-            # function to get search space
-            self.search_space = get_search_space()
+            # search spaces
+            self.search_spaces = {}
+            for model in self.models:
+                self.search_spaces[model] = get_search_space(model)
             self._check_required_fieldnames(get_fieldnames('required'))
 
             # function to check if we need to jump the experiment
@@ -72,9 +78,15 @@ class HyperOptimizer(object):
             self.max_process_index = process_number - 1
 
     def _check_required_fieldnames(self, fieldnames):
-        for fieldname in fieldnames:
-            if fieldname not in self.all_fieldnames:
-                raise ValueError(f'The fieldname {fieldname} is not in the all fieldnames!')
+        for model in self.models:
+            search_space = self.search_spaces[model]
+            # check if the required fieldnames are in the search space
+            for fieldname in fieldnames:
+                if fieldname == 'task_name':
+                    if search_space[fieldname]['_type'] != 'single':
+                        raise ValueError(f'The type of {fieldname} should be single!')
+                if fieldname not in search_space.keys():
+                    raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
     def config_optimizer_settings(self, jump_csv_file_path=None, csv_file_path_format=None, max_process_index=None,
                                   seed=None):
@@ -94,10 +106,13 @@ class HyperOptimizer(object):
             'csv_file_path_format': self.csv_file_path_format,
             'process_number': self.max_process_index + 1,
             'random_seed': self.seed,
-            'search_space': self.search_space,
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
             'csv_data_fieldnames': self.csv_data_fieldnames,
+            'add_tags': self.add_tags,
+            'save_process': self.save_process,
+            'models': self.models,
+            'search_spaces': self.search_spaces
         }
 
     def get_csv_file_path(self):
@@ -107,7 +122,7 @@ class HyperOptimizer(object):
         csv_file_path = 'data.csv'
 
         fieldnames = self.csv_data_fieldnames
-        search_space = self.search_space
+        search_space = self.search_spaces[self.models[0]]
 
         format_csv_file_path = csv_file_path[:-4]
         for key in fieldnames:
@@ -122,58 +137,72 @@ class HyperOptimizer(object):
 
     # noinspection DuplicatedCode
     def output_script(self, _data):
-        # get all possible combinations of parameters and the blank parameter template
-        combinations, params = self._parse_search_space()
+        # get all possible parameters
+        parameters = self._parse_search_space()
 
-        # filter combinations with the known rules and invert combination to parameters
-        parameters = self._filter_combinations(combinations, params, [], [], None,
-                                               0, try_model=False, force=True, print_info=False)
-
-        # get task name, data name, and model
+        # get the task name
         task_name = parameters[0]['task_name']
-        model = parameters[0]['model']
 
-        # get the path of the specific script
-        script_path = f'./scripts/{task_name}/{_data}_script/{model}.sh'
+        # filter the parameters according to the model
+        model_parameters = {}
+        for parameter in parameters:
+            model = parameter['model']
+            if model not in model_parameters:
+                model_parameters[model] = []
+            model_parameters[model].append(parameter)
 
-        # create the folder of the specific script
-        if not os.path.exists(os.path.dirname(script_path)):
-            os.makedirs(os.path.dirname(script_path))
+        # save the script of each model
+        for model in model_parameters:
+            parameters = model_parameters[model]
 
-        # get the time
-        t = time.localtime()
-        _run_time = time.strftime('%Y-%m-%d %H:%M:%S', t)
+            # get the path of the specific script
+            script_path = f'./scripts/{task_name}/{_data}_script/{model}.sh'
 
-        # write the script
-        if not os.path.exists(script_path):
-            with open(script_path, 'w') as f:
-                # write the header of the script
-                f.write(f'# This script is created by hyper_optimizer at {_run_time}.\n')
-                f.write('\n')
-                f.write('export CUDA_VISIBLE_DEVICES=1\n')
-                f.write('\n')
-                f.write('model_name=' + f'{model}' + '\n')
-                f.write('\n')
+            # create the folder of the specific script
+            if not os.path.exists(os.path.dirname(script_path)):
+                os.makedirs(os.path.dirname(script_path))
+
+            # get the time
+            t = time.localtime()
+            _run_time = time.strftime('%Y-%m-%d %H:%M:%S', t)
+
+            # write the script
+            if not os.path.exists(script_path):
+                with open(script_path, 'w') as f:
+                    # write the header of the script
+                    f.write(f'# This script is created by hyper_optimizer at {_run_time}.\n')
+                    f.write('\n')
+                    f.write('export CUDA_VISIBLE_DEVICES=1\n')
+                    f.write('\n')
+                    f.write('model_name=' + f'{model}' + '\n')
+                    f.write('\n')
+                    # write the content of the script
+                    for parameter in parameters:
+                        f.write(f'# This segment is writen at {_run_time}.\n')
+                        f.write('python -u run.py \\\n')
+                        for key in parameter:
+                            if key == 'model':
+                                f.write('\t--model $model_name\\\n')
+                            f.write(f'\t--{key} {parameter[key]} \\\n')
+                        f.write('\n')
+            else:
                 # write the content of the script
-                for parameter in parameters:
-                    f.write(f'# This segment is writen at {_run_time}.\n')
-                    f.write('python -u run.py \\\n')
-                    for key in parameter:
-                        if key == 'model':
-                            f.write('\t--model $model_name\\\n')
-                        f.write(f'\t--{key} {parameter[key]} \\\n')
-                    f.write('\n')
-        else:
-            # write the content of the script
-            with open(script_path, 'a') as f:
-                for parameter in parameters:
-                    f.write(f'# This segment is writen at {_run_time}.\n')
-                    f.write('python -u run.py \\\n')
-                    for key in parameter:
-                        if key == 'model':
-                            f.write('\t--model $model_name\\\n')
-                        f.write(f'\t--{key} {parameter[key]} \\\n')
-                    f.write('\n')
+                with open(script_path, 'a') as f:
+                    for parameter in parameters:
+                        f.write(f'# This segment is writen at {_run_time}.\n')
+                        f.write('python -u run.py \\\n')
+                        for key in parameter:
+                            if key == 'model':
+                                f.write('\t--model $model_name\\\n')
+                            f.write(f'\t--{key} {parameter[key]} \\\n')
+                        f.write('\n')
+        
+        # print the info of the successful output
+        print(f'We successfully output the scripts in ./scripts/{task_name}/{_data}_script/')
+
+        # print the command to run the script
+        print(f'You can run the following command to run the script:')
+        print(f'bash ./scripts/{task_name}/{_data}_script/*.sh')
 
     def start_search(self, _process_index=0, _try_model=True, _force=False):
         # run directly under script mode
@@ -214,26 +243,26 @@ class HyperOptimizer(object):
             config_list.extend(_)
         jump_config_list = self._get_config_list(_jump_csv_file_path)
 
-        # get all possible combinations of parameters and the blank parameter template
-        combinations, params = self._parse_search_space()
+        # get all possible parameters
+        parameters = self._parse_search_space()
 
-        # filter combinations with the known rules and invert combination to parameters
-        parameters = self._filter_combinations(combinations, params, jump_config_list, config_list, _jump_csv_file_path,
-                                               _process_index, try_model=_try_model, force=_force)
+        # filter combinations with the known rules or trying models
+        filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
+                                                      _process_index, try_model=_try_model, force=_force)
 
         # equally distribute the parameters according to the number of processes
         # parameters = parameters[_process_index::(max_process_index + 1)]: It's in the order of the loops.
         # It's in the order in which they are arranged.
-        parameters = self._distribute_parameters(parameters, _process_index)
+        process_parameters = self._distribute_parameters(filtered_parameters, _process_index)
 
         # find total times
-        total_times = len(parameters)
+        total_times = len(process_parameters)
         print(f'Start total {total_times} experiments:\n')
 
         # iterate through the combinations and start searching by enumeration
         _time = 1
         finish_time = 0
-        for parameter in parameters:
+        for parameter in process_parameters:
             # parse launch parameters and load default config
             args = self.prepare_config(parameter)
 
@@ -267,27 +296,83 @@ class HyperOptimizer(object):
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
     def _parse_search_space(self):
-        search_space = self.search_space
+        search_spaces = self.search_spaces
+        _parameters = []
 
-        # build parameters to be optimized from _search_space
-        _params = {}
-        for key in search_space:
-            _params[key] = None  # _search_space[key]['_value']
+        for model in self.models:
+            search_space = self.search_spaces[model]
 
-        # get range of parameters for parameters from _search_space
-        _parameters_range = {}
-        for key in search_space:
-            if search_space[key]['_type'] == 'single':
-                _parameters_range[key] = [search_space[key]['_value']]
-            elif search_space[key]['_type'] == 'choice':
-                _parameters_range[key] = search_space[key]['_value']
-            else:
-                raise ValueError(f'The type of {key} is not supported!')
+            # build parameters to be optimized from _search_space
+            _params = {}
+            for key in search_space:
+                _params[key] = None  # _search_space[key]['_value']
 
-        # generate all possible combinations of parameters within the specified ranges
-        _combinations = list(product(*[_parameters_range[param] for param in _params]))
+            # get range of parameters for parameters from _search_space
+            _parameters_range = {}
+            for key in search_space:
+                if search_space[key]['_type'] == 'single':
+                    _parameters_range[key] = [search_space[key]['_value']]
+                elif search_space[key]['_type'] == 'choice':
+                    _parameters_range[key] = search_space[key]['_value']
+                else:
+                    raise ValueError(f'The type of {key} is not supported!')
 
-        return _combinations, _params
+            # generate all possible combinations of parameters within the specified ranges
+            _combinations = list(product(*[_parameters_range[param] for param in _params]))
+
+            # invert combinations to parameters and collect them
+            for combination in _combinations:
+                parameter = {param: value for param, value in zip(_params.keys(), combination)}
+                _parameters.append(parameter)
+
+        return _parameters
+
+    def _filter_parameters(self, _parameters, _jump_config_list, _config_list, _jump_csv_file_path,
+                           _process_index, try_model=True, force=False, print_info=True):
+        if print_info:
+            print(f"We are filtering the parameters, please wait util it done to start other processes!")
+
+            if force:
+                print(f'We are forced to run the experiments that we have done in the csv data!')
+
+        jump_time = 0
+        filtered_parameters = []
+        if try_model is True:
+            _parameters = tqdm(_parameters)
+        for parameter in _parameters:
+            # check if we need to jump this experiment according to the known rules
+            if self.check_jump_experiment is not None and self.check_jump_experiment(parameter):
+                continue
+
+            # parse launch parameters and load default config
+            args = self.prepare_config(parameter)
+
+            # create a dict to store the configuration values
+            config = self._build_config_dict(args)
+
+            # check if the parameters of this experiment need to be jumped
+            if self._check_config_data(config, _jump_config_list) and not force:
+                continue
+
+            # check if the parameters of this experiment have been done
+            if self._check_config_data(config, _config_list) and not force:
+                continue
+
+            # check if the model of this experiment can work
+            if _process_index == 0 and try_model:
+                # check if the parameters of this experiment is improper
+                model_can_work = self._start_experiment(args, parameter, config, _try_model=True, _check_folder=False)
+                if not model_can_work:
+                    self._save_config_dict(_jump_csv_file_path, config)
+                    jump_time = jump_time + 1
+                    continue
+
+            filtered_parameters.append(parameter)
+
+        if jump_time > 0:
+            print(f"We found improper parameters and add {jump_time} experiments into {_jump_csv_file_path}!\n")
+
+        return filtered_parameters
 
     def _init_experiment(self, task_name):
         # fix random seed
@@ -366,54 +451,6 @@ class HyperOptimizer(object):
         random.seed(self.seed)
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
-
-    def _filter_combinations(self, _combinations, _params, _jump_config_list, _config_list, _jump_csv_file_path,
-                             _process_index, try_model=True, force=False, print_info=True):
-        if print_info:
-            print(f"We are filtering the parameters, please wait util it done to start other processes!")
-
-            if force:
-                print(f'We are forced to run the experiments that we have done in the csv data!')
-
-        jump_time = 0
-        filtered_parameters = []
-        for combination in tqdm(_combinations):
-            # invert combination to parameter
-            parameter = {param: value for param, value in zip(_params.keys(), combination)}
-
-            # check if we need to jump this experiment according to the known rules
-            if self.check_jump_experiment is not None and self.check_jump_experiment(parameter):
-                continue
-
-            # parse launch parameters and load default config
-            args = self.prepare_config(parameter)
-
-            # create a dict to store the configuration values
-            config = self._build_config_dict(args)
-
-            # check if the parameters of this experiment need to be jumped
-            if self._check_config_data(config, _jump_config_list) and not force:
-                continue
-
-            # check if the parameters of this experiment have been done
-            if self._check_config_data(config, _config_list) and not force:
-                continue
-
-            # check if the model of this experiment can work
-            if _process_index == 0 and try_model:
-                # check if the parameters of this experiment is improper
-                model_can_work = self._start_experiment(args, parameter, config, _try_model=True, _check_folder=False)
-                if not model_can_work:
-                    self._save_config_dict(_jump_csv_file_path, config)
-                    jump_time = jump_time + 1
-                    continue
-
-            filtered_parameters.append(parameter)
-
-        if jump_time > 0:
-            print(f"We found improper parameters and add {jump_time} experiments into {_jump_csv_file_path}!\n")
-
-        return filtered_parameters
 
     def _build_config_dict(self, _args):
         config_dict = self.build_config_dict_ori(_args)
