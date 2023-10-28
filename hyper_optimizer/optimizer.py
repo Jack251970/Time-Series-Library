@@ -305,7 +305,6 @@ class HyperOptimizer(object):
         print(f"We have finished {finish_time} times, {total_times} times in total!")
 
     def _parse_search_space(self):
-        search_spaces = self.search_spaces
         _parameters = []
 
         for model in self.models:
