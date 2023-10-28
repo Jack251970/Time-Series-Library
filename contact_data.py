@@ -19,5 +19,7 @@ def contact_data_to_file(ori_file_format, dst_file, _process_number):
 
 
 optimizer_settings = h.get_optimizer_settings()
-contact_data_to_file(optimizer_settings['data_csv_file_format'], h.get_csv_file_path(),
-                     optimizer_settings['process_number'])
+task_names = h.get_all_task_names()
+for task_name in task_names:
+    contact_data_to_file(optimizer_settings['data_csv_file_format'], h.get_csv_file_path(task_name),
+                         optimizer_settings['process_number'])

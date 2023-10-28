@@ -40,6 +40,7 @@ class HyperOptimizer(object):
         # init experiment and parameters
         self.Exp = None
         self._parameters = None
+        self._task_names = None
 
         if not self.script_mode:
             # non script mode settings
@@ -110,34 +111,22 @@ class HyperOptimizer(object):
         else:
             return {**core_setting, **all_mode_settings, **non_script_mode_settings}
 
-    def get_csv_file_path(self, _process_index=0, _jump_data=False):
+    def get_csv_file_path(self, task_name, _process_index=0, _jump_data=False):
         """
         get the path of the specific data
         """
-        # get all possible parameters
-        parameters = self._get_parameters()
-
         # get csv file name for other process under the root folder
         if not _jump_data and _process_index != 0:
-            csv_file = self.data_csv_file_format.format(_process_index)
-            return csv_file
+            csv_file_path = self.data_csv_file_format.format(_process_index)
+            return csv_file_path
 
         if not _jump_data:
             # get csv file name for core process
-            csv_file = 'data.csv'
+            csv_file_path = f'./data/{task_name}/data.csv'
         else:
             # get csv file name for jump data
-            csv_file = self.jump_csv_file
+            csv_file_path = f'./data/{self.jump_csv_file}'
 
-        # get the task name
-        task_name = parameters[0]['task_name']
-        file_path = f'./data/{task_name}'
-
-        # check the folder path
-        if not os.path.exists(file_path):
-            os.makedirs(file_path)
-
-        csv_file_path = f'{file_path}/{csv_file}'
         return csv_file_path
 
     # noinspection DuplicatedCode
@@ -214,6 +203,22 @@ class HyperOptimizer(object):
         # print the info of the successful output
         print(f'We successfully output the scripts in scripts folder!')
 
+    def get_all_task_names(self):
+        if self._task_names is not None:
+            return self._task_names
+
+        parameters = self._get_parameters()
+
+        # get all task names
+        task_names = []
+        for parameter in parameters:
+            task_name = parameter['task_name']
+            if task_name not in task_names:
+                task_names.append(task_name)
+
+        self._task_names = task_names
+        return task_names
+
     def start_search(self, _process_index=0, _try_model=True, _force=False):
         # run directly under script mode
         if self.script_mode:
@@ -233,21 +238,33 @@ class HyperOptimizer(object):
         if _process_index > self.max_process_index or _process_index < 0:
             raise ValueError(f'The index of the process {_process_index} is out of range!')
 
-        # init the name of local data file and jumped data file
-        _csv_file_path = self.get_csv_file_path(_process_index=_process_index, _jump_data=False)
-        _jump_csv_file_path = self.get_csv_file_path(_process_index=_process_index, _jump_data=True)
+        config_list = []
+        for task_name in self.get_all_task_names():
+            # data files are under './data/{task_name}'
+            # init the name of data file
+            _csv_file_path = self.get_csv_file_path(task_name, _process_index=_process_index)
 
-        # init the head of local data file and jumped data file
-        self._init_header(_csv_file_path)
+            # init the head of data file
+            self._init_header(_csv_file_path)
+
+            # load config list in data file
+            if _process_index == 0:
+                task_config_list = self._get_config_list(task_name, _csv_file_path, scan_all_csv=self.scan_all_csv)
+            else:
+                add_csv_file_path = self.get_csv_file_path(task_name, _process_index=0)
+                task_config_list = self._get_config_list(task_name, [_csv_file_path, add_csv_file_path],
+                                                         scan_all_csv=self.scan_all_csv)
+
+            # combine config list
+            config_list.extend(task_config_list)
+
+        # jumped data files are under './data'
+        # init the name of jumped data file
+        _jump_csv_file_path = self.get_csv_file_path(None, _process_index=_process_index, _jump_data=True)
+        # init the head of jumped data file
         self._init_header(_jump_csv_file_path)
-
-        # load config list in local data file and jumped data file
-        if _process_index == 0:
-            config_list = self._get_config_list(_csv_file_path, scan_all_csv=self.scan_all_csv)
-        else:
-            config_list = self._get_config_list([_csv_file_path, self.get_csv_file_path(_process_index=0)],
-                                                scan_all_csv=self.scan_all_csv)
-        jump_config_list = self._get_config_list(_jump_csv_file_path)
+        # load config list in jumped data file
+        jump_config_list = self._get_config_list(None, _jump_csv_file_path)
 
         # get all possible parameters
         parameters = self._get_parameters()
@@ -293,6 +310,7 @@ class HyperOptimizer(object):
 
             # save data if in training
             if parameter['is_training'] == 1:
+                _csv_file_path = self.get_csv_file_path(config['task_name'], _process_index=_process_index)
                 self._save_config_dict(_csv_file_path, config)
 
             print(f'>>>>>>> We have finished {_time}/{total_times}! >>>>>>>>>>>>>>>>>>>>>>>>>>\n')
@@ -481,18 +499,22 @@ class HyperOptimizer(object):
         return config_dict
 
     def _init_header(self, file_path):
+        # check the folder path
+        folder_path = os.path.dirname(file_path)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
         if not os.path.exists(file_path):
             with open(file_path, 'w', newline='') as csv_file:
                 _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
                 _writer.writeheader()
 
-    def _get_config_list(self, file_paths, scan_all_csv=False):
+    def _get_config_list(self, task_name, file_paths, scan_all_csv=False):
         if not isinstance(file_paths, list):
             file_paths = [file_paths]
 
-        task_name = self._get_parameters()[0]['task_name']
-        root_path = f'./data/{task_name}'
         if scan_all_csv:
+            root_path = f'./data/{task_name}'
             # get all csv file under the path
             for root, dirs, files in os.walk(root_path):
                 for file in files:
