@@ -18,7 +18,7 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 class HyperOptimizer(object):
     def __init__(self, script_mode, prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
-                 get_model_id_tags=None, check_jump_experiment=None, jump_csv_file_path='jump_data.csv',
+                 get_model_id_tags=None, add_tags=None, check_jump_experiment=None, jump_csv_file_path='jump_data.csv',
                  csv_file_path_format="data_{}.csv", process_number=1, random_seed=2021, save_process=True):
         # script mode
         self.script_mode = script_mode
@@ -34,6 +34,11 @@ class HyperOptimizer(object):
 
         # function to get tags
         self.get_tags = get_model_id_tags
+
+        # added tags
+        if add_tags is None:
+            add_tags = []
+        self.add_tags = add_tags
 
         # init experiment
         self.Exp = None
@@ -414,7 +419,7 @@ class HyperOptimizer(object):
         config_dict = self.build_config_dict_ori(_args)
         config_dict['seed'] = self.seed
         if self.get_tags is not None:
-            config_dict['model_id'] = config_dict['model_id'] + self.get_tags(_args)
+            config_dict['model_id'] = config_dict['model_id'] + self.get_tags(_args, self.add_tags)
 
         return config_dict
 

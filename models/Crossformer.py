@@ -13,11 +13,13 @@ from models.PatchTST import FlattenHead
 class Model(nn.Module):
     """
     Paper link: https://openreview.net/pdf?id=vSVLM2j9eie
-
+    Tips:
+    The codes of the original paper do not have the inner positional embedding, which means pos_embed equals False.
+    If you enable pos_embed, the performance will be improved.
     The codes of the original paper pad in the start of a sequence, which means padding_start equals True.
     """
 
-    def __init__(self, configs, seg_len=12, win_size=2, padding_start=True):
+    def __init__(self, configs, seg_len=12, win_size=2, padding_start=True, pos_embed=False):
         super(Model, self).__init__()
         self.task_name = configs.task_name
         self.enc_in = configs.enc_in
@@ -36,7 +38,7 @@ class Model(nn.Module):
         self.head_nf = configs.d_model * self.out_seg_num
 
         # Embedding
-        self.enc_value_embedding = DSWEmbedding(self.seg_len, configs.d_model)
+        self.enc_value_embedding = DSWEmbedding(self.seg_len, configs.d_model, pos_embed=pos_embed)
         # the learnable position embedding for position
         self.enc_pos_embedding = nn.Parameter(torch.randn(1, configs.enc_in, self.in_seg_num, configs.d_model))
         # the normalization layer for embedding

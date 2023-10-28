@@ -192,9 +192,11 @@ class DSWEmbedding(nn.Module):
     Dimension-Segment-Wise (DSW) embedding
     Paper: CROSSFORMER: TRANSFORMER UTILIZING CROSS-DIMENSION DEPENDENCY FOR MULTIVARIATE TIME SERIES FORECASTING
     """
+
     def __init__(self, seg_len, d_model, pos_embed=False):
         super(DSWEmbedding, self).__init__()
         self.seg_len = seg_len
+        self.d_model = d_model
 
         # CHANGE: We set the bias to False compared to the codes of the original paper.
         self.value_embedding = nn.Linear(seg_len, d_model, bias=False)
@@ -211,20 +213,32 @@ class DSWEmbedding(nn.Module):
         """
         B, _, F = x.shape  # [32, 24, 14]
 
-        # segment the input sequence and flatten the batch and feature dimensions: [32, (2 * 12), 14] -> [896, 12]
-        x_segment = rearrange(x, 'b (seg_num seg_len) d -> (b d seg_num) seg_len', seg_len=self.seg_len)
-
-        # embed the segmented input sequence
-        x_embed = self.value_embedding(x_segment)
-
         if self.pos_embed:
-            x_embed = rearrange(x_embed, '(b d seg_num) seg_len -> (b d) seg_num seg_len', seg_len=self.seg_len,
-                                seg_num=self.seg_num)
-            x_embed += self.position_embedding(x_embed)
-            x_embed = rearrange(x_embed, '(b d) seg_num seg_len -> (b d seg_num) seg_len', seg_len=self.seg_len)
+            # segment the input sequence and flatten the batch and feature dimensions
+            x_segment = rearrange(x, 'b (seg_num seg_len) d -> (b d) seg_num seg_len', b=B, d=F,
+                                  seg_len=self.seg_len)  # [32, (2 * 12), 14] -> [448, 2, 12]
 
-        # reshape the embedded sequence: [(32 * 14 * 2), 512] -> [32, 14, 2, 512]
-        x_embed = rearrange(x_embed, '(b d seg_num) d_model -> b d seg_num d_model', b=B, d=F)
+            # get the value embedding
+            e_v = self.value_embedding(x_segment)  # [448, 2, 512]
+
+            # get the position embedding
+            e_p = self.position_embedding(x_segment)  # [1, 2, 512]
+
+            x_embed = e_v + e_p  # [448, 2, 512]
+
+            # reshape the embedded sequence
+            x_embed = rearrange(x_embed, '(b d) seg_num d_model -> b d seg_num d_model', b=B, d=F,
+                                d_model=self.d_model)  # [(32 * 14), 2, 512] -> [32, 14, 2, 512]
+        else:
+            # segment the input sequence and flatten the batch, feature and segment length dimensions
+            # [32, (2 * 12), 14] -> [896, 12]
+            x_segment = rearrange(x, 'b (seg_num seg_len) d -> (b d seg_num) seg_len', seg_len=self.seg_len)
+
+            # get the value embedding
+            x_embed = self.value_embedding(x_segment)  # [896, 512]
+
+            # reshape the embedded sequence: [(32 * 14 * 2), 512] -> [32, 14, 2, 512]
+            x_embed = rearrange(x_embed, '(b d seg_num) d_model -> b d seg_num d_model', b=B, d=F)
 
         return x_embed
 
@@ -263,6 +277,8 @@ class PatchEmbedding(nn.Module):
         x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))  # [32, 14, 2, 12] -> [448, 2, 12]
 
         # input encoding
-        x = self.value_embedding(x) + self.position_embedding(x)
+        e_v = self.value_embedding(x)  # [448, 2, 512]
+        e_p = self.position_embedding(x)  # [1, 2, 512]
+        x = e_v + e_p
 
         return self.dropout(x), F
