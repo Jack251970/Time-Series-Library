@@ -390,7 +390,7 @@ def get_fieldnames(mode='all'):
 
 
 # noinspection DuplicatedCode
-def get_model_id_tags(_args):
+def get_model_id_tags(_args, _add_tags):
     tags = []
     if _args.learning_rate == 0.0001:
         tags.append('large_lr')
@@ -399,18 +399,21 @@ def get_model_id_tags(_args):
     elif _args.learning_rate == 0.00001:
         tags.append('small_lr')
 
+    for add_tag in _add_tags:
+        tags.append(add_tag)
+
     if len(tags) == 0:
         return ''
     else:
         tags_text = ''
         for label in tags:
-            tags_text = label + ', '
+            tags_text = tags_text + label + ', '
         tags_text = tags_text[:-2]
         return f'({tags_text})'
 
 
 # noinspection DuplicatedCode
-def get_search_space():
+def get_search_space(_model='Autoformer'):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'long_term_forecast'},
         'is_training': {'_type': 'single', '_value': 1},
@@ -428,17 +431,6 @@ def get_search_space():
         'freq': {'_type': 'single', '_value': 't'},
     }
 
-    model_config = {
-        # model mode 1: Autoformer
-        # 'model': {'_type': 'single', '_value': 'Autoformer'},
-
-        # model mode 2: FEDformer
-        'model': {'_type': 'single', '_value': 'FEDformer'},
-
-        # model mode 2: Autoformer, FEDformer
-        # 'model': {'_type': 'choice', '_value': ['Autoformer', 'FEDformer']},
-    }
-
     learning_config = {
         # learning mode 1: large lr
         'learning_rate': {'_type': 'single', '_value': 0.0001},
@@ -451,10 +443,6 @@ def get_search_space():
         # learning mode 3: small lr
         # 'learning_rate': {'_type': 'single', '_value': 0.00001},
         # 'train_epochs': {'_type': 'single', '_value': 20},
-    }
-
-    heads_config = {
-        'n_heads': {'_type': 'single', '_value': 8},
     }
 
     period_config = {
@@ -475,24 +463,45 @@ def get_search_space():
         'factor': {'_type': 'single', '_value': 2},
     }
 
-    decomp_config = {
+    autoformer_config = {
+        'model': {'_type': 'single', '_value': 'Autoformer'},
+
+        # avg
+        # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
+        # 'moving_avg': {'_type': 'single', '_value': 25},
+        # adp_avg
+        'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
+        'moving_avg': {'_type': 'single', '_value': 41},
+    }
+
+    fedformer_config = {
+        'model': {'_type': 'single', '_value': 'FEDformer'},
+
         # avg
         # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
         # 'moving_avg': {'_type': 'single', '_value': 25},
         # adp_avg
         'series_decomp_mode': {'_type': 'single', '_value': 'adp_avg'},
         'moving_avg': {'_type': 'single', '_value': 31},
-        # 'moving_avg': {'_type': 'choice', '_value': range(25, 42, 2)},
-        # all
-        # 'series_decomp_mode': {'_type': 'choice', '_value': ['avg', 'adp_avg']},
-        # 'moving_avg': {'_type': 'single', '_value': 25},
     }
 
-    return {**default_config, **model_config, **learning_config, **heads_config, **period_config, **decomp_config}
+    crossformer_config = {
+        'model': {'_type': 'single', '_value': 'Crossformer'},
+    }
+
+    model_configs = {
+        "Autoformer": autoformer_config,
+        "FEDformer": fedformer_config,
+        "Crossformer": crossformer_config,
+    }
+
+    model_config = model_configs[_model]
+    return {**default_config, **learning_config, **period_config, **model_config}
 
 
 h = HyperOptimizer(False, prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
-                   get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
+                   get_model_id_tags=get_model_id_tags, add_tags=[],
+                   check_jump_experiment=check_jump_experiment)
 
 if __name__ == "__main__":
     h.start_search(0, False, False)
