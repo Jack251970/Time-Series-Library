@@ -26,11 +26,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             self._check_folders([self.args.checkpoints, "./process"])
 
         path = os.path.join(self.args.checkpoints, setting)
-        if not os.path.exists(path):
+        if not os.path.exists(path) and not self.try_model:
             os.makedirs(path)
         
         process_path = './process/' + setting + '/'
-        if not os.path.exists(process_path):
+        if not os.path.exists(process_path) and not self.try_model:
             os.makedirs(process_path)
         self.process_path = process_path + 'long_term_forecast.txt'
 
@@ -68,13 +68,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                 # try model if needed
                 if self.try_model:
-                    with torch.cuda.amp.autocast():
-                        # noinspection PyBroadException
-                        try:
-                            self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                            return True
-                        except:
-                            return False
+                    # noinspection PyBroadException
+                    try:
+                        self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        return True
+                    except:
+                        return False
 
                 # encoder - decoder
                 if self.args.use_amp:

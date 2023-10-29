@@ -227,9 +227,6 @@ class HyperOptimizer(object):
             # parse launch parameters and load default config
             args = self.prepare_config(None, True)
 
-            # get the experiment type
-            self._init_experiment(args.task_name)
-
             # create a dict to store the configuration values
             config = self._build_config_dict(args)
 
@@ -290,9 +287,6 @@ class HyperOptimizer(object):
         for parameter in process_parameters:
             # parse launch parameters and load default config
             args = self.prepare_config(parameter)
-
-            # get the experiment type
-            self._init_experiment(args.task_name)
 
             # create a dict to store the configuration values
             config = self._build_config_dict(args)
@@ -377,8 +371,11 @@ class HyperOptimizer(object):
 
         jump_time = 0
         filtered_parameters = []
+
+        # if we need to try models, and then show the progress bar
         if try_model is True:
             _parameters = tqdm(_parameters)
+
         for parameter in _parameters:
             # check if we need to jump this experiment according to the known rules
             if self.check_jump_experiment is not None and self.check_jump_experiment(parameter):
@@ -402,6 +399,8 @@ class HyperOptimizer(object):
             if _process_index == 0 and try_model:
                 # check if the parameters of this experiment is improper
                 model_can_work = self._start_experiment(args, parameter, config, _try_model=True, _check_folder=False)
+
+                # if the model cannot work, and then add it to the jump data file
                 if not model_can_work:
                     self._save_config_dict(_jump_csv_file_path, config)
                     jump_time = jump_time + 1
@@ -438,19 +437,26 @@ class HyperOptimizer(object):
         # init time and setting
         t = time.localtime()
         _run_time = time.strftime('%Y-%m-%d %H-%M-%S', t)
+
+        # build the setting of the experiment
         _setting = self.build_setting(_args, _run_time)
+
+        # get the experiment type
+        self._init_experiment(_args.task_name)
 
         # try model if needed
         if _try_model:
+            # build the experiment
             exp = self.Exp(_args, try_model=True, save_process=False)
-            valid = exp.train(_setting, False)
+
+            # validate the model
+            valid = exp.train(_setting, check_folder=True)
+
+            # return the results
             return valid
 
         _mse, _mae, _acc = math.inf, math.inf, 0
         if _args.is_training:
-            # setting record of experiments
-            _setting = self.build_setting(_args, _run_time)
-
             # build the experiment
             exp = self.Exp(_args, try_model=False, save_process=self.save_process)
 

@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, LayerNorm, series_decomp
 from layers.Embed import DataEmbedding
-from layers.AutoCorrelation import AutoCorrelationLayer
 from layers.FourierCorrelation import FourierBlock, FourierCrossAttention
 from layers.MultiWaveletCorrelation import MultiWaveletCross, MultiWaveletTransform
-from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, LayerNorm, series_decomp
+from layers.SelfAttention_Family import AttentionLayer
 
 
 class Model(nn.Module):
@@ -80,7 +81,7 @@ class Model(nn.Module):
         self.encoder = Encoder(
             [
                 EncoderLayer(
-                    AutoCorrelationLayer(
+                    AttentionLayer(
                         encoder_self_att,  # instead of multi-head attention in transformer
                         configs.d_model, configs.n_heads),
                     configs.d_model,
@@ -97,10 +98,10 @@ class Model(nn.Module):
         self.decoder = Decoder(
             [
                 DecoderLayer(
-                    AutoCorrelationLayer(
+                    AttentionLayer(
                         decoder_self_att,
                         configs.d_model, configs.n_heads),
-                    AutoCorrelationLayer(
+                    AttentionLayer(
                         decoder_cross_att,
                         configs.d_model, configs.n_heads),
                     configs.d_model,

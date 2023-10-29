@@ -63,7 +63,7 @@ class Model(nn.Module):
                     AttentionLayer(
                         FullAttention(False, configs.factor, attention_dropout=configs.dropout,
                                       output_attention=configs.output_attention, de_stationary=True),
-                        configs.d_model, configs.n_heads),
+                        configs.d_model, configs.n_heads, de_stationary=True),
                     configs.d_model,
                     configs.d_ff,
                     dropout=configs.dropout,
@@ -82,11 +82,11 @@ class Model(nn.Module):
                         AttentionLayer(
                             FullAttention(True, configs.factor, attention_dropout=configs.dropout,
                                           output_attention=False, de_stationary=True),
-                            configs.d_model, configs.n_heads),
+                            configs.d_model, configs.n_heads, de_stationary=True),
                         AttentionLayer(
                             FullAttention(False, configs.factor, attention_dropout=configs.dropout,
                                           output_attention=False, de_stationary=True),
-                            configs.d_model, configs.n_heads),
+                            configs.d_model, configs.n_heads, de_stationary=True),
                         configs.d_model,
                         configs.d_ff,
                         dropout=configs.dropout,

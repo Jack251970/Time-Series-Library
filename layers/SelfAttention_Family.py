@@ -36,6 +36,8 @@ class FullAttention(nn.Module):
         :param keys: shape: [32, 16, 8, 64]
         :param values: shape: [32, 16, 8, 64]
         :param attn_mask:
+        :param tau: param related to de-stationary attention
+        :param delta: param related to de-stationary attention
         :return:
         """
         B, L, H, E = queries.shape
@@ -176,39 +178,91 @@ class AttentionLayer(nn.Module):
     Paper: Attention Is All You Need
     """
 
-    def __init__(self, attention, d_model, n_heads, d_keys=None, d_values=None):
+    def __init__(self, attention, d_model, n_heads, d_keys=None, d_values=None, de_stationary=False):
+        """
+
+        :param attention:
+        :param d_model: the embed size which is the input dimension size
+        :param n_heads: the head number of the multi-head attention
+        :param d_keys:
+        :param d_values:
+        """
         super(AttentionLayer, self).__init__()
+        self.inner_attention = attention
+        self.n_heads = n_heads
 
         d_keys = d_keys or (d_model // n_heads)
         d_values = d_values or (d_model // n_heads)
 
-        self.inner_attention = attention
+        # we use linear layers to get q, k, v
         self.query_projection = nn.Linear(d_model, d_keys * n_heads)
         self.key_projection = nn.Linear(d_model, d_keys * n_heads)
         self.value_projection = nn.Linear(d_model, d_values * n_heads)
+
+        # we use linear layers to get output
         self.out_projection = nn.Linear(d_values * n_heads, d_model)
-        self.n_heads = n_heads
+
+        self.de_stationary = de_stationary
 
     def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
-        B, L, _ = queries.shape
-        _, S, _ = keys.shape
+        """
+        32 is the batch size
+        16 is the input sequence length
+        512 is the d_model (from feature size)
+        :param queries: shape: [32, 16, 512]
+        :param keys: shape: [32, 16, 512]
+        :param values: shape: [32, 16, 512]
+        :param attn_mask:
+        :param tau: param related to de-stationary attention
+        :param delta: param related to de-stationary attention
+        :return:
+        """
+
+        B, Q, _ = queries.shape
+        _, K, _ = keys.shape
+        _, V, _ = values.shape
         H = self.n_heads
 
-        queries = self.query_projection(queries).view(B, L, H, -1)
-        keys = self.key_projection(keys).view(B, S, H, -1)
-        values = self.value_projection(values).view(B, S, H, -1)
+        # B: batch size, 32
+        # Q: query length, 16
+        # K: keys length, 16
+        # V: value length, 16
+        # H: heads number, 8
 
-        out, attn = self.inner_attention(
-            queries,
-            keys,
-            values,
-            attn_mask,
-            tau=tau,
-            delta=delta
-        )
-        out = out.view(B, L, -1)
+        # apply the q, k, v projections
+        queries = self.query_projection(queries)  # [32, 16, 512]
+        keys = self.key_projection(keys)  # [32, 16, 512]
+        values = self.value_projection(values)  # [32, 16, 512]
 
-        return self.out_projection(out), attn
+        # split into pieces for all heads
+        queries = queries.view(B, Q, H, -1)  # [32, 16, 8, 64]
+        keys = keys.view(B, K, H, -1)  # [32, 16, 8, 64]
+        values = values.view(B, V, H, -1)  # [32, 16, 8, 64]
+
+        if self.de_stationary:
+            out, attn = self.inner_attention(
+                queries,
+                keys,
+                values,
+                attn_mask,
+                tau=tau,
+                delta=delta
+            )  # [32, 16, 8, 64], unknown
+        else:
+            out, attn = self.inner_attention(
+                queries,
+                keys,
+                values,
+                attn_mask,
+            )  # [32, 16, 8, 64], unknown
+
+        # flat the last two dimensions
+        out = out.view(B, Q, -1)  # [32, 16, 512]
+
+        # apply the out projection
+        out = self.out_projection(out)  # [32, 16, 512]
+
+        return out, attn
 
 
 class ReformerLayer(nn.Module):
