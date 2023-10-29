@@ -494,7 +494,7 @@ def get_search_space(_model):
     return {**default_config, **learning_config, **period_config, **model_config}
 
 
-h = HyperOptimizer(False, ['Autoformer', 'FEDformer', 'Crossformer'],
+h = HyperOptimizer(False, ['Crossformer'],
                    prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags,
                    check_jump_experiment=check_jump_experiment)
@@ -502,4 +502,4 @@ h = HyperOptimizer(False, ['Autoformer', 'FEDformer', 'Crossformer'],
 h.config_optimizer_settings(scan_all_csv=True, add_tags=[])
 
 if __name__ == "__main__":
-    h.start_search(0, False, False)
+    h.start_search(0, False, True)
