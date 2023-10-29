@@ -66,7 +66,7 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--moving_avg', type=int, default=25, help='window size of moving average in encoders')
     parser.add_argument('--series_decomp_mode', type=str, default='avg',
                         help="series decomposition mod, options: ['avg', 'exp', 'stl', 'adp_avg', 'moe']")
-    parser.add_argument('--factor', type=int, default=1, help='attn factor')
+    parser.add_argument('--factor', type=int, default=1, help='attn factor or router factor in Crossformer')
     parser.add_argument('--distil', action='store_false',
                         help='whether to use distilling in encoder, using this argument means not using distilling',
                         default=True)
@@ -447,7 +447,6 @@ def get_search_space(_model):
         # 'pred_len': {'_type': 'single', '_value': 16},
         # 'e_layers': {'_type': 'single', '_value': 1},
         # 'd_layers': {'_type': 'single', '_value': 1},
-        # 'factor': {'_type': 'single', '_value': 2},
 
         # mode 2: medium period
         'seq_len': {'_type': 'single', '_value': 96},
@@ -455,11 +454,12 @@ def get_search_space(_model):
         'pred_len': {'_type': 'single', '_value': 96},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
-        'factor': {'_type': 'single', '_value': 2},
     }
 
     autoformer_config = {
         'model': {'_type': 'single', '_value': 'Autoformer'},
+
+        'factor': {'_type': 'single', '_value': 2},
 
         # avg
         # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
@@ -472,6 +472,8 @@ def get_search_space(_model):
     fedformer_config = {
         'model': {'_type': 'single', '_value': 'FEDformer'},
 
+        'factor': {'_type': 'single', '_value': 2},
+
         # avg
         # 'series_decomp_mode': {'_type': 'single', '_value': 'avg'},
         # 'moving_avg': {'_type': 'single', '_value': 25},
@@ -482,6 +484,8 @@ def get_search_space(_model):
 
     crossformer_config = {
         'model': {'_type': 'single', '_value': 'Crossformer'},
+
+        'factor': {'_type': 'single', '_value': 7},
     }
 
     model_configs = {
@@ -502,4 +506,4 @@ h = HyperOptimizer(False, ['Crossformer'],
 h.config_optimizer_settings(scan_all_csv=True, add_tags=[])
 
 if __name__ == "__main__":
-    h.start_search(0, False, True)
+    h.start_search(0, False, False)
