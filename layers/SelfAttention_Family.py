@@ -311,7 +311,7 @@ class TwoStageAttentionLayer(nn.Module):
                                                        output_attention=configs.output_attention), d_model, n_heads)
         self.dim_receiver = AttentionLayer(FullAttention(False, configs.factor, attention_dropout=configs.dropout,
                                                          output_attention=configs.output_attention), d_model, n_heads)
-        self.router = nn.Parameter(torch.randn(seg_num, factor, d_model))
+        self.router_param = nn.Parameter(torch.randn(seg_num, factor, d_model))  # [2, 2, 512]
 
         self.dropout = nn.Dropout(dropout)
 
@@ -320,6 +320,7 @@ class TwoStageAttentionLayer(nn.Module):
         self.norm3 = nn.LayerNorm(d_model)
         self.norm4 = nn.LayerNorm(d_model)
 
+        # a multi-layer (two in this paper) feedforward network
         self.MLP1 = nn.Sequential(nn.Linear(d_model, d_ff),
                                   nn.GELU(),
                                   nn.Linear(d_ff, d_model))
@@ -327,29 +328,38 @@ class TwoStageAttentionLayer(nn.Module):
                                   nn.GELU(),
                                   nn.Linear(d_ff, d_model))
 
-    def forward(self, x, attn_mask=None, tau=None, delta=None):
-        # Cross Time Stage: Directly apply MSA to each dimension
+    def forward(self, x, attn_mask=None, tau=None, delta=None):  # [32, 14, 2, 512]
         batch = x.shape[0]
-        time_in = rearrange(x, 'b ts_d seg_num d_model -> (b ts_d) seg_num d_model')
-        time_enc, attn = self.time_attention(
-            time_in, time_in, time_in, attn_mask=None, tau=None, delta=None
-        )
-        dim_in = time_in + self.dropout(time_enc)
-        dim_in = self.norm1(dim_in)
-        dim_in = dim_in + self.dropout(self.MLP1(dim_in))
-        dim_in = self.norm2(dim_in)
 
-        # Cross Dimension Stage: use a small set of learnable vectors to aggregate and distribute messages to build
-        # the D-to-D connection
-        dim_send = rearrange(dim_in, '(b ts_d) seg_num d_model -> (b seg_num) ts_d d_model', b=batch)
-        batch_router = repeat(self.router, 'seg_num factor d_model -> (repeat seg_num) factor d_model', repeat=batch)
-        dim_buffer, attn = self.dim_sender(batch_router, dim_send, dim_send, attn_mask=None, tau=None, delta=None)
-        dim_receive, attn = self.dim_receiver(dim_send, dim_buffer, dim_buffer, attn_mask=None, tau=None, delta=None)
+        # Cross Time Stage
+        # Directly apply MSA to each dimension
+        time_in = rearrange(x, 'b d seg_num d_model -> (b d) seg_num d_model')  # [448, 2, 512]
+        # apply MSA to each dimension, it will encode the information in the second dimension (seg_num)
+        time_enc, attn = self.time_attention(time_in, time_in, time_in, attn_mask=None)  # [448, 2, 512], unknown
+        # drop out and apply layer norm and MLP
+        time_out = time_in + self.dropout(time_enc)
+        time_out = self.norm1(time_out)
+        time_out = self.MLP1(time_out)
+        time_out = time_out + self.dropout(time_out)
+        time_out = self.norm2(time_out)  # [448, 2, 512]
+
+        # Cross Dimension Stage
+        # use a small set of learnable vectors to aggregate and distribute messages to build the D-to-D connection
+        dim_in = time_out
+        dim_send = rearrange(dim_in, '(b d) seg_num d_model -> (b seg_num) d d_model', b=batch)  # [64, 14, 512]
+        batch_router = repeat(self.router_param, 'seg_num factor d_model -> (repeat seg_num) factor d_model',
+                              repeat=batch)  # [64, 2, 512], here router use factor as dimension to cut down costs
+        # aggregate information from the dimensional input data by router
+        dim_agg, attn = self.dim_sender(batch_router, dim_send, dim_send, attn_mask=None)  # [64, 2, 512]
+        # query dimensional information from the aggregated information and the dimensional input data
+        dim_receive, attn = self.dim_receiver(dim_send, dim_agg, dim_agg, attn_mask=None)  # [64, 14, 512]
+        # drop out and apply layer norm and MLP
         dim_enc = dim_send + self.dropout(dim_receive)
         dim_enc = self.norm3(dim_enc)
-        dim_enc = dim_enc + self.dropout(self.MLP2(dim_enc))
-        dim_enc = self.norm4(dim_enc)
+        dim_enc = self.MLP2(dim_enc)
+        dim_enc = dim_enc + self.dropout(dim_enc)
+        dim_enc = self.norm4(dim_enc)  # [64, 14, 512]
 
-        final_out = rearrange(dim_enc, '(b seg_num) ts_d d_model -> b ts_d seg_num d_model', b=batch)
+        final_out = rearrange(dim_enc, '(b seg_num) d d_model -> b d seg_num d_model', b=batch)
 
-        return final_out
+        return final_out  # [32, 14, 2, 512]
