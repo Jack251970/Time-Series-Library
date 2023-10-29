@@ -55,7 +55,7 @@ class Model(nn.Module):
         )
         # Decoder
         self.dec_pos_embedding = nn.Parameter(
-            torch.randn(1, configs.enc_in, (self.pad_out_len // self.seg_len), configs.d_model))
+            torch.randn(1, configs.enc_in, (self.pad_out_len // self.seg_len), configs.d_model))  # [1, 14, 2, 512]
 
         self.decoder = Decoder(
             [
@@ -104,16 +104,17 @@ class Model(nn.Module):
         h = self.pre_norm(h)
         return h
 
-    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):  # [32, 16, 14]
         # embedding
-        x_enc = self._enc_embedding(x_enc)
+        x_enc = self._enc_embedding(x_enc)  # [32, 14, 2, 512]
         # encoder
-        enc_out, attns = self.encoder(x_enc)
+        enc_out, attns = self.encoder(x_enc)  # 2 * [32, 14, 2, 512]
         # decoder
         dec_in = repeat(self.dec_pos_embedding, 'b ts_d l d -> (repeat b) ts_d l d', repeat=x_enc.shape[0])
+        # [32, 14, 2, 512]
         # decoder
-        dec_out = self.decoder(dec_in, enc_out)
-        return dec_out
+        out = self.decoder(dec_in, enc_out)  # [32, 16, 14]
+        return out
 
     def imputation(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask):
         # embedding
@@ -121,8 +122,8 @@ class Model(nn.Module):
         # encoder
         enc_out, attns = self.encoder(x_enc)
         # decoder
-        dec_out = self.head(enc_out[-1].permute(0, 1, 3, 2)).permute(0, 2, 1)
-        return dec_out
+        out = self.head(enc_out[-1].permute(0, 1, 3, 2)).permute(0, 2, 1)
+        return out
 
     def anomaly_detection(self, x_enc):
         # embedding
@@ -130,8 +131,8 @@ class Model(nn.Module):
         # encoder
         enc_out, attns = self.encoder(x_enc)
         # decoder
-        dec_out = self.head(enc_out[-1].permute(0, 1, 3, 2)).permute(0, 2, 1)
-        return dec_out
+        out = self.head(enc_out[-1].permute(0, 1, 3, 2)).permute(0, 2, 1)
+        return out
 
     def classification(self, x_enc, x_mark_enc):
         # embedding
@@ -139,11 +140,11 @@ class Model(nn.Module):
         # encoder
         enc_out, attns = self.encoder(x_enc)
         # Output from Non-stationary Transformer
-        output = self.flatten(enc_out[-1].permute(0, 1, 3, 2))
-        output = self.dropout(output)
-        output = output.reshape(output.shape[0], -1)
-        output = self.projection(output)
-        return output
+        out = self.flatten(enc_out[-1].permute(0, 1, 3, 2))
+        out = self.dropout(out)
+        out = out.reshape(out.shape[0], -1)
+        out = self.projection(out)
+        return out
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':

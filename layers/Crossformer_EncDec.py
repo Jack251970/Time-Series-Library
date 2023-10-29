@@ -31,8 +31,7 @@ class SegMerging(nn.Module):
 
 
 class scale_block(nn.Module):
-    def __init__(self, configs, win_size, d_model, n_heads, d_ff, depth, dropout, \
-                 seg_num=10, factor=10):
+    def __init__(self, configs, win_size, d_model, n_heads, d_ff, depth, dropout, seg_num=10, factor=10):
         super(scale_block, self).__init__()
 
         if win_size > 1:
@@ -43,10 +42,9 @@ class scale_block(nn.Module):
         self.encode_layers = nn.ModuleList()
 
         for i in range(depth):
-            self.encode_layers.append(TwoStageAttentionLayer(configs, seg_num, factor, d_model, n_heads, \
-                                                             d_ff, dropout))
+            self.encode_layers.append(TwoStageAttentionLayer(configs, seg_num, factor, d_model, n_heads, d_ff, dropout))
 
-    def forward(self, x, attn_mask=None, tau=None, delta=None):
+    def forward(self, x):
         _, ts_dim, _, _ = x.shape
 
         if self.merge_layer is not None:
@@ -93,7 +91,7 @@ class DecoderLayer(nn.Module):
         x = rearrange(x, 'b ts_d out_seg_num d_model -> (b ts_d) out_seg_num d_model')
 
         cross = rearrange(cross, 'b ts_d in_seg_num d_model -> (b ts_d) in_seg_num d_model')
-        tmp, attn = self.cross_attention(x, cross, cross, None, None, None,)
+        tmp, attn = self.cross_attention(x, cross, cross, None, None, None, )
         x = x + self.dropout(tmp)
         y = x = self.norm1(x)
         y = self.MLP1(y)
@@ -110,7 +108,6 @@ class Decoder(nn.Module):
     def __init__(self, layers):
         super(Decoder, self).__init__()
         self.decode_layers = nn.ModuleList(layers)
-
 
     def forward(self, x, cross):
         final_predict = None
