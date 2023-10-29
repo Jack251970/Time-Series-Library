@@ -7,67 +7,61 @@ from reformer_pytorch import LSHSelfAttention
 from einops import rearrange, repeat
 
 
-class DSAttention(nn.Module):
-    """De-stationary Attention"""
-
-    def __init__(self, mask_flag=True, factor=5, scale=None, attention_dropout=0.1, output_attention=False):
-        super(DSAttention, self).__init__()
-        self.scale = scale
-        self.mask_flag = mask_flag
-        self.output_attention = output_attention
-        self.dropout = nn.Dropout(attention_dropout)
-
-    def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
-        B, L, H, E = queries.shape
-        _, S, _, D = values.shape
-        scale = self.scale or 1. / sqrt(E)
-
-        tau = 1.0 if tau is None else tau.unsqueeze(
-            1).unsqueeze(1)  # B x 1 x 1 x 1
-        delta = 0.0 if delta is None else delta.unsqueeze(
-            1).unsqueeze(1)  # B x 1 x 1 x S
-
-        # De-stationary Attention, rescaling pre-softmax score with learned de-stationary factors
-        scores = torch.einsum("blhe,bshe->bhls", queries, keys) * tau + delta
-
-        if self.mask_flag:
-            if attn_mask is None:
-                attn_mask = TriangularCausalMask(B, L, device=queries.device)
-
-            scores.masked_fill_(attn_mask.mask, -np.inf)
-
-        A = self.dropout(torch.softmax(scale * scores, dim=-1))
-        V = torch.einsum("bhls,bshd->blhd", A, values)
-
-        if self.output_attention:
-            return V.contiguous(), A
-        else:
-            return V.contiguous(), None
-
-
 class FullAttention(nn.Module):
-    def __init__(self, mask_flag=True, factor=5, scale=None, attention_dropout=0.1, output_attention=False):
+    """
+    The Attention operation
+    Paper: Attention Is All You Need, Non-stationary Transformers: Exploring the Stationarity in Time Series Forecasting
+    """
+
+    def __init__(self, mask_flag=True, factor=5, scale=None, attention_dropout=0.1, output_attention=False,
+                 de_stationary=False):
+        """
+        mask_flag: whether to use mask on the sequence data
+        de_stationary: whether to add de-stationary attention mechanism
+        """
         super(FullAttention, self).__init__()
         self.scale = scale
         self.mask_flag = mask_flag
         self.output_attention = output_attention
         self.dropout = nn.Dropout(attention_dropout)
+        self.de_stationary = de_stationary
 
     def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
+        """
+        32 is the batch size
+        16 is the input sequence length
+        8 is the number of heads
+        64 is the dimension for each head
+        :param queries: shape: [32, 16, 8, 64]
+        :param keys: shape: [32, 16, 8, 64]
+        :param values: shape: [32, 16, 8, 64]
+        :param attn_mask:
+        :return:
+        """
         B, L, H, E = queries.shape
         _, S, _, D = values.shape
         scale = self.scale or 1. / sqrt(E)
 
-        scores = torch.einsum("blhe,bshe->bhls", queries, keys)
+        if self.de_stationary:
+            tau = 1.0 if tau is None else tau.unsqueeze(
+                1).unsqueeze(1)  # B x 1 x 1 x 1
+            delta = 0.0 if delta is None else delta.unsqueeze(
+                1).unsqueeze(1)  # B x 1 x 1 x S
+
+            # De-stationary Attention, rescaling pre-softmax score with learned de-stationary factors
+            scores = torch.einsum("blhe,bshe->bhls", queries, keys) * tau + delta
+        else:
+            scores = torch.einsum("blhe,bshe->bhls", queries, keys)  # [32, 8, 16, 16]
 
         if self.mask_flag:
             if attn_mask is None:
+                # generate a triangular mask to make sure the future data has been masked
                 attn_mask = TriangularCausalMask(B, L, device=queries.device)
 
             scores.masked_fill_(attn_mask.mask, -np.inf)
 
-        A = self.dropout(torch.softmax(scale * scores, dim=-1))
-        V = torch.einsum("bhls,bshd->blhd", A, values)
+        A = self.dropout(torch.softmax(scale * scores, dim=-1))  # [32, 8, 16, 16]
+        V = torch.einsum("bhls,bshd->blhd", A, values)  # [32, 16, 8, 64]
 
         if self.output_attention:
             return V.contiguous(), A
@@ -177,8 +171,12 @@ class ProbAttention(nn.Module):
 
 
 class AttentionLayer(nn.Module):
-    def __init__(self, attention, d_model, n_heads, d_keys=None,
-                 d_values=None):
+    """
+    The Multi-head Self-Attention (MSA) Layer
+    Paper: Attention Is All You Need
+    """
+
+    def __init__(self, attention, d_model, n_heads, d_keys=None, d_values=None):
         super(AttentionLayer, self).__init__()
 
         d_keys = d_keys or (d_model // n_heads)
@@ -237,7 +235,7 @@ class ReformerLayer(nn.Module):
             return torch.cat([queries, torch.zeros([B, fill_len, C]).to(queries.device)], dim=1)
 
     def forward(self, queries, keys, values, attn_mask, tau, delta):
-        # in Reformer: defalut queries=keys
+        # in Reformer: default queries=keys
         B, N, C = queries.shape
         queries = self.attn(self.fit_length(queries))[:, :N, :]
         return queries, None
@@ -247,10 +245,10 @@ class TwoStageAttentionLayer(nn.Module):
     """
     The Two Stage Attention (TSA) Layer
     input/output shape: [batch_size, Data_dim(D), Seg_num(L), d_model]
+    Paper: CROSSFORMER: TRANSFORMER UTILIZING CROSS-DIMENSION DEPENDENCY FOR MULTIVARIATE TIME SERIES FORECASTING
     """
 
-    def __init__(self, configs,
-                 seg_num, factor, d_model, n_heads, d_ff=None, dropout=0.1):
+    def __init__(self, configs, seg_num, factor, d_model, n_heads, d_ff=None, dropout=0.1):
         super(TwoStageAttentionLayer, self).__init__()
         d_ff = d_ff or 4 * d_model
         self.time_attention = AttentionLayer(FullAttention(False, configs.factor, attention_dropout=configs.dropout,

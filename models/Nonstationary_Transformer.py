@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from layers.Transformer_EncDec import Decoder, DecoderLayer, Encoder, EncoderLayer
-from layers.SelfAttention_Family import DSAttention, AttentionLayer
+from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed import DataEmbedding
 import torch.nn.functional as F
 
@@ -61,8 +61,9 @@ class Model(nn.Module):
             [
                 EncoderLayer(
                     AttentionLayer(
-                        DSAttention(False, configs.factor, attention_dropout=configs.dropout,
-                                    output_attention=configs.output_attention), configs.d_model, configs.n_heads),
+                        FullAttention(False, configs.factor, attention_dropout=configs.dropout,
+                                      output_attention=configs.output_attention, de_stationary=True),
+                        configs.d_model, configs.n_heads),
                     configs.d_model,
                     configs.d_ff,
                     dropout=configs.dropout,
@@ -79,12 +80,12 @@ class Model(nn.Module):
                 [
                     DecoderLayer(
                         AttentionLayer(
-                            DSAttention(True, configs.factor, attention_dropout=configs.dropout,
-                                        output_attention=False),
+                            FullAttention(True, configs.factor, attention_dropout=configs.dropout,
+                                          output_attention=False, de_stationary=True),
                             configs.d_model, configs.n_heads),
                         AttentionLayer(
-                            DSAttention(False, configs.factor, attention_dropout=configs.dropout,
-                                        output_attention=False),
+                            FullAttention(False, configs.factor, attention_dropout=configs.dropout,
+                                          output_attention=False, de_stationary=True),
                             configs.d_model, configs.n_heads),
                         configs.d_model,
                         configs.d_ff,
