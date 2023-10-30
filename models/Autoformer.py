@@ -13,9 +13,12 @@ class Model(nn.Module):
     Autoformer is the first method to achieve the series-wise connection,
     with inherent O(LlogL) complexity
     Paper link: https://openreview.net/pdf?id=I55UqU-M11y
+    Tips:
+    The codes of the original paper use speed aggregation mode, which means agg_mode equals 'speed'.
+    You can use 'same_all', 'same_head', 'full' for better performance but slower calculation speed.
     """
 
-    def __init__(self, configs):
+    def __init__(self, configs, agg_mode='speed'):
         super(Model, self).__init__()
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
@@ -42,7 +45,7 @@ class Model(nn.Module):
                 EncoderLayer(
                     AutoCorrelationLayer(
                         AutoCorrelation(False, configs.factor, attention_dropout=configs.dropout,
-                                        output_attention=configs.output_attention),
+                                        output_attention=configs.output_attention, agg_mode=agg_mode),
                         configs.d_model, configs.n_heads),
                     configs.d_model,
                     configs.d_ff,
@@ -62,11 +65,11 @@ class Model(nn.Module):
                     DecoderLayer(
                         AutoCorrelationLayer(
                             AutoCorrelation(True, configs.factor, attention_dropout=configs.dropout,
-                                            output_attention=False),
+                                            output_attention=False, agg_mode=agg_mode),
                             configs.d_model, configs.n_heads),
                         AutoCorrelationLayer(
                             AutoCorrelation(False, configs.factor, attention_dropout=configs.dropout,
-                                            output_attention=False),
+                                            output_attention=False, agg_mode=agg_mode),
                             configs.d_model, configs.n_heads),
                         configs.d_model,
                         configs.c_out,
