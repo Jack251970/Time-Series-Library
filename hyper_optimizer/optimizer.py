@@ -33,7 +33,7 @@ class HyperOptimizer(object):
         self.add_tags = []  # added tags in the model id
         self.jump_csv_file = 'jump_data.csv'  # config data to be jumped
         self.data_csv_file_format = 'data_{}.csv'  # config data to be stored in other processes
-        self.scan_all_csv = False
+        self.scan_all_csv = False  # scan all config data in the path
         self.max_process_index = 0  # the maximum index of the processes
         self.save_process = True  # whether to save process
 
@@ -46,6 +46,8 @@ class HyperOptimizer(object):
             # non script mode settings
             # models
             self.models = models
+            self.try_model = False  # whether to try model before running the experiments
+            self.force_exp = False  # whether to force to run the experiments if already run them
 
             # search spaces
             self.get_search_space = get_search_space
@@ -68,7 +70,8 @@ class HyperOptimizer(object):
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
     def config_optimizer_settings(self, random_seed=None, add_tags=None, jump_csv_file=None, data_csv_file_format=None,
-                                  scan_all_csv=None, process_number=None, save_process=None):
+                                  scan_all_csv=None, process_number=None, save_process=None, try_model=None,
+                                  force_exp=None):
         if random_seed is not None:
             self.seed = random_seed
         if add_tags is not None:
@@ -83,6 +86,11 @@ class HyperOptimizer(object):
             self.max_process_index = process_number + 1
         if save_process is not None:
             self.save_process = save_process
+        if not self.script_mode:
+            if try_model is not None:
+                self.try_model = try_model
+            if force_exp is not None:
+                self.force_exp = force_exp
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -101,6 +109,8 @@ class HyperOptimizer(object):
 
         non_script_mode_settings = {
             'models': self.models,
+            'try_model': self.try_model,
+            'force_exp': self.force_exp,
             'search_spaces': self._get_search_spaces(),
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
@@ -221,7 +231,7 @@ class HyperOptimizer(object):
         self._task_names = task_names
         return task_names
 
-    def start_search(self, _process_index=0, _try_model=True, _force=False):
+    def start_search(self, _process_index=0):
         # run directly under script mode
         if self.script_mode:
             # parse launch parameters and load default config
@@ -270,7 +280,8 @@ class HyperOptimizer(object):
 
         # filter combinations with the known rules or trying models
         filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
-                                                      _process_index, try_model=_try_model, force=_force)
+                                                      _process_index, try_model=self.try_model,
+                                                      force_exp=self.force_exp)
 
         # equally distribute the parameters according to the number of processes
         # parameters = parameters[_process_index::(max_process_index + 1)]: It's in the order of the loops.
@@ -362,12 +373,12 @@ class HyperOptimizer(object):
         return _parameters
 
     def _filter_parameters(self, _parameters, _jump_config_list, _config_list, _jump_csv_file_path,
-                           _process_index, try_model=True, force=False, print_info=True):
+                           _process_index, try_model=True, force_exp=False, print_info=True):
         if print_info:
             print(f"We are filtering the parameters, please wait util it done to start other processes!")
 
-            if force:
-                print(f'We are forced to run the experiments that we have done in the csv data!')
+            if force_exp:
+                print(f'We are forced to run the experiments that we have finished in the csv data!')
 
         jump_time = 0
         filtered_parameters = []
@@ -388,11 +399,11 @@ class HyperOptimizer(object):
             config = self._build_config_dict(args)
 
             # check if the parameters of this experiment need to be jumped
-            if self._check_config_data(config, _jump_config_list) and not force:
+            if self._check_config_data(config, _jump_config_list) and not force_exp:
                 continue
 
             # check if the parameters of this experiment have been done
-            if self._check_config_data(config, _config_list) and not force:
+            if self._check_config_data(config, _config_list) and not force_exp:
                 continue
 
             # check if the model of this experiment can work

@@ -457,8 +457,6 @@ def get_search_space(_model):
     }
 
     autoformer_config = {
-        'model': {'_type': 'single', '_value': 'Autoformer'},
-
         'factor': {'_type': 'single', '_value': 2},
 
         # avg
@@ -470,8 +468,6 @@ def get_search_space(_model):
     }
 
     fedformer_config = {
-        'model': {'_type': 'single', '_value': 'FEDformer'},
-
         'factor': {'_type': 'single', '_value': 2},
 
         # avg
@@ -483,27 +479,31 @@ def get_search_space(_model):
     }
 
     crossformer_config = {
-        'model': {'_type': 'single', '_value': 'Crossformer'},
-
         'factor': {'_type': 'single', '_value': 7},
     }
 
-    model_configs = {
-        "Autoformer": autoformer_config,
-        "FEDformer": fedformer_config,
-        "Crossformer": crossformer_config,
+    timesnet_config = {
     }
 
+    model_configs = {
+        'Autoformer': autoformer_config,
+        'FEDformer': fedformer_config,
+        'Crossformer': crossformer_config,
+        'TimesNet': timesnet_config,
+    }
+
+    # get config for specific model
     model_config = model_configs[_model]
+    model_config['model'] = {'_type': 'single', '_value': _model}
+
     return {**default_config, **learning_config, **period_config, **model_config}
 
 
-h = HyperOptimizer(False, ['Crossformer'],
+h = HyperOptimizer(False, ['TimesNet'],
                    prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
-                   get_model_id_tags=get_model_id_tags,
-                   check_jump_experiment=check_jump_experiment)
+                   get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[])
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=False)
 
 if __name__ == "__main__":
-    h.start_search(0, False, False)
+    h.start_search(0)
