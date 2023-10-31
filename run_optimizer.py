@@ -357,18 +357,18 @@ def check_jump_experiment(_parameter):
 # noinspection DuplicatedCode
 def get_fieldnames(mode='all'):
     # init the all fieldnames
-    all_fieldnames = ['mse', 'mae', 'acc', 'setting', 'seed', 'task_name', 'is_training', 'model_id', 'model', 'data',
-                      'data_path', 'features', 'target', 'freq', 'checkpoints', 'seq_len', 'label_len', 'pred_len',
-                      'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in',
-                      'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
-                      'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention',
-                      'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss',
-                      'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims',
-                      'p_hidden_layers']
+    all_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'setting', 'seed', 'task_name', 'is_training',
+                      'model_id', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'checkpoints', 'seq_len',
+                      'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k',
+                      'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff',
+                      'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
+                      'output_attention', 'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate',
+                      'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time',
+                      'p_hidden_dims', 'p_hidden_layers']
 
     # init the fieldnames need to be checked
-    _removed_fieldnames = ['mse', 'mae', 'acc', 'setting', 'model_id', 'root_path', 'checkpoints', 'output_attention',
-                           'num_workers', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
+    _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'setting', 'model_id', 'root_path', 'checkpoints',
+                           'output_attention', 'num_workers', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
     # init the required fieldnames

@@ -250,4 +250,7 @@ class Exp_Imputation(Exp_Basic):
 
         self.print_content("", True)
 
-        return mse, mae, None
+        return {
+            'mse': mse,
+            'mae': mae,
+        }

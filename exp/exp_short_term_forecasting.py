@@ -261,9 +261,13 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             self.print_content('mape:', mape)
             self.print_content('mase:', mase)
             self.print_content('owa:', owa_results)
+
+            self.print_content("", True)
+
+            return {
+                'smape': smape_results
+            }
         else:
             self.print_content('After all 6 tasks are finished, you can calculate the averaged index')
 
-        self.print_content("", True)
-
-        return None, None, None
+            return None

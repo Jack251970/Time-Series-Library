@@ -244,4 +244,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
 
         self.print_content("", True)
 
-        return None, None, accuracy
+        return {
+            'accuracy': accuracy,
+            'f_score': f_score,
+        }

@@ -1,5 +1,4 @@
 import csv
-import math
 import os
 import random
 import time
@@ -303,20 +302,29 @@ class HyperOptimizer(object):
             config = self._build_config_dict(args)
 
             # start experiment
-            mse, mae, acc, run_time, setting = self._start_experiment(args, parameter, config, False,
+            eva_config, run_time, setting = self._start_experiment(args, parameter, config, False,
                                                                       (_process_index == 0 and _time == 1))
 
-            # load criteria data
-            config['mse'] = mse
-            config['mae'] = mae
-            config['acc'] = acc
+            # phase criteria and save data if in training
+            if parameter['is_training'] == 1 and eva_config is not None:
+                # phase mse, mae, acc, smape, f_score from eva_config
+                mse = eva_config.get('mse', None)
+                mae = eva_config.get('mae', None)
+                acc = eva_config.get('acc', None)
+                smape = eva_config.get('smape', None)
+                f_score = eva_config.get('f_score', None)
 
-            # load setting and run time
-            config['setting'] = setting
-            config['run_time'] = run_time
+                # load criteria data
+                config['mse'] = mse
+                config['mae'] = mae
+                config['acc'] = acc
+                config['smape'] = smape
+                config['f_score'] = f_score
 
-            # save data if in training
-            if parameter['is_training'] == 1:
+                # load setting and run time
+                config['setting'] = setting
+                config['run_time'] = run_time
+
                 _csv_file_path = self.get_csv_file_path(config['task_name'], _process_index=_process_index)
                 self._save_config_dict(_csv_file_path, config)
 
@@ -466,7 +474,6 @@ class HyperOptimizer(object):
             # return the results
             return valid
 
-        _mse, _mae, _acc = math.inf, math.inf, 0
         if _args.is_training:
             # build the experiment
             exp = self.Exp(_args, try_model=False, save_process=self.save_process)
@@ -482,7 +489,7 @@ class HyperOptimizer(object):
 
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
-            _mse, _mae, _acc = exp.test(_setting, check_folder=_check_folder)
+            _eva_config = exp.test(_setting, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()
@@ -497,12 +504,12 @@ class HyperOptimizer(object):
 
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
-            _mse, _mae, _acc = exp.test(_setting, check_folder=_check_folder)
+            _eva_config = exp.test(_setting, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()
 
-        return _mse, _mae, _acc, _run_time, _setting
+        return _eva_config, _run_time, _setting
 
     def _fix_random_seed(self):
         random.seed(self.seed)
