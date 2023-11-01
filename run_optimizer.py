@@ -419,7 +419,7 @@ def get_search_space(_model):
         'features': {'_type': 'single', '_value': 'M'},
         'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
         'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-        'c_out': {'_type': 'single', '_value': 14},
+        'c_out': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -483,6 +483,12 @@ def get_search_space(_model):
     }
 
     timesnet_config = {
+        'factor': {'_type': 'single', '_value': 3},
+
+        'top_k': {'_type': 'single', '_value': 5},
+        'd_model': {'_type': 'single', '_value': 32},
+
+        'd_ff': {'_type': 'single', '_value': 32},
     }
 
     model_configs = {
