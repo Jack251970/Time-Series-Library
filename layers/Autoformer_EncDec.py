@@ -1,4 +1,3 @@
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -78,57 +77,6 @@ class exponential_smoothing(nn.Module):
         out = out.permute(0, 2, 1)  # x: shape: [32, 24, 14]
 
         return out
-
-
-class stl_decomposition(nn.Module):
-    """
-    Stl decomposition block to highlight the trend of time series
-    """
-
-    def __init__(self, period=25):
-        super(stl_decomposition, self).__init__()
-        self.period = period
-
-    def forward(self, x):  # x: shape [32, 24, 14]
-        # This line first permutes the dimensions of x to bring the time axis to the last dimension
-        x = x.permute(0, 2, 1)  # x: shape [32, 14, 16]
-
-        # Apply the stl decomposition from statsmodels.tsa.seasonal to operate on the permuted seasonal, trend, resid
-        seasonal = torch.zeros_like(x)
-        trend = torch.zeros_like(x)
-        resid = torch.zeros_like(x)
-        for i in range(x.shape[0]):
-            for j in range(x.shape[1]):
-                data = x[i, j, :]  # {Tensor: (16,)}
-                data = data.tolist()  # {List: (16,)}
-                data = pd.Series(data, index=pd.date_range("2018-09-14 00:00:00", periods=len(data), freq="15T"),
-                                 name="data")  # {DataFrame: (16,)}
-                stl = STL(data, period=self.period)
-                data = stl.fit()
-
-                seasonal_data = data.seasonal  # {Series: (16,)}
-                trend_data = data.trend  # {Series: (16,)}
-                resid_data = data.resid  # {Series: (16,)}
-
-                seasonal_data = torch.from_numpy(seasonal_data.values)  # {Tensor: (16,)}
-                trend_data = torch.from_numpy(trend_data.values)  # {Tensor: (16,)}
-                resid_data = torch.from_numpy(resid_data.values)  # {Tensor: (16,)}
-
-                # convert to torch.float32
-                seasonal_data = torch.clone(seasonal_data).detach().to(torch.float32)
-                trend_data = torch.clone(trend_data).detach().to(torch.float32)
-                resid_data = torch.clone(resid_data).detach().to(torch.float32)
-
-                seasonal[i, j, :] = seasonal_data
-                trend[i, j, :] = trend_data
-                resid[i, j, :] = resid_data
-
-        # This line permutes the dimensions of seasonal, trend, resid back to their original order
-        seasonal = seasonal.permute(0, 2, 1)
-        trend = trend.permute(0, 2, 1)
-        resid = resid.permute(0, 2, 1)
-
-        return seasonal, trend, resid
 
 
 class adapt_smoothing(nn.Module):
@@ -214,8 +162,6 @@ class series_decomp(nn.Module):
             self.smoothing = exponential_smoothing(kernel_size)
         elif series_decomp_mode == 'adp_avg':
             self.smoothing = adapt_smoothing(kernel_size)
-        elif series_decomp_mode == 'stl':
-            self.decomposition = stl_decomposition(period=kernel_size)
         elif series_decomp_mode == 'moe':
             self.decompositions = [moving_avg(kernel, stride=1) for kernel in kernel_size]
             self.layer = torch.nn.Linear(1, len(kernel_size))
@@ -227,12 +173,6 @@ class series_decomp(nn.Module):
             trend = self.smoothing(x)  # use smoothing to eliminate seasonal component
             seasonal = x - trend
             return seasonal, trend
-        elif self.series_decomp_mode == 'stl':
-            seasonal, trend, resid = self.decomposition(x)
-            # for test
-            # return seasonal, trend, resid
-            # for experiment
-            return seasonal, trend + resid
         elif self.series_decomp_mode == 'moe1':
             trend = []
             for smoothing in self.decompositions:
@@ -416,6 +356,7 @@ class DecoderLayer(nn.Module):
         return s_de_3, t_de
 
 
+# noinspection DuplicatedCode
 class Decoder(nn.Module):
     """
     Autoformer encoder
