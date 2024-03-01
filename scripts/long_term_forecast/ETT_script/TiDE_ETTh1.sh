@@ -1,6 +1,6 @@
 export CUDA_VISIBLE_DEVICES=2
 
-model_name=TimesNet
+model_name=TiDE
 
 python -u run.py \
   --task_name long_term_forecast \
@@ -15,16 +15,18 @@ python -u run.py \
   --label_len 48 \
   --pred_len 96 \
   --e_layers 2 \
-  --d_layers 1 \
-  --factor 3 \
+  --d_layers 2 \
   --enc_in 7 \
   --dec_in 7 \
-  --c_out 7 \
-  --d_model 16 \
-  --d_ff 32 \
-  --des 'Exp' \
-  --itr 1 \
-  --top_k 5 
+  --c_out 8 \
+  --d_model 256 \
+  --d_ff 256 \
+  --dropout 0.3 \
+  --batch_size 512 \
+  --learning_rate 0.1 \
+  --patience 5 \
+  --train_epochs 10 \
+
 
 
 python -u run.py \
@@ -40,16 +42,19 @@ python -u run.py \
   --label_len 48 \
   --pred_len 192 \
   --e_layers 2 \
-  --d_layers 1 \
-  --factor 3 \
+  --d_layers 2 \
   --enc_in 7 \
   --dec_in 7 \
-  --c_out 7 \
-  --d_model 16 \
-  --d_ff 32 \
-  --des 'Exp' \
-  --itr 1 \
-  --top_k 5
+  --c_out 8 \
+  --d_model 256 \
+  --d_ff 256 \
+  --dropout 0.3 \
+  --batch_size 512 \
+  --learning_rate 0.1 \
+  --patience 5 \
+  --train_epochs 10 \
+
+ 
 
 
 python -u run.py \
@@ -65,16 +70,19 @@ python -u run.py \
   --label_len 48 \
   --pred_len 336 \
   --e_layers 2 \
-  --d_layers 1 \
-  --factor 3 \
+  --d_layers 2 \
   --enc_in 7 \
   --dec_in 7 \
-  --c_out 7 \
-  --d_model 16 \
-  --d_ff 32 \
-  --des 'Exp' \
-  --itr 1 \
-  --top_k 5
+  --c_out 8 \
+  --d_model 256 \
+  --d_ff 256 \
+  --dropout 0.3 \
+  --batch_size 512 \
+  --learning_rate 0.1 \
+  --patience 5 \
+  --train_epochs 10 \
+
+
 
 
 python -u run.py \
@@ -90,13 +98,15 @@ python -u run.py \
   --label_len 48 \
   --pred_len 720 \
   --e_layers 2 \
-  --d_layers 1 \
-  --factor 3 \
+  --d_layers 2 \
   --enc_in 7 \
   --dec_in 7 \
-  --c_out 7 \
-  --d_model 16 \
-  --d_ff 32 \
-  --des 'Exp' \
-  --itr 1 \
-  --top_k 5
+  --c_out 8 \
+  --d_model 256 \
+  --d_ff 256 \
+  --dropout 0.3 \
+  --batch_size 512 \
+  --learning_rate 0.1 \
+  --patience 5 \
+  --train_epochs 10 \
+

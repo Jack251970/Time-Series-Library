@@ -75,6 +75,7 @@ def parse_launch_parameters(_script_mode):
                         help='time features encoding, options:[timeF, fixed, learned]')
     parser.add_argument('--activation', type=str, default='gelu', help='activation')
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in encoders')
+    parser.add_argument('--channel_independence', type=int, default=0, help='1: channel dependence 0: channel independence for FreTS model')
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
@@ -152,6 +153,7 @@ def build_config_dict(_args):
         'embed': _args.embed,
         'activation': _args.activation,
         'output_attention': _args.output_attention,
+        'channel_independence': _args.channel_independence,
 
         # optimization
         'num_workers': _args.num_workers,
@@ -174,6 +176,81 @@ def build_config_dict(_args):
         'p_hidden_dims': _args.p_hidden_dims,
         'p_hidden_layers': _args.p_hidden_layers,
     }
+
+
+# noinspection DuplicatedCode
+def set_args(_args, _config):
+    # basic config
+    _args.task_name = _config['task_name']
+    _args.is_training = _config['is_training']
+    _args.model_id = _config['model_id']
+    _args.model = _config['model']
+
+    # data loader
+    _args.data = _config['data']
+    _args.root_path = _config['root_path']
+    _args.data_path = _config['data_path']
+    _args.features = _config['features']
+    _args.target = _config['target']
+    _args.freq = _config['freq']
+    _args.checkpoints = _config['checkpoints']
+
+    # forecasting task
+    _args.seq_len = _config['seq_len']
+    _args.label_len = _config['label_len']
+    _args.pred_len = _config['pred_len']
+    _args.seasonal_patterns = _config['seasonal_patterns']
+    _args.inverse = _config['inverse']
+
+    # imputation task
+    _args.mask_rate = _config['mask_rate']
+
+    # anomaly detection task
+    _args.anomaly_ratio = _config['anomaly_ratio']
+
+    # model define
+    _args.top_k = _config['top_k']
+    _args.num_kernels = _config['num_kernels']
+    _args.enc_in = _config['enc_in']
+    _args.dec_in = _config['dec_in']
+    _args.c_out = _config['c_out']
+    _args.d_model = _config['d_model']
+    _args.n_heads = _config['n_heads']
+    _args.e_layers = _config['e_layers']
+    _args.d_layers = _config['d_layers']
+    _args.d_ff = _config['d_ff']
+    _args.moving_avg = _config['moving_avg']
+    _args.series_decomp_mode = _config['series_decomp_mode']
+    _args.factor = _config['factor']
+    _args.distil = _config['distil']
+    _args.dropout = _config['dropout']
+    _args.embed = _config['embed']
+    _args.activation = _config['activation']
+    _args.output_attention = _config['output_attention']
+    _args.channel_independence = _config['channel_independence']
+
+    # optimization
+    _args.num_workers = _config['num_workers']
+    _args.train_epochs = _config['train_epochs']
+    _args.batch_size = _config['batch_size']
+    _args.patience = _config['patience']
+    _args.learning_rate = _config['learning_rate']
+    _args.des = _config['des']
+    _args.loss = _config['loss']
+    _args.lradj = _config['lradj']
+    _args.use_amp = _config['use_amp']
+
+    # GPU
+    _args.use_gpu = _config['use_gpu']
+    _args.gpu = _config['gpu']
+    _args.use_multi_gpu = _config['use_multi_gpu']
+    _args.devices = _config['devices']
+
+    # de-stationary projector params
+    _args.p_hidden_dims = _config['p_hidden_dims']
+    _args.p_hidden_layers = _config['p_hidden_layers']
+
+    return _args
 
 
 # noinspection DuplicatedCode
@@ -279,6 +356,8 @@ def prepare_config(_params, _script_mode=False):
             _args.activation = _params['activation']
         if 'output_attention' in _params:
             _args.output_attention = _params['output_attention']
+        if 'channel_independence' in _params:
+            _args.channel_independence = _params['channel_independence']
 
         # optimization
         if 'num_workers' in _params:
@@ -362,9 +441,9 @@ def get_fieldnames(mode='all'):
                       'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k',
                       'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff',
                       'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
-                      'output_attention', 'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate',
-                      'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time',
-                      'p_hidden_dims', 'p_hidden_layers']
+                      'output_attention', 'channel_independence', 'num_workers', 'train_epochs', 'batch_size',
+                      'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu',
+                      'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'setting', 'model_id', 'root_path', 'checkpoints',
@@ -506,7 +585,7 @@ def get_search_space(_model):
 
 
 h = HyperOptimizer(False, ['FEDformer'],
-                   prepare_config, build_setting, build_config_dict, get_fieldnames, get_search_space,
+                   prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)

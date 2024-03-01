@@ -13,10 +13,11 @@ from exp.exp_classification import Exp_Classification
 from exp.exp_imputation import Exp_Imputation
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
+from utils.print_args import print_args
 
 
 class HyperOptimizer(object):
-    def __init__(self, script_mode, models, prepare_config, build_setting, build_config_dict, get_fieldnames,
+    def __init__(self, script_mode, models, prepare_config, build_setting, build_config_dict, set_args, get_fieldnames,
                  get_search_space, get_model_id_tags=None, check_jump_experiment=None):
         # core settings
         self.script_mode = script_mode  # script mode
@@ -25,6 +26,7 @@ class HyperOptimizer(object):
         self.prepare_config = prepare_config  # function to prepare config
         self.build_setting = build_setting  # function to build setting, which is the unique identifier of the model
         self.build_config_dict_ori = build_config_dict  # function to build config dict - the data to be stored in files
+        self.set_args = set_args  # function to set args
         self.get_tags = get_model_id_tags  # function to get tags
 
         # all mode settings
@@ -406,6 +408,9 @@ class HyperOptimizer(object):
             # create a dict to store the configuration values
             config = self._build_config_dict(args)
 
+            # set args and will print args later
+            args = self.set_args(args, config)
+
             # check if the parameters of this experiment need to be jumped
             if self._check_config_data(config, _jump_config_list) and not force_exp:
                 continue
@@ -482,6 +487,8 @@ class HyperOptimizer(object):
             if _parameter is not None:
                 exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
+            # TODO: print arguments.
+            # print_args(_args, exp.print_content)
 
             # start training
             exp.print_content('>>>>>>>({}) start training: {}<<<<<<<'.format(_run_time, _setting))
@@ -501,6 +508,8 @@ class HyperOptimizer(object):
             if _parameter is not None:
                 exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
+            # TODO: print arguments.
+            # print_args(_args, exp.print_content)
 
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
