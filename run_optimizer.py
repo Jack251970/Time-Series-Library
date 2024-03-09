@@ -535,6 +535,10 @@ def get_search_space(_model):
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
+    transformer_config = {
+        'factor': {'_type': 'single', '_value': 3},
+    }
+
     autoformer_config = {
         'factor': {'_type': 'single', '_value': 2},
 
@@ -571,6 +575,7 @@ def get_search_space(_model):
     }
 
     model_configs = {
+        'Transformer': transformer_config,
         'Autoformer': autoformer_config,
         'FEDformer': fedformer_config,
         'Crossformer': crossformer_config,
@@ -578,17 +583,17 @@ def get_search_space(_model):
     }
 
     # get config for specific model
-    model_config = model_configs[_model]
+    model_config = model_configs[_model] if model_configs.get(_model) else {}
     model_config['model'] = {'_type': 'single', '_value': _model}
 
     return {**default_config, **learning_config, **period_config, **model_config}
 
 
-h = HyperOptimizer(False, ['FEDformer'],
+h = HyperOptimizer(False, ['Transformer'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=False)
 
 if __name__ == "__main__":
     h.start_search(0)
