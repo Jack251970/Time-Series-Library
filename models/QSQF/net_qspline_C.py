@@ -20,13 +20,15 @@ class Model(nn.Module):
         of a time-dependent variable based on past inputs and covariances.
         """
         super(Model, self).__init__()
-        self.params = params
         self.lstm_input_size = params.enc_in
         self.lstm_hidden_dim = 40
         self.lstm_layers = 2
         self.sample_times = 99
         self.lstm_dropout = params.dropout
         self.num_spline = 20
+        self.pred_start = params.seq_len
+        self.pred_steps = params.pred_len
+        self.lag = params.label_len
         
         self.lstm = nn.LSTM(input_size=self.lstm_input_size,
                             hidden_size=self.lstm_hidden_dim,
@@ -77,14 +79,14 @@ class Model(nn.Module):
         """
         batch_size = x.shape[1]  # 256
         samples = torch.zeros(self.self.sample_times, batch_size,
-                              self.params.pred_steps,
+                              self.pred_steps,
                               device=x.device)  # [99, 256, 12]，其中长度12是论文中的prediction range部分
         for j in range(self.self.sample_times):
             decoder_hidden = hidden
             decoder_cell = cell
-            for t in range(self.params.pred_steps):
+            for t in range(self.pred_steps):
                 func_param, decoder_hidden, decoder_cell = \
-                    self(x[self.params.pred_start + t].unsqueeze(0),
+                    self(x[self.pred_start + t].unsqueeze(0),
                          decoder_hidden, decoder_cell)
                 beta_0, gamma = func_param  # [256, 1], [256, 20]
                 # pred_cdf is a uniform distribution
@@ -107,9 +109,9 @@ class Model(nn.Module):
 
                 samples[j, :, t] = pred
                 # predict value at t-1 is as a covars for t,t+1,...,t+lag
-                for lag in range(self.params.lag):
-                    if t < self.params.pred_steps - lag - 1:
-                        x[self.params.pred_start + t + 1, :, 0] = pred
+                for lag in range(self.lag):
+                    if t < self.pred_steps - lag - 1:
+                        x[self.pred_start + t + 1, :, 0] = pred
 
         sample_mu = torch.mean(samples, dim=0)  # mean or median ? # [256, 12]
         sample_std = samples.std(dim=0)  # [256, 12]
