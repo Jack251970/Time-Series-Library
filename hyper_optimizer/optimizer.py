@@ -12,6 +12,7 @@ from exp.exp_anomaly_detection import Exp_Anomaly_Detection
 from exp.exp_classification import Exp_Classification
 from exp.exp_imputation import Exp_Imputation
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
+from exp.exp_probability_forecast import Exp_Probability_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 from utils.print_args import print_args
 
@@ -450,6 +451,8 @@ class HyperOptimizer(object):
             self.Exp = Exp_Imputation
         elif task_name == 'anomaly_detection':
             self.Exp = Exp_Anomaly_Detection
+        elif task_name == 'probability_forecast':
+            self.Exp = Exp_Probability_Forecast
         elif task_name == 'classification':
             self.Exp = Exp_Classification
 

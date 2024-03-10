@@ -12,7 +12,7 @@ def parse_launch_parameters(_script_mode):
     # basic config
     parser.add_argument('--task_name', type=str, required=_script_mode, default='long_term_forecast',
                         help="task name, options:['long_term_forecast', 'short_term_forecast', 'imputation', "
-                             "'classification', 'anomaly_detection']")
+                             "'classification', 'anomaly_detection', 'probability_forecast']")
     parser.add_argument('--is_training', type=int, required=_script_mode, default=1,
                         help='1: train and test, 0: only test')
     parser.add_argument('--model_id', type=str, required=_script_mode, default='unknown',
@@ -21,7 +21,7 @@ def parse_launch_parameters(_script_mode):
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
-                             "'Koopa']")
+                             "'Koopa', 'QSQF-C']")
 
     # data loader
     parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
@@ -535,10 +535,6 @@ def get_search_space(_model):
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
-    transformer_config = {
-        'factor': {'_type': 'single', '_value': 3},
-    }
-
     autoformer_config = {
         'factor': {'_type': 'single', '_value': 2},
 
@@ -574,22 +570,40 @@ def get_search_space(_model):
         'd_ff': {'_type': 'single', '_value': 32},
     }
 
+    transformer_config = {
+        'features': {'_type': 'single', '_value': 'MS'},
+        'factor': {'_type': 'single', '_value': 3},
+    }
+
+    qsqf_c_config = {
+        'task_name': {'_type': 'single', '_value': 'probability_forecast'},
+        'dropout': {'_type': 'single', '_value': 0},
+    }
+
     model_configs = {
-        'Transformer': transformer_config,
         'Autoformer': autoformer_config,
         'FEDformer': fedformer_config,
         'Crossformer': crossformer_config,
         'TimesNet': timesnet_config,
+        'Transformer': transformer_config,
+        'QSQF-C': qsqf_c_config,
     }
 
     # get config for specific model
     model_config = model_configs[_model] if model_configs.get(_model) else {}
     model_config['model'] = {'_type': 'single', '_value': _model}
 
-    return {**default_config, **learning_config, **period_config, **model_config}
+    # get config
+    _config = {**default_config, **learning_config, **period_config}
+
+    # integrate model config
+    for key, value in model_config.items():
+        _config[key] = value
+
+    return _config
 
 
-h = HyperOptimizer(False, ['Transformer'],
+h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
