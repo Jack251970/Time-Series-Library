@@ -540,9 +540,58 @@ class HyperOptimizer(object):
             os.makedirs(folder_path)
 
         if not os.path.exists(file_path):
+            # create new file with header
             with open(file_path, 'w', newline='') as csv_file:
                 _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
                 _writer.writeheader()
+        else:
+            new_data = None
+
+            # check the header of the file
+            with open(file_path, 'r', newline='') as csv_file:
+                header = next(csv.reader(csv_file))
+
+                correct, transfer_headers = self.check_header_correct(header)
+                if not correct:
+                    # get old data
+                    old_data = []
+                    _reader = csv.DictReader(csv_file, fieldnames=header)
+                    for row in _reader:
+                        old_data.append(row)
+
+                    # build new data
+                    new_data = []
+                    for _dict in old_data:
+                        row = {}
+                        for transfer_header in transfer_headers:
+                            row[transfer_header] = _dict[transfer_header]
+                        new_data.append(row)
+
+            # write new data if not correct
+            if new_data is not None:
+                # create new file with header
+                with open(file_path, 'w', newline='') as csv_file:
+                    _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
+                    _writer.writeheader()
+                    for row in new_data:
+                        _writer.writerow(row)
+
+    def check_header_correct(self, header):
+        correct = True
+        transfer_headers = []
+
+        if len(header) != len(self.all_fieldnames):
+            correct = False
+            for i in range(len(header)):
+                if header[i] in self.all_fieldnames:
+                    transfer_headers.append(header[i])
+        else:
+            for i in range(len(header)):
+                if header[i] != self.all_fieldnames[i]:
+                    correct = False
+                if header[i] in self.all_fieldnames:
+                    transfer_headers.append(header[i])
+        return correct, transfer_headers
 
     def _get_config_list(self, task_name, file_paths, scan_all_csv=False):
         if not isinstance(file_paths, list):
