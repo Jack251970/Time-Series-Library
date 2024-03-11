@@ -74,19 +74,29 @@ class Exp_Basic(object):
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
         return model_optim
 
-    def _select_criterion(self, loss='MSE'):
-        if loss == 'MSE':
-            return nn.MSELoss()
-        elif loss == 'MAPE':
-            return mape_loss()
-        elif loss == 'MASE':
-            return mase_loss()
-        elif loss == 'SMAPE':
-            return smape_loss()
-        elif loss == 'CrossEntropy':
-            return nn.CrossEntropyLoss()
+    def _select_criterion(self):
+        loss = self.args.loss
+        if loss == 'auto':
+            if self.args.task_name == 'classification':
+                return nn.CrossEntropyLoss()
+            elif self.args.task_name != "probability_forecast":
+                return nn.MSELoss()
+            else:
+                # for probability forecast, we need to utilize loss function when running the model
+                return None
         else:
-            raise NotImplementedError
+            if loss == 'MSE':
+                return nn.MSELoss()
+            elif loss == 'MAPE':
+                return mape_loss()
+            elif loss == 'MASE':
+                return mase_loss()
+            elif loss == 'SMAPE':
+                return smape_loss()
+            elif loss == 'CrossEntropy':
+                return nn.CrossEntropyLoss()
+            else:
+                raise NotImplementedError(f'Loss function {loss} not implemented')
 
     def train(self, setting):
         pass

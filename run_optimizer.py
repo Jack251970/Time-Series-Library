@@ -76,7 +76,8 @@ def parse_launch_parameters(_script_mode):
                         help='time features encoding, options:[timeF, fixed, learned]')
     parser.add_argument('--activation', type=str, default='gelu', help='activation')
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in encoders')
-    parser.add_argument('--channel_independence', type=int, default=0, help='1: channel dependence 0: channel independence for FreTS model')
+    parser.add_argument('--channel_independence', type=int, default=0, help='1: channel dependence 0: channel '
+                                                                            'independence for FreTS model')
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
@@ -86,7 +87,7 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='test', help='exp description')
-    parser.add_argument('--loss', type=str, default='MSE', help='loss function')
+    parser.add_argument('--loss', type=str, default='auto', help='loss function, detect automatically if not set')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
@@ -585,6 +586,7 @@ def get_search_space(_model):
         'dropout': {'_type': 'single', '_value': 0},
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
+        'features': {'_type': 'single', '_value': 'MS'},
     }
 
     model_configs = {

@@ -50,7 +50,7 @@ class Exp_Classification(Exp_Basic):
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
 
         model_optim = self._select_optimizer()
-        criterion = self._select_criterion('CrossEntropy')
+        criterion = self._select_criterion()
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
