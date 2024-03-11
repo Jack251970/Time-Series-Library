@@ -62,7 +62,8 @@ def analysis_error(preds, trues, k=10, inverse=False, print_feature_num=True, pr
             timeenc=(0 if config['embed']['_value'] != 'timeF' else 1),
             freq=config['freq']['_value'],
             scale=True,
-            scaler='StandardScaler'
+            scaler='StandardScaler',
+            lag=0,
         )
 
         preds = data_set.inverse_transform(preds)

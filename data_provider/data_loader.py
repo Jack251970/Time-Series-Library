@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 # noinspection DuplicatedCode
 class Dataset_ETT_hour(Dataset):
     def __init__(self, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv', target='OT', scale=True,
-                 scaler='StandardScaler', timeenc=0, freq='h', seasonal_patterns=None):
+                 scaler='StandardScaler', timeenc=0, freq='h', lag=0, seasonal_patterns=None):
         # size [seq_len, label_len, pred_len]
         # info
         if size is None:
@@ -52,6 +52,7 @@ class Dataset_ETT_hour(Dataset):
             self.scaler = None
         self.timeenc = timeenc
         self.freq = freq
+        self.lag = lag
 
         self.root_path = root_path
         self.data_path = data_path
@@ -79,6 +80,13 @@ class Dataset_ETT_hour(Dataset):
             data = self.scaler.transform(df_data.values)
         else:
             data = df_data.values
+
+        # add lag feature
+        if self.lag > 0:
+            for i in range(self.lag, 0, -1):
+                label_data = data[:, -1]  # {ndarray: (N,)}
+                lag_data = np.concatenate([np.zeros(i), label_data[:-i]], axis=0)  # {ndarray: (N,)}
+                data = np.concatenate([lag_data.reshape(-1, 1), data], axis=1)
 
         df_stamp = df_raw[['date']][border1:border2]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
@@ -121,7 +129,7 @@ class Dataset_ETT_hour(Dataset):
 # noinspection DuplicatedCode
 class Dataset_ETT_minute(Dataset):
     def __init__(self, root_path, flag='train', size=None, features='S', data_path='ETTm1.csv', target='OT', scale=True,
-                 scaler='StandardScaler', timeenc=0, freq='t', seasonal_patterns=None):
+                 scaler='StandardScaler', timeenc=0, freq='t', lag=0, seasonal_patterns=None):
         # size [seq_len, label_len, pred_len]
         # info
         if size is None:
@@ -153,6 +161,7 @@ class Dataset_ETT_minute(Dataset):
             self.scaler = None
         self.timeenc = timeenc
         self.freq = freq
+        self.lag = lag
 
         self.root_path = root_path
         self.data_path = data_path
@@ -180,6 +189,13 @@ class Dataset_ETT_minute(Dataset):
             data = self.scaler.transform(df_data.values)
         else:
             data = df_data.values
+
+        # add lag feature
+        if self.lag > 0:
+            for i in range(self.lag, 0, -1):
+                label_data = data[:, -1]  # {ndarray: (N,)}
+                lag_data = np.concatenate([np.zeros(i), label_data[:-i]], axis=0)  # {ndarray: (N,)}
+                data = np.concatenate([lag_data.reshape(-1, 1), data], axis=1)
 
         df_stamp = df_raw[['date']][border1:border2]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
@@ -224,7 +240,7 @@ class Dataset_ETT_minute(Dataset):
 # noinspection DuplicatedCode
 class Dataset_Custom(Dataset):
     def __init__(self, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv', target='OT', scale=True,
-                 scaler='StandardScaler', timeenc=0, freq='h', seasonal_patterns=None):
+                 scaler='StandardScaler', timeenc=0, freq='h', lag=0, seasonal_patterns=None):
         # size [seq_len, label_len, pred_len]
         # info
         if size is None:
@@ -256,6 +272,7 @@ class Dataset_Custom(Dataset):
             self.scaler = None
         self.timeenc = timeenc
         self.freq = freq
+        self.lag = lag
 
         self.path = os.path.join(root_path, data_path)
         self.__read_data__()
@@ -309,6 +326,13 @@ class Dataset_Custom(Dataset):
         else:
             data = df_data.values
 
+        # add lag feature
+        if self.lag > 0:
+            for i in range(self.lag, 0, -1):
+                label_data = data[:, -1]  # {ndarray: (N,)}
+                lag_data = np.concatenate([np.zeros(i), label_data[:-i]], axis=0)  # {ndarray: (N,)}
+                data = np.concatenate([lag_data.reshape(-1, 1), data], axis=1)
+
         # extract date column
         df_stamp = df_raw[[date_column]][border1:border2]
         df_stamp[date_column] = pd.to_datetime(df_stamp.date)
@@ -355,7 +379,7 @@ class Dataset_Custom(Dataset):
 class Dataset_M4(Dataset):
     def __init__(self, root_path, flag='pred', size=None,
                  features='S', data_path='ETTh1.csv',
-                 target='OT', scale=False, inverse=False, timeenc=0, freq='15min',
+                 target='OT', scale=False, inverse=False, timeenc=0, freq='15min', lag=0,
                  seasonal_patterns='Yearly'):
         # size [seq_len, label_len, pred_len]
         # init

@@ -30,13 +30,14 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--root_path', type=str, default='./dataset/ETT/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
-                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate '
-                             'predict univariate, MS:multivariate predict univariate')
+                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:uni-variate '
+                             'predict uni-variate, MS:multivariate predict uni-variate')
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, '
                              'b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min '
                              'or 3h')
+    parser.add_argument('--lag', type=int, default=0, help='lag of time series, only for RNN & LSTM related model')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
     # forecasting task
@@ -119,6 +120,7 @@ def build_config_dict(_args):
         'features': _args.features,
         'target': _args.target,
         'freq': _args.freq,
+        'lag': _args.lag,
         'checkpoints': _args.checkpoints,
 
         # forecasting task
@@ -193,6 +195,7 @@ def set_args(_args, _config):
     _args.features = _config['features']
     _args.target = _config['target']
     _args.freq = _config['freq']
+    _args.lag = _config['lag']
     _args.checkpoints = _config['checkpoints']
 
     # forecasting task
@@ -296,6 +299,8 @@ def prepare_config(_params, _script_mode=False):
             _args.target = _params['target']
         if 'freq' in _params:
             _args.freq = _params['freq']
+        if 'lag' in _params:
+            _args.lag = _params['lag']
         if 'checkpoints' in _params:
             _args.checkpoints = _params['checkpoints']
 
@@ -437,10 +442,10 @@ def check_jump_experiment(_parameter):
 def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'setting', 'seed', 'task_name', 'is_training',
-                      'model_id', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'checkpoints', 'seq_len',
-                      'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k',
-                      'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff',
-                      'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
+                      'model_id', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag', 'checkpoints',
+                      'seq_len', 'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio',
+                      'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers',
+                      'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
                       'output_attention', 'channel_independence', 'num_workers', 'train_epochs', 'batch_size',
                       'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu',
                       'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers']
@@ -578,6 +583,8 @@ def get_search_space(_model):
     qsqf_c_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
         'dropout': {'_type': 'single', '_value': 0},
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
     }
 
     model_configs = {
