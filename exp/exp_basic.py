@@ -75,6 +75,10 @@ class Exp_Basic(object):
         return model_optim
 
     def _select_criterion(self):
+        criterion_dict = {
+            'QSQF-C': net_qspline_C.loss_fn
+        }
+
         loss = self.args.loss
         if loss == 'auto':
             if self.args.task_name == 'classification':
@@ -82,8 +86,10 @@ class Exp_Basic(object):
             elif self.args.task_name != "probability_forecast":
                 return nn.MSELoss()
             else:
-                # for probability forecast, we need to utilize loss function when running the model
-                return None
+                if self.args.model in criterion_dict:
+                    return criterion_dict[self.args.model]
+                else:
+                    raise NotImplementedError(f'Loss function for model {self.args.model} not implemented')
         else:
             if loss == 'MSE':
                 return nn.MSELoss()

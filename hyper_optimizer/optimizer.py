@@ -310,12 +310,15 @@ class HyperOptimizer(object):
 
             # phase criteria and save data if in training
             if parameter['is_training'] == 1 and eva_config is not None:
-                # phase mse, mae, acc, smape, f_score from eva_config
+                # phase criteria data from eva_config
                 mse = eva_config.get('mse', None)
                 mae = eva_config.get('mae', None)
                 acc = eva_config.get('acc', None)
                 smape = eva_config.get('smape', None)
                 f_score = eva_config.get('f_score', None)
+                crps = eva_config.get('crps', None)
+                mre = eva_config.get('mre', None)
+                pinaw = eva_config.get('pinaw', None)
 
                 # load criteria data
                 config['mse'] = mse
@@ -323,6 +326,9 @@ class HyperOptimizer(object):
                 config['acc'] = acc
                 config['smape'] = smape
                 config['f_score'] = f_score
+                config['crps'] = crps
+                config['mre'] = mre
+                config['pinaw'] = pinaw
 
                 # load setting and run time
                 config['setting'] = setting

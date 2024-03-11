@@ -61,13 +61,10 @@ class Model(nn.Module):
     def forward(self, x_enc, x_mark_enc, y_enc, x_dec, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            batch = torch.cat((x_enc, y_enc), dim=1)
+            batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
-            if self.training is True:
-                labels_batch = batch[:, :, -1]
-                return self.probability_forecast(train_batch, labels_batch)
-            else:
-                return self.probability_forecast(train_batch)
+            labels_batch = batch[:, :, -1]
+            return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
     def probability_forecast(self, train_batch, labels_batch=None):  # [256, 108, 7], [256, 108,]
@@ -86,8 +83,7 @@ class Model(nn.Module):
 
         if labels_batch is not None:
             # train mode
-            loss = torch.zeros(1, device=device, requires_grad=True)  # [,]
-
+            loss_list = []
             for t in range(self.train_window):
                 # {[256, 1], [256, 20]}, [2, 256, 40], [2, 256, 40]
                 x = train_batch[t].unsqueeze_(0).clone()  # [1, 256, 7]
@@ -107,15 +103,11 @@ class Model(nn.Module):
                 if torch.isnan(hidden).sum() > 0:
                     raise ValueError(f'Backward Error! Process Stop!')
 
-                loss = loss + loss_fn(func_param, labels_batch[t])
+                loss_list.append([func_param, labels_batch[t].clone()])
 
-                # check if loss contains NaN
-                if torch.isnan(loss).sum() > 0:
-                    raise ValueError(f'Loss Error! Process Stop!')
-
-            return loss
+            return loss_list
         else:
-            # validate or test mode
+            # test mode
 
             # condition range
             test_batch = train_batch  # [108, 256, 7]
@@ -171,7 +163,7 @@ class Model(nn.Module):
 
 
 # noinspection DuplicatedCode
-def loss_fn(func_param, labels: Variable):  # {[256, 1], [256, 20]}, [256,]
+def loss_fn(func_param, labels):  # {[256, 1], [256, 20]}, [256,]
     beta_0, gamma = func_param  # [256, 1], [256, 20]
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
 
