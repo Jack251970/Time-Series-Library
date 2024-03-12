@@ -189,7 +189,8 @@ def init_metrics(pred_len, device):
 
 def update_metrics(metrics, samples, labels, seq_len):
     df = labels[:, seq_len:]
-    metrics['num'] = metrics['num'] + samples.shape[1]
+    batch_size = samples.shape[1]
+    metrics['num'] = metrics['num'] + batch_size
     metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, df)
     metrics['mre'] = metrics['mre'] + accuracy_MRE(samples, df)
     metrics['pinaw'] = metrics['pinaw'] + accuracy_PINAW(samples)

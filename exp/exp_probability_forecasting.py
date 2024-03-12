@@ -30,7 +30,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path) and not self.try_model:
             os.makedirs(path)
-        
+
         process_path = './process/' + setting + '/'
         if not os.path.exists(process_path) and not self.try_model:
             os.makedirs(process_path)
@@ -257,14 +257,14 @@ class Exp_Probability_Forecast(Exp_Basic):
             metrics = init_metrics(self.args.pred_len, self.device)
 
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
-                batch_x = batch_x.float().to(self.device)  # [1, 96, 17]
-                batch_y = batch_y.float().to(self.device)  # [1, 16, 17]
+                batch_x = batch_x.float().to(self.device)  # [256, 96, 17]
+                batch_y = batch_y.float().to(self.device)  # [256, 16, 17]
 
-                batch_x_mark = batch_x_mark.float().to(self.device)  # [1, 96, 5]
-                batch_y_mark = batch_y_mark.float().to(self.device)  # [1, 16, 5]
+                batch_x_mark = batch_x_mark.float().to(self.device)  # [256, 96, 5]
+                batch_y_mark = batch_y_mark.float().to(self.device)  # [256, 16, 5]
 
                 # decoder input
-                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float().to(self.device)
+                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float().to(self.device)  # [256, 16, 17]
                 if self.args.label_len != 0:
                     dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float()
 
@@ -281,35 +281,38 @@ class Exp_Probability_Forecast(Exp_Basic):
                     else:
                         outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
 
-                samples, sample_mu, sample_std = outputs  # [99, 1, 16], [1, 16], [256, 16]
+                samples, sample_mu, sample_std = outputs  # [99, 256, 16], [256, 16, 1], [256, 16, 1]
 
                 if self.args.label_len == 0:
-                    batch = torch.cat((batch_x, batch_y), dim=1).float()
+                    batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
                 else:
                     batch = torch.cat((batch_x, batch_y[:, :self.args.label_len, :]), dim=1)
-                labels = batch[:, :, -1]
+
+                labels = batch[:, :, -1]  # [256, 112]
                 metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
+                labels = labels.unsqueeze(-1)  # [256, 112, 1]
 
-                # f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, :]
-                batch_y = batch_y[:, -self.args.pred_len:, :]
+                f_dim = -1 if self.args.features == 'MS' else 0
+                outputs = sample_mu[:, -self.args.pred_len:, :]  # [256, 16, 1]
+                batch_y = labels[:, -self.args.pred_len:, :]  # [256, 16, 1]
 
-                outputs = sample_mu.detach().cpu().numpy()
-                batch_y = labels.detach().cpu().numpy()
+                outputs = outputs.detach().cpu().numpy()
+                batch_y = batch_y.detach().cpu().numpy()
 
                 if test_data.scale and self.args.inverse:
                     shape = outputs.shape
                     outputs = test_data.inverse_transform(outputs.squeeze(0)).reshape(shape)
                     batch_y = test_data.inverse_transform(batch_y.squeeze(0)).reshape(shape)
 
-                # outputs = outputs[:, :, f_dim:]
-                # batch_y = batch_y[:, :, f_dim:]
+                outputs = outputs[:, :, f_dim:]  # [256, 16, 1]
+                batch_y = batch_y[:, :, f_dim:]  # [256, 16, 1]
 
                 pred = outputs
                 true = batch_y
 
                 preds.append(pred)
                 trues.append(true)
+
                 if i % 20 == 0:
                     _input = batch_x.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
@@ -323,10 +326,10 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         preds = np.array(preds)
         trues = np.array(trues)
-        self.print_content(f'test shape: {preds.shape} {trues.shape}')
+        self.print_content(f'test shape: {preds.shape} {trues.shape}')  # (22, 256, 16, 1) (22, 256, 16, 1)
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        self.print_content(f'test shape: {preds.shape} {trues.shape}')
+        self.print_content(f'test shape: {preds.shape} {trues.shape}')  # (5632, 16, 1) (5632, 16, 1)
 
         # result save
         folder_path = './results/' + setting + '/'
@@ -347,7 +350,7 @@ class Exp_Probability_Forecast(Exp_Basic):
             self.print_content(f'MRE_{i}: {mre:.4f}')
 
         # save results in txt
-        # f = open("result_long_term_forecast.txt", 'a')
+        # f = open("result_probability_forecast.txt", 'a')
         # f.write(setting + "  \n")
         # f.write('mse:{}, mae:{}'.format(mse, mae))
         # f.write('\n')

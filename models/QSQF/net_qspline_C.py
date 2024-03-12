@@ -160,8 +160,8 @@ class Model(nn.Module):
                         if t < self.pred_steps - lag - 1:
                             test_batch[self.pred_start + t + 1, :, 0] = pred
 
-            sample_mu = torch.mean(samples, dim=0)  # mean or median ? # [256, 12]
-            sample_std = samples.std(dim=0)  # [256, 12]
+            sample_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
+            sample_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
             return samples, sample_mu, sample_std
 
 
