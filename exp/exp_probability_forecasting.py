@@ -19,7 +19,7 @@ class Exp_Probability_Forecast(Exp_Basic):
     def __init__(self, args, try_model=False, save_process=True):
         super(Exp_Probability_Forecast, self).__init__(args, try_model, save_process)
 
-    def train(self, setting, check_folder=False, only_init=False):
+    def train(self, setting, check_folder=False, only_init=False, fast=True):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
@@ -149,10 +149,13 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             # validate one epoch
             vali_loss = self.vali(vali_data, vali_loader, criterion)
-            test_loss = self.vali(test_data, test_loader, criterion)
-
-            _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
-                 format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            if not fast:
+                test_loss = self.vali(test_data, test_loader, criterion)
+                _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
+                     format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            else:
+                _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f};".
+                     format(epoch + 1, train_steps, train_loss, vali_loss))
             self.print_content(_)
 
             _ = early_stopping(vali_loss, self.model, path)
@@ -239,11 +242,11 @@ class Exp_Probability_Forecast(Exp_Basic):
             else:
                 raise FileNotFoundError('You need to train this model before testing it!')
 
-        # if check_folder:
-        #     self._check_folders(['./test_results', './results'])
+        if check_folder:
+            self._check_folders(['./test_results', './results'])
 
-        # preds = []
-        # trues = []
+        preds = []
+        trues = []
 
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
@@ -254,11 +257,11 @@ class Exp_Probability_Forecast(Exp_Basic):
             metrics = init_metrics(self.args.pred_len, self.device)
 
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
-                batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float().to(self.device)
+                batch_x = batch_x.float().to(self.device)  # [1, 96, 17]
+                batch_y = batch_y.float().to(self.device)  # [1, 16, 17]
 
-                batch_x_mark = batch_x_mark.float().to(self.device)
-                batch_y_mark = batch_y_mark.float().to(self.device)
+                batch_x_mark = batch_x_mark.float().to(self.device)  # [1, 96, 5]
+                batch_y_mark = batch_y_mark.float().to(self.device)  # [1, 16, 5]
 
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float().to(self.device)
@@ -278,7 +281,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                     else:
                         outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
 
-                samples, sample_mu, sample_std = outputs  # [99, 256, 12], [256, 12], [256, 12]
+                samples, sample_mu, sample_std = outputs  # [99, 1, 16], [1, 16], [256, 16]
 
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()
@@ -288,50 +291,50 @@ class Exp_Probability_Forecast(Exp_Basic):
                 metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
 
                 # f_dim = -1 if self.args.features == 'MS' else 0
-                # outputs = outputs[:, -self.args.pred_len:, :]
-                # batch_y = batch_y[:, -self.args.pred_len:, :].to(self.device)
-                #
-                # outputs = outputs.detach().cpu().numpy()
-                # batch_y = batch_y.detach().cpu().numpy()
-                #
-                # if test_data.scale and self.args.inverse:
-                #     shape = outputs.shape
-                #     outputs = test_data.inverse_transform(outputs.squeeze(0)).reshape(shape)
-                #     batch_y = test_data.inverse_transform(batch_y.squeeze(0)).reshape(shape)
-                #
+                outputs = outputs[:, -self.args.pred_len:, :]
+                batch_y = batch_y[:, -self.args.pred_len:, :]
+
+                outputs = sample_mu.detach().cpu().numpy()
+                batch_y = labels.detach().cpu().numpy()
+
+                if test_data.scale and self.args.inverse:
+                    shape = outputs.shape
+                    outputs = test_data.inverse_transform(outputs.squeeze(0)).reshape(shape)
+                    batch_y = test_data.inverse_transform(batch_y.squeeze(0)).reshape(shape)
+
                 # outputs = outputs[:, :, f_dim:]
                 # batch_y = batch_y[:, :, f_dim:]
-                #
-                # pred = outputs
-                # true = batch_y
-                #
-                # preds.append(pred)
-                # trues.append(true)
-                # if i % 20 == 0:
-                #     _input = batch_x.detach().cpu().numpy()
-                #     if test_data.scale and self.args.inverse:
-                #         shape = _input.shape
-                #         _input = test_data.inverse_transform(_input.squeeze(0)).reshape(shape)
-                #     gt = np.concatenate((_input[0, :, -1], true[0, :, -1]), axis=0)
-                #     pd = np.concatenate((_input[0, :, -1], pred[0, :, -1]), axis=0)
-                #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+
+                pred = outputs
+                true = batch_y
+
+                preds.append(pred)
+                trues.append(true)
+                if i % 20 == 0:
+                    _input = batch_x.detach().cpu().numpy()
+                    if test_data.scale and self.args.inverse:
+                        shape = _input.shape
+                        _input = test_data.inverse_transform(_input.squeeze(0)).reshape(shape)
+                    gt = np.concatenate((_input[0, :, -1], true[0, :, -1]), axis=0)
+                    pd = np.concatenate((_input[0, :, -1], pred[0, :, -1]), axis=0)
+                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
 
             summary = final_metrics(metrics)
 
-        # preds = np.array(preds)
-        # trues = np.array(trues)
-        # self.print_content(f'test shape: {preds.shape} {trues.shape}')
-        # preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        # trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        # self.print_content(f'test shape: {preds.shape} {trues.shape}')
+        preds = np.array(preds)
+        trues = np.array(trues)
+        self.print_content(f'test shape: {preds.shape} {trues.shape}')
+        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
+        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
+        self.print_content(f'test shape: {preds.shape} {trues.shape}')
 
         # result save
         folder_path = './results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        # mae, mse, rmse, mape, mspe = metric(preds, trues)
-        # self.print_content('mse:{}, mae:{}'.format(mse, mae))
+        mae, mse, rmse, mape, mspe = metric(preds, trues)
+        self.print_content('mse:{}, mae:{}'.format(mse, mae))
 
         crps_mean = summary['CRPS'].mean()
         mre = summary['mre'].abs().mean()
@@ -351,13 +354,15 @@ class Exp_Probability_Forecast(Exp_Basic):
         # f.write('\n')
         # f.close()
 
-        # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
-        # np.save(folder_path + 'pred.npy', preds)
-        # np.save(folder_path + 'true.npy', trues)
+        np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
+        np.save(folder_path + 'pred.npy', preds)
+        np.save(folder_path + 'true.npy', trues)
 
         self.print_content("", True)
 
         return {
+            'mse': mse,
+            'mae': mae,
             'crps': crps_mean,
             'mre': mre,
             'pinaw': pinaw
