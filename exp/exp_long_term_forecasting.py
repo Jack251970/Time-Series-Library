@@ -17,7 +17,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args, try_model=False, save_process=True):
         super(Exp_Long_Term_Forecast, self).__init__(args, try_model, save_process)
 
-    def train(self, setting, check_folder=False):
+    def train(self, setting, check_folder=False, only_init=False):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
@@ -46,6 +46,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             scaler = torch.cuda.amp.GradScaler()
         else:
             scaler = None
+
+        if only_init:
+            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0

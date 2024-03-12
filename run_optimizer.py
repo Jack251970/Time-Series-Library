@@ -496,13 +496,13 @@ def get_model_id_tags(_args, _add_tags):
 # noinspection DuplicatedCode
 def get_search_space(_model):
     default_config = {
-        'task_name': {'_type': 'single', '_value': 'long_term_forecast'},
-        'is_training': {'_type': 'single', '_value': 1},
+        'task_name': {'_type': 'single', '_value': 'probability_forecast'},
+        'is_training': {'_type': 'single', '_value': 0},
         'root_path': {'_type': 'single', '_value': './dataset/power/pvod/'},
         'data_path': {'_type': 'single', '_value': 'station00.csv'},
         'target': {'_type': 'single', '_value': 'power'},
         'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'M'},
+        'features': {'_type': 'single', '_value': 'MS'},
         'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
         'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
         'c_out': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
@@ -527,19 +527,26 @@ def get_search_space(_model):
     }
 
     period_config = {
-        # mode 1: short period
+        # mode 1: short period 1
         # 'seq_len': {'_type': 'single', '_value': 16},
         # 'label_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 16},
         # 'e_layers': {'_type': 'single', '_value': 1},
         # 'd_layers': {'_type': 'single', '_value': 1},
 
-        # mode 2: medium period
+        # mode 2: short period 2
         'seq_len': {'_type': 'single', '_value': 96},
-        'label_len': {'_type': 'single', '_value': 96},
-        'pred_len': {'_type': 'single', '_value': 96},
+        'label_len': {'_type': 'single', '_value': 16},
+        'pred_len': {'_type': 'single', '_value': 16},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
+
+        # mode 3: medium period
+        # 'seq_len': {'_type': 'single', '_value': 96},
+        # 'label_len': {'_type': 'single', '_value': 96},
+        # 'pred_len': {'_type': 'single', '_value': 96},
+        # 'e_layers': {'_type': 'single', '_value': 1},
+        # 'd_layers': {'_type': 'single', '_value': 1},
     }
 
     autoformer_config = {
@@ -583,11 +590,18 @@ def get_search_space(_model):
     }
 
     qsqf_c_config = {
-        'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'dropout': {'_type': 'single', '_value': 0},
+        # dataset
+        # 'root_path': {'_type': 'single', '_value': './dataset/wind/Zone1/'},
+        # 'data_path': {'_type': 'single', '_value': 'Zone1.csv'},
+        # 'target': {'_type': 'single', '_value': 'wind'},
+        # 'enc_in': {'_type': 'single', '_value': 5},
+        # 'dec_in': {'_type': 'single', '_value': 5},
+        # 'c_out': {'_type': 'single', '_value': 5},
+
+        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
-        'features': {'_type': 'single', '_value': 'MS'},
+        'dropout': {'_type': 'single', '_value': 0},
     }
 
     model_configs = {

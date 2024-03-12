@@ -4,6 +4,7 @@ import warnings
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
@@ -18,7 +19,7 @@ class Exp_Probability_Forecast(Exp_Basic):
     def __init__(self, args, try_model=False, save_process=True):
         super(Exp_Probability_Forecast, self).__init__(args, try_model, save_process)
 
-    def train(self, setting, check_folder=False):
+    def train(self, setting, check_folder=False, only_init=False):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
@@ -33,7 +34,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         process_path = './process/' + setting + '/'
         if not os.path.exists(process_path) and not self.try_model:
             os.makedirs(process_path)
-        self.process_path = process_path + 'long_term_forecast.txt'
+        self.process_path = process_path + 'probability_forecast.txt'
 
         time_now = time.time()
 
@@ -47,6 +48,9 @@ class Exp_Probability_Forecast(Exp_Basic):
             scaler = torch.cuda.amp.GradScaler()
         else:
             scaler = None
+
+        if only_init:
+            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
@@ -85,35 +89,26 @@ class Exp_Probability_Forecast(Exp_Basic):
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
-
-                        if outputs is list:
-                            loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
-                            for output in outputs:
-                                param1, param2 = output
-                                loss = loss + criterion(param1, param2)
-                        else:
-                            f_dim = -1 if self.args.features == 'MS' else 0
-                            outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                            batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                            loss = criterion(outputs, batch_y)
-                        train_loss.append(loss.item())
                 else:
                     if self.args.output_attention:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
                     else:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
 
-                    if outputs is list:
-                        loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
-                        for output in outputs:
-                            param1, param2 = output
-                            loss = loss + criterion(param1, param2)
-                    else:
-                        f_dim = -1 if self.args.features == 'MS' else 0
-                        outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                        batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                        loss = criterion(outputs, batch_y)
-                    train_loss.append(loss.item())
+                if isinstance(outputs, list):
+                    loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
+                    for output in outputs:
+                        if isinstance(output, list):
+                            loss = loss + criterion(output)
+                        else:
+                            raise NotImplementedError('The output of the model should be list for the model with '
+                                                      'custom loss function!')
+                else:
+                    f_dim = -1 if self.args.features == 'MS' else 0
+                    outputs = outputs[:, -self.args.pred_len:, f_dim:]
+                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                    loss = criterion(outputs, batch_y)
+                train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
                     _ = "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item())
@@ -151,6 +146,8 @@ class Exp_Probability_Forecast(Exp_Basic):
             self.print_content(_)
 
             train_loss = np.average(train_loss)
+
+            # validate one epoch
             vali_loss = self.vali(vali_data, vali_loader, criterion)
             test_loss = self.vali(test_data, test_loader, criterion)
 
@@ -181,7 +178,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         total_loss = []
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(vali_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
 
@@ -206,11 +203,16 @@ class Exp_Probability_Forecast(Exp_Basic):
                     else:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
 
-                if outputs is list:
-                    loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
-                    for output in outputs:
-                        param1, param2 = output
-                        loss = loss + criterion(param1, param2)
+                if isinstance(outputs, list):
+                    loss = torch.zeros(1, device=self.device, requires_grad=False)  # [,]
+                    for output in outputs:  # [32, 1], [32, 20], [32]
+                        if isinstance(output, list):
+                            loss = loss + criterion(output)
+                        else:
+                            raise NotImplementedError('The output of the model should be list for a model with custom '
+                                                      'loss function!')
+
+                    loss = loss.detach().cpu()
                 else:
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -237,8 +239,8 @@ class Exp_Probability_Forecast(Exp_Basic):
             else:
                 raise FileNotFoundError('You need to train this model before testing it!')
 
-        if check_folder:
-            self._check_folders(['./test_results', './results'])
+        # if check_folder:
+        #     self._check_folders(['./test_results', './results'])
 
         # preds = []
         # trues = []
@@ -251,7 +253,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         with torch.no_grad():
             metrics = init_metrics(self.args.pred_len, self.device)
 
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
@@ -267,16 +269,17 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         if self.args.output_attention:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
+                            outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
                         else:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
+                            outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
                 else:
                     if self.args.output_attention:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
+                        outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
                     else:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
+                        outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
 
-                samples, _, _ = outputs
+                samples, sample_mu, sample_std = outputs  # [99, 256, 12], [256, 12], [256, 12]
+
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()
                 else:
@@ -333,11 +336,12 @@ class Exp_Probability_Forecast(Exp_Basic):
         crps_mean = summary['CRPS'].mean()
         mre = summary['mre'].abs().mean()
         pinaw = summary['pinaw']
-        # ss_metric = {}
-        # for i, crps in enumerate(summary['CRPS']):
-        #     ss_metric[f'CRPS_{i}'] = crps
-        # for i, mre in enumerate(summary['mre'].mean(dim=0)):
-        #     ss_metric[f'mre_{i}'] = mre
+        self.print_content('CRPS_Mean: {:.4f}, MRE: {:.4f}, PINAW: {:.4f}'.format(crps_mean, mre, pinaw))
+
+        for i, crps in enumerate(summary['CRPS']):
+            self.print_content(f'CRPS_{i}: {crps:.4f}')
+        for i, mre in enumerate(summary['mre'].mean(dim=0)):
+            self.print_content(f'MRE_{i}: {mre:.4f}')
 
         # save results in txt
         # f = open("result_long_term_forecast.txt", 'a')

@@ -27,7 +27,7 @@ class Exp_Classification(Exp_Basic):
         self.args.num_class = len(train_data.class_names)
         return super()._build_model()
 
-    def train(self, setting, check_folder=False):
+    def train(self, setting, check_folder=False, only_init=False):
         train_data, train_loader = self._get_data(flag='TRAIN')
         vali_data, vali_loader = self._get_data(flag='TEST')
         test_data, test_loader = self._get_data(flag='TEST')
@@ -51,6 +51,9 @@ class Exp_Classification(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
+
+        if only_init:
+            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0

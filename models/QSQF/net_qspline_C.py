@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.nn.functional import pad
-from torch.autograd import Variable
 
 # -*- coding: utf-8 -*-
 """
@@ -67,6 +66,13 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
+    def predict(self, x_enc, x_mark_enc, y_enc, x_dec, x_mark_dec, mask=None):
+        if self.task_name == 'probability_forecast':
+            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            train_batch = batch[:, :, :-1]
+            return self.probability_forecast(train_batch)
+        return None
+
     def probability_forecast(self, train_batch, labels_batch=None):  # [256, 108, 7], [256, 108,]
         batch_size = train_batch.shape[0]  # 256
         device = train_batch.device
@@ -76,13 +82,13 @@ class Model(nn.Module):
             labels_batch = labels_batch.permute(1, 0)  # [108, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.params.lstm_layers, batch_size, self.params.lstm_hidden_dim,
+        hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim,
                              device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.params.lstm_layers, batch_size, self.params.lstm_hidden_dim,
+        cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim,
                            device=device)  # [2, 256, 40]
 
         if labels_batch is not None:
-            # train mode
+            # train mode or validate mode
             loss_list = []
             for t in range(self.train_window):
                 # {[256, 1], [256, 20]}, [2, 256, 40], [2, 256, 40]
@@ -97,31 +103,28 @@ class Model(nn.Module):
                 beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
                 pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
                 gamma = self.gamma(pre_gamma)  # [256, 20]
-                func_param = (beta_0, torch.squeeze(gamma))  # {[256, 1], [256, 20]}
 
                 # check if hidden contains NaN
                 if torch.isnan(hidden).sum() > 0:
                     raise ValueError(f'Backward Error! Process Stop!')
 
-                loss_list.append([func_param, labels_batch[t].clone()])
+                loss_list.append([beta_0, gamma, labels_batch[t].clone()])
 
             return loss_list
         else:
             # test mode
-
             # condition range
             test_batch = train_batch  # [108, 256, 7]
-            for t in range(self.params.pred_start):
+            for t in range(self.pred_start):
                 x = test_batch[t].unsqueeze(0)  # [1, 256, 7]
 
                 _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
             # prediction range
-            samples = torch.zeros(self.params.sample_times, batch_size, self.params.pred_steps,
-                                  device=device)  # [99, 256, 12]
-            for j in range(self.params.sample_times):
-                for t in range(self.params.pred_steps):
-                    x = test_batch[self.params.pred_start + t].unsqueeze(0)  # [1, 256, 7]
+            samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
+            for j in range(self.sample_times):
+                for t in range(self.pred_steps):
+                    x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
 
                     _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                     # use h from all three layers to calculate mu and sigma
@@ -153,9 +156,9 @@ class Model(nn.Module):
 
                     samples[j, :, t] = pred
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
-                    for lag in range(self.params.lag):
-                        if t < self.params.pred_steps - lag - 1:
-                            test_batch[self.params.pred_start + t + 1, :, 0] = pred
+                    for lag in range(self.lag):
+                        if t < self.pred_steps - lag - 1:
+                            test_batch[self.pred_start + t + 1, :, 0] = pred
 
             sample_mu = torch.mean(samples, dim=0)  # mean or median ? # [256, 12]
             sample_std = samples.std(dim=0)  # [256, 12]
@@ -163,8 +166,9 @@ class Model(nn.Module):
 
 
 # noinspection DuplicatedCode
-def loss_fn(func_param, labels):  # {[256, 1], [256, 20]}, [256,]
-    beta_0, gamma = func_param  # [256, 1], [256, 20]
+def loss_fn(list_param):
+    beta_0, gamma, labels = list_param[0], list_param[1], list_param[2]  # [256, 1], [256, 20]}, [256,]
+
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
 
     beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]

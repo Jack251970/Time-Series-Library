@@ -28,7 +28,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             self.args.frequency_map = M4Meta.frequency_map[self.args.seasonal_patterns]
         return super()._build_model()
 
-    def train(self, setting, check_folder=False):
+    def train(self, setting, check_folder=False, only_init=False):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
 
@@ -51,6 +51,9 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
+
+        if only_init:
+            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0

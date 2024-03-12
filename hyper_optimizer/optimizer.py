@@ -522,6 +522,7 @@ class HyperOptimizer(object):
 
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
+            exp.train(_setting, check_folder=_check_folder, only_init=True)
             _eva_config = exp.test(_setting, check_folder=_check_folder)
 
             # clean cuda cache

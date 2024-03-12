@@ -22,7 +22,7 @@ class Exp_Anomaly_Detection(Exp_Basic):
         super(Exp_Anomaly_Detection, self).__init__(args, try_model, save_process)
         self.anomaly_criterion = None
 
-    def train(self, setting, check_folder=False):
+    def train(self, setting, check_folder=False, only_init=False):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
@@ -46,6 +46,9 @@ class Exp_Anomaly_Detection(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
+
+        if only_init:
+            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
