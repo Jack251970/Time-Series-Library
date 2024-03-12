@@ -452,8 +452,8 @@ def get_fieldnames(mode='all'):
                       'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers']
 
     # init the fieldnames need to be checked
-    _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'model_id',
-                           'root_path', 'checkpoints', 'output_attention', 'num_workers', 'use_gpu', 'gpu',
+    _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'is_training',
+                           'model_id', 'root_path', 'checkpoints', 'output_attention', 'num_workers', 'use_gpu', 'gpu',
                            'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
@@ -473,7 +473,9 @@ def get_fieldnames(mode='all'):
 # noinspection DuplicatedCode
 def get_model_id_tags(_args, _add_tags):
     tags = []
-    if _args.learning_rate == 0.0001:
+    if _args.learning_rate == 0.005:
+        tags.append('extra_large_lr')
+    elif _args.learning_rate == 0.0001:
         tags.append('large_lr')
     elif _args.learning_rate == 0.00005:
         tags.append('medium_lr')
@@ -528,13 +530,17 @@ def get_search_space(_model):
     }
 
     learning_config = {
-        # learning mode 1: large lr
-        'learning_rate': {'_type': 'single', '_value': 0.0001},
+        # learning mode 1: extra large lr
+        'learning_rate': {'_type': 'single', '_value': 0.005},
         'train_epochs': {'_type': 'single', '_value': 3},
+
+        # learning mode 1: large lr
+        # 'learning_rate': {'_type': 'single', '_value': 0.0001},
+        # 'train_epochs': {'_type': 'single', '_value': 6},
 
         # learning mode 2: medium lr
         # 'learning_rate': {'_type': 'single', '_value': 0.00005},
-        # 'train_epochs': {'_type': 'single', '_value': 6},
+        # 'train_epochs': {'_type': 'single', '_value': 9},
 
         # learning mode 3: small lr
         # 'learning_rate': {'_type': 'single', '_value': 0.00001},

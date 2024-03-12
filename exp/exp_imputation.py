@@ -18,10 +18,6 @@ class Exp_Imputation(Exp_Basic):
         super(Exp_Imputation, self).__init__(args, try_model, save_process)
 
     def train(self, setting, check_folder=False, only_init=False):
-        train_data, train_loader = self._get_data(flag='train')
-        vali_data, vali_loader = self._get_data(flag='val')
-        test_data, test_loader = self._get_data(flag='test')
-
         if check_folder:
             self._check_folders([self.args.checkpoints, "./process"])
 
@@ -34,6 +30,13 @@ class Exp_Imputation(Exp_Basic):
             os.makedirs(process_path)
         self.process_path = process_path + 'long_term_forecast.txt'
 
+        if only_init:
+            return
+
+        train_data, train_loader = self._get_data(flag='train')
+        vali_data, vali_loader = self._get_data(flag='val')
+        test_data, test_loader = self._get_data(flag='test')
+
         time_now = time.time()
 
         train_steps = len(train_loader)
@@ -41,9 +44,6 @@ class Exp_Imputation(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
-
-        if only_init:
-            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0

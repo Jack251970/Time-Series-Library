@@ -29,9 +29,6 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         return super()._build_model()
 
     def train(self, setting, check_folder=False, only_init=False):
-        train_data, train_loader = self._get_data(flag='train')
-        vali_data, vali_loader = self._get_data(flag='val')
-
         if check_folder:
             self._check_folders([self.args.checkpoints, "./process"])
 
@@ -44,6 +41,12 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             os.makedirs(process_path)
         self.process_path = process_path + 'long_term_forecast.txt'
 
+        if only_init:
+            return
+
+        train_data, train_loader = self._get_data(flag='train')
+        vali_data, vali_loader = self._get_data(flag='val')
+
         time_now = time.time()
 
         train_steps = len(train_loader)
@@ -51,9 +54,6 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
-
-        if only_init:
-            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0

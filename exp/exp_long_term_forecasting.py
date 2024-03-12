@@ -18,10 +18,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         super(Exp_Long_Term_Forecast, self).__init__(args, try_model, save_process)
 
     def train(self, setting, check_folder=False, only_init=False):
-        train_data, train_loader = self._get_data(flag='train')
-        vali_data, vali_loader = self._get_data(flag='val')
-        test_data, test_loader = self._get_data(flag='test')
-
         if check_folder:
             self._check_folders([self.args.checkpoints, "./process"])
 
@@ -33,6 +29,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         if not os.path.exists(process_path) and not self.try_model:
             os.makedirs(process_path)
         self.process_path = process_path + 'long_term_forecast.txt'
+
+        train_data, train_loader = self._get_data(flag='train')
+        vali_data, vali_loader = self._get_data(flag='val')
+        test_data, test_loader = self._get_data(flag='test')
+
+        if only_init:
+            return
 
         time_now = time.time()
 
@@ -46,9 +49,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             scaler = torch.cuda.amp.GradScaler()
         else:
             scaler = None
-
-        if only_init:
-            return
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0

@@ -308,8 +308,8 @@ class HyperOptimizer(object):
             eva_config, run_time, setting = self._start_experiment(args, parameter, config, False,
                                                                       (_process_index == 0 and _time == 1))
 
-            # phase criteria and save data if in training
-            if parameter['is_training'] == 1 and eva_config is not None:
+            # phase criteria and save data
+            if eva_config is not None:
                 # phase criteria data from eva_config
                 mse = eva_config.get('mse', None)
                 mae = eva_config.get('mae', None)

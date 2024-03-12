@@ -32,7 +32,7 @@ def data_provider(args, flag):
             batch_size = args.batch_size
         else:
             # batch_size = 1  # bsz=1 for evaluation
-            batch_size = 8  # fasten the test process
+            batch_size = args.batch_size  # fasten the test process
         freq = args.freq
     else:
         shuffle_flag = True
