@@ -473,7 +473,7 @@ def get_fieldnames(mode='all'):
 # noinspection DuplicatedCode
 def get_model_id_tags(_args, _add_tags):
     tags = []
-    if _args.learning_rate == 0.005:
+    if _args.learning_rate == 0.001:
         tags.append('extra_large_lr')
     elif _args.learning_rate == 0.0001:
         tags.append('large_lr')
@@ -531,7 +531,7 @@ def get_search_space(_model):
 
     learning_config = {
         # learning mode 1: extra large lr
-        'learning_rate': {'_type': 'single', '_value': 0.005},
+        'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 3},
 
         # learning mode 1: large lr
@@ -616,7 +616,7 @@ def get_search_space(_model):
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
-        'train_epochs': {'_type': 'single', '_value': 10},
+        'train_epochs': {'_type': 'single', '_value': 20},
     }
 
     model_configs = {
@@ -646,7 +646,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=False)
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)
 
 if __name__ == "__main__":
     h.start_search(0)

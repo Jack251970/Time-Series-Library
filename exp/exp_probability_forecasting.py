@@ -19,7 +19,7 @@ class Exp_Probability_Forecast(Exp_Basic):
     def __init__(self, args, try_model=False, save_process=True):
         super(Exp_Probability_Forecast, self).__init__(args, try_model, save_process)
 
-    def train(self, setting, check_folder=False, only_init=False, fast=True):
+    def train(self, setting, check_folder=False, only_init=False, adjust_lr=False):
         if check_folder:
             self._check_folders([self.args.checkpoints, "./process"])
 
@@ -149,13 +149,9 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             # validate one epoch
             vali_loss = self.vali(vali_data, vali_loader, criterion)
-            if not fast:
-                test_loss = self.vali(test_data, test_loader, criterion)
-                _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
-                     format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-            else:
-                _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f};".
-                     format(epoch + 1, train_steps, train_loss, vali_loss))
+            test_loss = self.vali(test_data, test_loader, criterion)
+            _ = ("Epoch: {0}, Steps: {1} --- Train Loss: {2:.7f}; Vali Loss: {3:.7f}; Test Loss: {4:.7f};".
+                 format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             self.print_content(_)
 
             _ = early_stopping(vali_loss, self.model, path)
@@ -166,9 +162,13 @@ class Exp_Probability_Forecast(Exp_Basic):
                 self.print_content("Early stopping")
                 break
 
-            _ = adjust_learning_rate(model_optim, epoch + 1, self.args)
-            if _ is not None:
-                self.print_content(_)
+            if adjust_lr:
+                _ = adjust_learning_rate(model_optim, epoch + 1, self.args)
+                if _ is not None:
+                    self.print_content(_)
+            else:
+                lr = model_optim.param_groups[0]['lr']
+                self.print_content(f'learning rate is: {lr}')
 
         self.print_content("", True)
 
@@ -339,15 +339,16 @@ class Exp_Probability_Forecast(Exp_Basic):
         mae, mse, rmse, mape, mspe = metric(preds, trues)
         self.print_content('mse:{}, mae:{}'.format(mse, mae))
 
-        crps_mean = summary['CRPS'].mean()
-        mre = summary['mre'].abs().mean()
-        pinaw = summary['pinaw']
-        self.print_content('CRPS_Mean: {:.4f}, MRE: {:.4f}, PINAW: {:.4f}'.format(crps_mean, mre, pinaw))
+        strings = '\nCRPS: ' + str(summary['CRPS']) + \
+                  '\nmre:' + str(summary['mre'].abs().max(dim=1)[0].mean().item()) + \
+                  '\nPINAW:' + str(summary['pinaw'].item())
+        self.print_content('Full test metrics: ' + strings)
 
+        ss_metric = {'CRPS_Mean': summary['CRPS'].mean(), 'mre': summary['mre'].abs().mean(), 'pinaw': summary['pinaw']}
         for i, crps in enumerate(summary['CRPS']):
-            self.print_content(f'CRPS_{i}: {crps:.4f}')
+            ss_metric[f'CRPS_{i}'] = crps
         for i, mre in enumerate(summary['mre'].mean(dim=0)):
-            self.print_content(f'MRE_{i}: {mre:.4f}')
+            ss_metric[f'mre_{i}'] = mre
 
         # save results in txt
         # f = open("result_probability_forecast.txt", 'a')
@@ -366,7 +367,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         return {
             'mse': mse,
             'mae': mae,
-            'crps': crps_mean,
-            'mre': mre,
-            'pinaw': pinaw
+            'crps': ss_metric['CRPS_Mean'],
+            'mre': ss_metric['mre'],
+            'pinaw': ss_metric['pinaw']
         }
