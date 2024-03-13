@@ -499,7 +499,7 @@ def get_model_id_tags(_args, _add_tags):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -615,6 +615,8 @@ def get_search_space(_model):
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
+
+        'train_epochs': {'_type': 'single', '_value': 10},
     }
 
     model_configs = {
