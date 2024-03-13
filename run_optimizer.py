@@ -531,20 +531,20 @@ def get_search_space(_model):
 
     learning_config = {
         # learning mode 1: extra large lr
-        'learning_rate': {'_type': 'single', '_value': 0.001},
+        # 'learning_rate': {'_type': 'single', '_value': 0.001},
+        # 'train_epochs': {'_type': 'single', '_value': 3},
+
+        # learning mode 2: large lr
+        'learning_rate': {'_type': 'single', '_value': 0.0001},
         'train_epochs': {'_type': 'single', '_value': 3},
 
-        # learning mode 1: large lr
-        # 'learning_rate': {'_type': 'single', '_value': 0.0001},
+        # learning mode 3: medium lr
+        # 'learning_rate': {'_type': 'single', '_value': 0.00005},
         # 'train_epochs': {'_type': 'single', '_value': 6},
 
-        # learning mode 2: medium lr
-        # 'learning_rate': {'_type': 'single', '_value': 0.00005},
-        # 'train_epochs': {'_type': 'single', '_value': 9},
-
-        # learning mode 3: small lr
+        # learning mode 4: small lr
         # 'learning_rate': {'_type': 'single', '_value': 0.00001},
-        # 'train_epochs': {'_type': 'single', '_value': 20},
+        # 'train_epochs': {'_type': 'single', '_value': 10},
     }
 
     period_config = {
@@ -606,8 +606,6 @@ def get_search_space(_model):
     }
 
     transformer_config = {
-        'features': {'_type': 'single', '_value': 'MS'},
-        'factor': {'_type': 'single', '_value': 3},
     }
 
     qsqf_c_config = {
@@ -616,11 +614,11 @@ def get_search_space(_model):
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
+        'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 20},
     }
 
     transformer_qsqf_config = {
-
     }
 
     model_configs = {
@@ -647,7 +645,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['QSQF-C', 'Transformer-QSQF'],
+h = HyperOptimizer(False, ['QSQF-C', 'Transformer', 'Transformer-QSQF'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
