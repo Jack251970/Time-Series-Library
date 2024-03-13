@@ -1,3 +1,4 @@
+import math
 import os
 import time
 import warnings
@@ -411,25 +412,45 @@ class Exp_Probability_Forecast(Exp_Basic):
         low_value = dataset.inverse_transform(low_value)
 
         # get the original data
-        pred_value = pred_value[:, -1]  # predicted value
-        true_value = true_value[:, -1]  # true value
-        high_value = high_value[:, -1]  # high-probability value
-        low_value = low_value[:, -1]  # low-probability value
+        pred_value = pred_value[:, -1].squeeze()  # predicted value
+        true_value = true_value[:, -1].squeeze()  # true value
+        high_value = high_value[:, -1].squeeze()  # high-probability value
+        low_value = low_value[:, -1].squeeze()  # low-probability value
 
         plt.clf()
-        plt.plot(pred_value.squeeze(), label='Predicted Value', color='red')
-        plt.plot(true_value.squeeze(), label='True Value', color='blue')
-        plt.fill_between(range(len(test_data)), high_value.squeeze(), low_value.squeeze(), color='gray',
+        plt.plot(pred_value, label='Predicted Value', color='red')
+        plt.plot(true_value, label='True Value', color='blue')
+        plt.fill_between(range(len(test_data)), high_value, low_value, color='gray',
                          alpha=0.5)
         plt.title('Prediction')
         plt.legend()
-        path = os.path.join(folder_path, 'prediction 0.png')
+        path = os.path.join(folder_path, 'prediction all.png')
         plt.savefig(path)
+
+        interval = 128
+        num = math.floor(length / interval)
+        for i in range(num):
+            if (i + 1)*interval >= length:
+                continue
+            plt.clf()
+            plt.plot(pred_value[i*interval: (i+1)*interval], label='Predicted Value', color='red')
+            plt.plot(true_value[i*interval: (i+1)*interval], label='True Value', color='blue')
+            plt.fill_between(range(interval), high_value[i*interval: (i+1)*interval],
+                             low_value[i*interval: (i+1)*interval], color='gray', alpha=0.5)
+            plt.title('Prediction')
+            plt.legend()
+            path = os.path.join(folder_path, f'prediction {i}.png')
+            plt.savefig(path)
+
+        # convert to float
+        crps = float(ss_metric['CRPS_Mean'].item())
+        mre = float(ss_metric['mre'].item())
+        pinaw = float(ss_metric['pinaw'].item())
 
         return {
             'mse': mse,
             'mae': mae,
-            'crps': ss_metric['CRPS_Mean'],
-            'mre': ss_metric['mre'],
-            'pinaw': ss_metric['pinaw']
+            'crps': crps,
+            'mre': mre,
+            'pinaw': pinaw
         }
