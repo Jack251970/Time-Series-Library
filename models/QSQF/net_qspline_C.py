@@ -57,7 +57,7 @@ class Model(nn.Module):
         # self.gamma=nn.ReLU()
         self.gamma = nn.Softplus()
 
-    def forward(self, x_enc, x_mark_enc, y_enc, x_dec, x_mark_dec, mask=None):
+    def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
             batch = torch.cat((x_enc, y_enc), dim=1).float()
@@ -66,7 +66,7 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
-    def predict(self, x_enc, x_mark_enc, y_enc, x_dec, x_mark_dec, mask=None):
+    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
