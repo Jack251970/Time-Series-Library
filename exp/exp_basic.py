@@ -4,7 +4,8 @@ from torch import optim, nn
 
 from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
-                    Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE, FreTS)
+                    Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE, FreTS,
+                    Transformer_QSQF)
 from models.QSQF import net_qspline_C
 from utils.losses import mape_loss, mase_loss, smape_loss
 
@@ -41,7 +42,8 @@ class Exp_Basic(object):
             'Koopa': Koopa,
             'TiDE': TiDE,
             'FreTS': FreTS,
-            'QSQF-C': net_qspline_C
+            'QSQF-C': net_qspline_C,
+            'Transformer-QSQF': Transformer_QSQF
         }
         model = model_dict[self.args.model].Model(self.args).float()
         # use multi gpus if enabled

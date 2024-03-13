@@ -21,7 +21,7 @@ def parse_launch_parameters(_script_mode):
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
-                             "'Koopa', 'QSQF-C']")
+                             "'Koopa', 'QSQF-C', 'Transformer-QSQF']")
 
     # data loader
     parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
@@ -509,24 +509,24 @@ def get_search_space(_model):
 
     dataset_config = {
         # solar dataset
-        'root_path': {'_type': 'single', '_value': './dataset/power/pvod/'},
-        'data_path': {'_type': 'single', '_value': 'station00.csv'},
-        'target': {'_type': 'single', '_value': 'power'},
-        'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'MS'},
-        'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-        'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-        'c_out': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-
-        # wind dataset
-        # 'root_path': {'_type': 'single', '_value': './dataset/wind/Zone1/'},
-        # 'data_path': {'_type': 'single', '_value': 'Zone1.csv'},
-        # 'target': {'_type': 'single', '_value': 'wind'},
+        # 'root_path': {'_type': 'single', '_value': './dataset/power/pvod/'},
+        # 'data_path': {'_type': 'single', '_value': 'station00.csv'},
+        # 'target': {'_type': 'single', '_value': 'power'},
         # 'data': {'_type': 'single', '_value': 'custom'},
         # 'features': {'_type': 'single', '_value': 'MS'},
-        # 'enc_in': {'_type': 'single', '_value': 5},
-        # 'dec_in': {'_type': 'single', '_value': 5},
-        # 'c_out': {'_type': 'single', '_value': 5},
+        # 'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
+        # 'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
+        # 'c_out': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
+
+        # wind dataset
+        'root_path': {'_type': 'single', '_value': './dataset/wind/Zone1/'},
+        'data_path': {'_type': 'single', '_value': 'Zone1.csv'},
+        'target': {'_type': 'single', '_value': 'wind'},
+        'data': {'_type': 'single', '_value': 'custom'},
+        'features': {'_type': 'single', '_value': 'MS'},
+        'enc_in': {'_type': 'single', '_value': 5},
+        'dec_in': {'_type': 'single', '_value': 5},
+        'c_out': {'_type': 'single', '_value': 5},
     }
 
     learning_config = {
@@ -642,7 +642,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['QSQF-C'],
+h = HyperOptimizer(False, ['QSQF-C', 'Transformer-QSQF'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
