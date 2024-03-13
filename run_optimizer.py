@@ -499,7 +499,7 @@ def get_model_id_tags(_args, _add_tags):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -646,7 +646,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=False)
 
 if __name__ == "__main__":
     h.start_search(0)

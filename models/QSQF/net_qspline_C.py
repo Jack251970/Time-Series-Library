@@ -174,12 +174,12 @@ class Model(nn.Module):
         plot the prediction figure
         sample: bool, if True, sample 99 times and choose mean value, else, sample once (probability == 0.5)
         """
-        all_data = dataset.get_all_data()  # [15632, 17]
+        all_data, _, _ = dataset.get_all_data()  # [15632, 17]
         data = all_data[:, :-1]  # [15632, 16]
         label = all_data[:, -1]  # [15632]
 
-        data = torch.Tensor(data).to(self.device)
-        label = torch.Tensor(label).to(self.device)
+        data = torch.Tensor(data).to(device)
+        label = torch.Tensor(label).to(device)
 
         cdf_high = 1 - (1 - probability_range) / 2
         cdf_low = (1 - probability_range) / 2
