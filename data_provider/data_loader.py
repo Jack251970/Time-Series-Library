@@ -125,6 +125,9 @@ class Dataset_ETT_hour(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
+    def get_all_data(self):
+        return self.data_x, self.data_y, self.data_stamp
+
 
 # noinspection DuplicatedCode
 class Dataset_ETT_minute(Dataset):
@@ -235,6 +238,9 @@ class Dataset_ETT_minute(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+    def get_all_data(self):
+        return self.data_x, self.data_y, self.data_stamp
 
 
 # noinspection DuplicatedCode
@@ -373,6 +379,9 @@ class Dataset_Custom(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+    def get_all_data(self):
+        return self.data_x, self.data_y, self.data_stamp
 
 
 # noinspection DuplicatedCode

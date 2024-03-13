@@ -364,6 +364,8 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         self.print_content("", True)
 
+        self.model.plot_figure(test_data, self.device, folder_path, sample=False, probability_range=0.95)
+
         return {
             'mse': mse,
             'mae': mae,
