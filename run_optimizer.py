@@ -619,6 +619,10 @@ def get_search_space(_model):
         'train_epochs': {'_type': 'single', '_value': 20},
     }
 
+    transformer_qsqf_config = {
+
+    }
+
     model_configs = {
         'Autoformer': autoformer_config,
         'FEDformer': fedformer_config,
@@ -626,6 +630,7 @@ def get_search_space(_model):
         'TimesNet': timesnet_config,
         'Transformer': transformer_config,
         'QSQF-C': qsqf_c_config,
+        'Transformer-QSQF': transformer_qsqf_config
     }
 
     # get config for specific model
