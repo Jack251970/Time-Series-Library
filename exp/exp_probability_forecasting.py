@@ -4,6 +4,7 @@ import warnings
 
 import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from exp.exp_basic import Exp_Basic
@@ -252,9 +253,16 @@ class Exp_Probability_Forecast(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+        length = len(test_data)
+        pred_value = torch.zeros(length).to(self.device)
+        true_value = torch.zeros(length).to(self.device)
+        high_value = torch.zeros(length).to(self.device)
+        low_value = torch.zeros(length).to(self.device)
+
         self.model.eval()
         with torch.no_grad():
             metrics = init_metrics(self.args.pred_len, self.device)
+            batch_size = test_loader.batch_size
 
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)  # [256, 96, 17]
@@ -281,16 +289,26 @@ class Exp_Probability_Forecast(Exp_Basic):
                     else:
                         outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
 
-                samples, sample_mu, sample_std = outputs  # [99, 256, 16], [256, 16, 1], [256, 16, 1]
+                samples, sample_mu, sample_std, samples_high, samples_low = outputs
+                pred_value[i * batch_size: (i + 1) * batch_size] = sample_mu[:, 0, 0].squeeze()
+                high_value[i * batch_size: (i + 1) * batch_size] = samples_high[:, 0, 0].squeeze()
+                low_value[i * batch_size: (i + 1) * batch_size] = samples_low[0, :, 0].squeeze()
+                # for j in range(batch_size):
+                #     pred_value[i * batch_size + j] = sample_mu[0, :, 0]
+                #     high_value[i] = samples_high[0, 0, 0]
+                #     low_value[i] = samples_low[0, 0, 0]
+                # [99, 256, 16], [256, 16, 1], [256, 16, 1], [1, 256, 16], [1, 256, 16]
 
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
                 else:
                     batch = torch.cat((batch_x, batch_y[:, :self.args.label_len, :]), dim=1)
 
-                labels = batch[:, :, -1]  # [256, 112]
+                labels = batch[:, :, -1]  # [256, 112, 1]
                 metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
                 labels = labels.unsqueeze(-1)  # [256, 112, 1]
+
+                true_value[i * batch_size: (i + 1) * batch_size] = batch_y[:, -test_data.pred_len, -1].squeeze()
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = sample_mu[:, -self.args.pred_len:, :]  # [256, 16, 1]
@@ -313,14 +331,14 @@ class Exp_Probability_Forecast(Exp_Basic):
                 preds.append(pred)
                 trues.append(true)
 
-                if i % 20 == 0:
-                    _input = batch_x.detach().cpu().numpy()
-                    if test_data.scale and self.args.inverse:
-                        shape = _input.shape
-                        _input = test_data.inverse_transform(_input.squeeze(0)).reshape(shape)
-                    gt = np.concatenate((_input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((_input[0, :, -1], pred[0, :, -1]), axis=0)
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+                # if i % 20 == 0:
+                #     _input = batch_x.detach().cpu().numpy()
+                #     if test_data.scale and self.args.inverse:
+                #         shape = _input.shape
+                #         _input = test_data.inverse_transform(_input.squeeze(0)).reshape(shape)
+                #     gt = np.concatenate((_input[0, :, -1], true[0, :, -1]), axis=0)
+                #     pd = np.concatenate((_input[0, :, -1], pred[0, :, -1]), axis=0)
+                #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
 
             summary = final_metrics(metrics)
 
@@ -364,7 +382,49 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         self.print_content("", True)
 
-        self.model.plot_figure(test_data, self.device, folder_path, sample=False, probability_range=0.95)
+        # move to cpu and covert to numpy for plotting
+        pred_value = pred_value.detach().cpu().numpy()  # [15616]
+        true_value = true_value.detach().cpu().numpy()  # [15616]
+        high_value = high_value.detach().cpu().numpy()  # [15616]
+        low_value = low_value.detach().cpu().numpy()  # [15616]
+
+        # convert to shape: (sample, feature) for inverse transform
+        new_shape = (length, 14)
+        _ = np.zeros(new_shape)
+        _[:, -1] = pred_value
+        pred_value = _
+        _ = np.zeros(new_shape)
+        _[:, -1] = true_value
+        true_value = _
+        _ = np.zeros(new_shape)
+        _[:, -1] = high_value
+        high_value = _
+        _ = np.zeros(new_shape)
+        _[:, -1] = low_value
+        low_value = _
+
+        # perform inverse transform
+        dataset = test_data
+        pred_value = dataset.inverse_transform(pred_value)
+        true_value = dataset.inverse_transform(true_value)
+        high_value = dataset.inverse_transform(high_value)
+        low_value = dataset.inverse_transform(low_value)
+
+        # get the original data
+        pred_value = pred_value[:, -1]  # predicted value
+        true_value = true_value[:, -1]  # true value
+        high_value = high_value[:, -1]  # high-probability value
+        low_value = low_value[:, -1]  # low-probability value
+
+        plt.clf()
+        plt.plot(pred_value.squeeze(), label='Predicted Value', color='red')
+        plt.plot(true_value.squeeze(), label='True Value', color='blue')
+        plt.fill_between(range(len(test_data)), high_value.squeeze(), low_value.squeeze(), color='gray',
+                         alpha=0.5)
+        plt.title('Prediction')
+        plt.legend()
+        path = os.path.join(folder_path, 'prediction 0.png')
+        plt.savefig(path)
 
         return {
             'mse': mse,

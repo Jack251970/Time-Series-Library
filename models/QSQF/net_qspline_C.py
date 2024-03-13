@@ -71,14 +71,14 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
-    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
+    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=0.95):
         if self.task_name == 'probability_forecast':
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
-            return self.probability_forecast(train_batch)
+            return self.probability_forecast(train_batch, probability_range=probability_range)
         return None
 
-    def probability_forecast(self, train_batch, labels_batch=None):  # [256, 108, 7], [256, 108,]
+    def probability_forecast(self, train_batch, labels_batch=None, probability_range=0.95):  # [256, 108, 7], [256, 108,]
         batch_size = train_batch.shape[0]  # 256
         device = train_batch.device
 
@@ -126,8 +126,13 @@ class Model(nn.Module):
                 _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
             # prediction range
+            cdf_high = 1 - (1 - probability_range) / 2
+            cdf_low = (1 - probability_range) / 2
+
+            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
-            for j in range(self.sample_times):
+            for j in range(self.sample_times + 2):
                 for t in range(self.pred_steps):
                     x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
 
@@ -142,10 +147,15 @@ class Model(nn.Module):
                     gamma = self.gamma(pre_gamma)  # [256, 20]
 
                     # pred_cdf is a uniform distribution
-                    uniform = torch.distributions.uniform.Uniform(
-                        torch.tensor([0.0], device=device),
-                        torch.tensor([1.0], device=device))
-                    pred_cdf = uniform.sample([batch_size])  # [256, 1]
+                    if j == 0:  # high
+                        pred_cdf = torch.Tensor([cdf_high]).to(device)
+                    elif j == 1:  # low
+                        pred_cdf = torch.Tensor([cdf_low]).to(device)
+                    else:
+                        uniform = torch.distributions.uniform.Uniform(
+                            torch.tensor([0.0], device=device),
+                            torch.tensor([1.0], device=device))
+                        pred_cdf = uniform.sample([batch_size])  # [256, 1]
 
                     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
                     beta = pad(gamma, (1, 0))[:, :-1]
@@ -159,7 +169,13 @@ class Model(nn.Module):
                     pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
                     pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256, 20] # Q(alpha)公式?
 
-                    samples[j, :, t] = pred
+                    if j == 0:
+                        samples_high[0, :, t] = pred
+                    elif j == 1:
+                        samples_low[0, :, t] = pred
+                    else:
+                        samples[j - 2, :, t] = pred
+
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
@@ -167,7 +183,8 @@ class Model(nn.Module):
 
             sample_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             sample_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
-            return samples, sample_mu, sample_std
+
+            return samples, sample_mu, sample_std, samples_high, samples_low
 
     def plot_figure(self, dataset, device, result_path, sample=False, probability_range=0.95):
         """
@@ -303,6 +320,7 @@ class Model(nn.Module):
         samples_high = samples_high[:, -1]  # high-probability value
         samples_low = samples_low[:, -1]  # low-probability value
 
+        plt.clf()
         plt.plot(sample_mu.squeeze(), label='Predicted Value', color='red')
         plt.plot(labels_batch.squeeze(), label='True Value', color='blue')
         plt.fill_between(range(pred_steps), samples_high.squeeze(), samples_low.squeeze(), color='gray', alpha=0.5)
