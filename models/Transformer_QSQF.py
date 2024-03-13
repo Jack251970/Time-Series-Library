@@ -70,16 +70,18 @@ class Model(nn.Module):
         self.gamma = nn.Softplus()
 
     def probability_forecast(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
+        # [256, 96, 14], [256, 96, 5], [256, 32, 14], [256, 32, 14], [256, 32, 5]
         # Embedding
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)
-        enc_out, _ = self.encoder(enc_out, attn_mask=None)
+        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [256, 96, 512]
+        enc_out, attns = self.encoder(enc_out, attn_mask=None)  # [256, 96, 512], unknown
 
-        dec_out = self.dec_embedding(x_dec, x_mark_dec)
-        dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)
+        dec_out = self.dec_embedding(x_dec, x_mark_dec)  # [256, 32, 512]
+        dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)  # [256, 32, 14]
         return dec_out
 
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
+        # [256, 96, 14], [256, 96, 5], [256, 32, 14], [256, 32, 14], [256, 32, 5]
         if self.task_name == 'probability_forecast':
-            dec_out = self.forecast(x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask)
+            dec_out = self.forecast(x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask)  # [256, 32, 14]
             return dec_out[:, -self.pred_len:, :]
         return None
