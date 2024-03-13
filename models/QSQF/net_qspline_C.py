@@ -169,7 +169,7 @@ class Model(nn.Module):
             sample_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
             return samples, sample_mu, sample_std
 
-    def plot_figure(self, dataset, device, test_result_path, sample=False, probability_range=0.95):
+    def plot_figure(self, dataset, device, result_path, sample=False, probability_range=0.95):
         """
         plot the prediction figure
         sample: bool, if True, sample 99 times and choose mean value, else, sample once (probability == 0.5)
@@ -308,7 +308,10 @@ class Model(nn.Module):
         plt.fill_between(range(pred_steps), samples_high.squeeze(), samples_low.squeeze(), color='gray', alpha=0.5)
         plt.title('Prediction')
         plt.legend()
-        plt.savefig(os.path.join(test_result_path, 'prediction.png'))
+        path = os.path.join(result_path, 'prediction.png')
+        plt.savefig(path)
+
+        print(f'Prediction figure has been saved under the path: {path}!')
 
 
 # noinspection DuplicatedCode
