@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from layers.AutoCorrelation import AutoCorrelation, AutoCorrelationLayer
 from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, LayerNorm, series_decomp
 from layers.Embed import DataEmbedding_no_pos
+
+from torch.nn.functional import pad
 
 
 # noinspection DuplicatedCode
@@ -36,8 +37,7 @@ class Model(nn.Module):
         self.enc_embedding = DataEmbedding_no_pos(configs.enc_in, configs.d_model, configs.embed, configs.freq,
                                                   configs.dropout)
         self.dec_embedding = DataEmbedding_no_pos(configs.dec_in, configs.d_model, configs.embed, configs.freq,
-                                                  configs.dropout) \
-            if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast' else None
+                                                  configs.dropout)
 
         # Encoder
         self.encoder = Encoder(
@@ -59,47 +59,115 @@ class Model(nn.Module):
         )
 
         # Decoder
-        if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
-            self.decoder = Decoder(
-                [
-                    DecoderLayer(
-                        AutoCorrelationLayer(
-                            AutoCorrelation(True, configs.factor, attention_dropout=configs.dropout,
-                                            output_attention=False, agg_mode=agg_mode),
-                            configs.d_model, configs.n_heads),
-                        AutoCorrelationLayer(
-                            AutoCorrelation(False, configs.factor, attention_dropout=configs.dropout,
-                                            output_attention=False, agg_mode=agg_mode),
-                            configs.d_model, configs.n_heads),
-                        configs.d_model,
-                        configs.c_out,
-                        configs.d_ff,
-                        _moving_avg=configs.moving_avg,
-                        series_decomp_mode=configs.series_decomp_mode,
-                        dropout=configs.dropout,
-                        activation=configs.activation,
-                    )
-                    for _ in range(configs.d_layers)
-                ],
-                norm_layer=LayerNorm(configs.d_model),
-                projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
-            )
-        if self.task_name == 'imputation':
-            self.projection = nn.Linear(configs.d_model, configs.c_out, bias=True)
-        if self.task_name == 'anomaly_detection':
-            self.projection = nn.Linear(configs.d_model, configs.c_out, bias=True)
-        if self.task_name == 'classification':
-            self.act = F.gelu
-            self.dropout = nn.Dropout(configs.dropout)
-            self.projection = nn.Linear(configs.d_model * configs.seq_len, configs.num_class)
+        self.decoder = Decoder(
+            [
+                DecoderLayer(
+                    AutoCorrelationLayer(
+                        AutoCorrelation(True, configs.factor, attention_dropout=configs.dropout,
+                                        output_attention=False, agg_mode=agg_mode),
+                        configs.d_model, configs.n_heads),
+                    AutoCorrelationLayer(
+                        AutoCorrelation(False, configs.factor, attention_dropout=configs.dropout,
+                                        output_attention=False, agg_mode=agg_mode),
+                        configs.d_model, configs.n_heads),
+                    configs.d_model,
+                    configs.c_out,
+                    configs.d_ff,
+                    _moving_avg=configs.moving_avg,
+                    series_decomp_mode=configs.series_decomp_mode,
+                    dropout=configs.dropout,
+                    activation=configs.activation,
+                )
+                for _ in range(configs.d_layers)
+            ],
+            norm_layer=LayerNorm(configs.d_model),
+            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+        )
 
-    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+        # QSQF - Plan C:
+        self.num_spline = configs.num_spline
+        self.sample_times = configs.sample_times
+
+        self.pre_beta_0 = nn.Linear(configs.c_out, 1)
+        self.pre_gamma = nn.Linear(configs.c_out, self.num_spline)
+        self.beta_0 = nn.Softplus()
+        self.gamma = nn.Softplus()
+
+    def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
+        # [256, 96, 14], [256, 96, 5], [256, 32, 14], [256, 32, 14], [256, 32, 5]
+        if self.task_name == 'probability_forecast':
+            beta_0, gamma = self.probability_forecast(x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask)
+            return beta_0, gamma
+        return None
+
+    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=0.95):
+        if self.task_name == 'probability_forecast':  # [256, 32, 1], [256, 32, 20]
+            beta_0s, gammas = self.probability_forecast(x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec,
+                                                        mask)  # [256, 32, 1], [256, 32, 20]
+
+            device = x_enc.device
+            batch_size = x_enc.shape[0]
+
+            # prediction range
+            cdf_high = 1 - (1 - probability_range) / 2
+            cdf_low = (1 - probability_range) / 2
+
+            samples_high = torch.zeros(1, batch_size, self.pred_len, device=device, requires_grad=False)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_len, device=device, requires_grad=False)  # [1, 256, 16]
+            samples = torch.zeros(self.sample_times, batch_size, self.pred_len, device=device,
+                                  requires_grad=False)  # [99, 256, 12]
+
+            for j in range(self.sample_times + 2):
+                for t in range(self.pred_len):
+                    # Plan C:
+                    beta_0 = beta_0s[:, t, :]  # [256, 1]
+                    gamma = gammas[:, t, :]  # [256, 20]
+
+                    # pred_cdf is a uniform distribution
+                    if j == 0:  # high
+                        pred_cdf = torch.Tensor([cdf_high]).to(device)
+                    elif j == 1:  # low
+                        pred_cdf = torch.Tensor([cdf_low]).to(device)
+                    else:
+                        uniform = torch.distributions.uniform.Uniform(
+                            torch.tensor([0.0], device=device),
+                            torch.tensor([1.0], device=device))
+                        pred_cdf = uniform.sample([batch_size])  # [256, 1]
+
+                    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+                    beta = pad(gamma, (1, 0))[:, :-1]
+                    beta[:, 0] = beta_0[:, 0]
+                    beta = (gamma - beta) / (2 * sigma)
+                    beta = beta - pad(beta, (1, 0))[:, :-1]
+                    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
+
+                    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
+                    indices = ksi < pred_cdf  # [256, 20]
+                    pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
+                    pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256, 20] # Q(alpha)公式?
+
+                    if j == 0:
+                        samples_high[0, :, t] = pred
+                    elif j == 1:
+                        samples_low[0, :, t] = pred
+                    else:
+                        samples[j - 2, :, t] = pred
+
+            sample_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
+            sample_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
+
+            return samples, sample_mu, sample_std, samples_high, samples_low
+        return None
+
+    def probability_forecast(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         """
         32 is the batch size, 16 is the sequence length (time steps), and 14 is the feature dimension.
         :param x_enc: shape [32, 16, 14]
         :param x_mark_enc: [32, 16, 5]
         :param x_dec: [32, 32, 14]
+        :param y_enc: [32, 32, 14]
         :param x_mark_dec: [32, 32, 5]
+        :param mask: mask
         :return:
         """
         # init padding sequence
@@ -127,59 +195,10 @@ class Model(nn.Module):
         # final
         dec_out = trend_part + seasonal_part  # shape: [32, 32, 14]
 
-        if self.output_attention:
-            return dec_out[:, -self.pred_len:, :], attentions
-        else:
-            return dec_out[:, -self.pred_len:, :]  # [B, L, D]
+        # Plan C:
+        pre_beta_0 = self.pre_beta_0(dec_out)  # [256, 32, 1]
+        beta_0 = self.beta_0(pre_beta_0)  # [256, 32, 1]
+        pre_gamma = self.pre_gamma(dec_out)  # [256, 32, 20]
+        gamma = self.gamma(pre_gamma)  # [256, 32, 20]
 
-    def imputation(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask):
-        # enc
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        # final
-        dec_out = self.projection(enc_out)
-        return dec_out
-
-    def anomaly_detection(self, x_enc):
-        # enc
-        enc_out = self.enc_embedding(x_enc, None)
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        # final
-        dec_out = self.projection(enc_out)
-        return dec_out
-
-    def classification(self, x_enc, x_mark_enc):
-        # enc
-        enc_out = self.enc_embedding(x_enc, None)
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
-
-        # Output
-        # the output transformer encoder/decoder embeddings don't include non-linearity
-        output = self.act(enc_out)
-        output = self.dropout(output)
-        # zero-out padding embeddings
-        output = output * x_mark_enc.unsqueeze(-1)
-        # (batch_size, seq_length * d_model)
-        output = output.reshape(output.shape[0], -1)
-        output = self.projection(output)  # (batch_size, num_classes)
-        return output
-
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
-        if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
-            if self.output_attention:
-                dec_out, attentions = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-                return dec_out, attentions
-            else:
-                dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-                return dec_out  # [B, L, D]
-        if self.task_name == 'imputation':
-            dec_out = self.imputation(
-                x_enc, x_mark_enc, x_dec, x_mark_dec, mask)
-            return dec_out  # [B, L, D]
-        if self.task_name == 'anomaly_detection':
-            dec_out = self.anomaly_detection(x_enc)
-            return dec_out  # [B, L, D]
-        if self.task_name == 'classification':
-            dec_out = self.classification(x_enc, x_mark_enc)
-            return dec_out  # [B, N]
-        return None
+        return beta_0, gamma  # [256, 32, 1], [256, 32, 20]
