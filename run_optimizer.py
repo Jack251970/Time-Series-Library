@@ -410,8 +410,8 @@ def prepare_config(_params, _script_mode=False):
 
 
 # noinspection DuplicatedCode
-def build_setting(_args, _run_time):
-    return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}_{}'.format(
+def build_setting(_args, _time, _format):
+    prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
         _args.task_name,
         _args.model_id,
         _args.model,
@@ -430,8 +430,27 @@ def build_setting(_args, _run_time):
         _args.factor,
         _args.embed,
         _args.distil,
-        _args.des,
-        _run_time)
+        _args.des)
+    checkpoints_folder = _args.checkpoints
+
+    import os
+    import time
+    import datetime
+    checkpoints = os.listdir(checkpoints_folder)
+    latest_time = None
+    for checkpoint in checkpoints:
+        if not os.listdir(os.path.join(checkpoints_folder, checkpoint)):
+            continue
+        if checkpoint.startswith(prefix):
+            checkpoint_time = checkpoint.split('_')[-1]
+            checkpoint_time = datetime.datetime.strptime(checkpoint_time, _format)
+            if latest_time is None or checkpoint_time > latest_time:
+                latest_time = checkpoint_time
+
+    if latest_time is not None:
+        _time = latest_time
+
+    return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
 
 # noinspection DuplicatedCode
@@ -619,6 +638,8 @@ def get_search_space(_model):
     }
 
     transformer_qsqf_config = {
+        "d_model": {"_type": "single", "_value": 256},
+        'dropout': {'_type': 'single', '_value': 0.1},
     }
 
     model_configs = {

@@ -155,16 +155,44 @@ class Model(nn.Module):
 
 # noinspection DuplicatedCode
 def loss_fn(outputs, labels):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
+    loss = torch.zeros(1, device=labels.device, requires_grad=True)  # [,]
+
     beta_0, gamma = outputs  # [256, 16, 1], [256, 16, 20]
 
-    # pred_len = labels.shape[1]  # 16
+    # get pred_len and reshape
+    pred_len = labels.shape[1]
     beta_0 = beta_0.reshape(-1, beta_0.shape[-1])  # [4096, 1]
     gamma = gamma.reshape(-1, gamma.shape[-1])  # [4096, 20]
     labels = labels.reshape(-1, labels.shape[-1])  # [4096, 1]
 
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)
+    crps = get_crps(beta_0, gamma, labels)
 
-    beta = pad(gamma, (1, 0))[:, :-1]  # [4096, 20]
+    crps = crps * pred_len
+
+    loss = loss + crps
+
+    return loss
+
+
+def loss_fn_multi_steps(outputs, labels, steps=-1):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
+    loss = torch.zeros(1, device=labels.device, requires_grad=True)  # [,]
+
+    beta_0s, gammas = outputs  # [256, 1], [256, 20], [256, 1]
+
+    steps = labels.shape[1] if steps == -1 else steps
+
+    for step in range(steps):
+        crps = get_crps(beta_0s[:, step, :], gammas[:, step, :], labels[:, step, :])
+
+        loss = loss + crps
+
+    return loss
+
+
+def get_crps(beta_0, gamma, label):
+    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
+
+    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
     beta[:, 0] = beta_0[:, 0]
     beta = (gamma - beta) / (2 * sigma)
     beta = beta - pad(beta, (1, 0))[:, :-1]
@@ -180,11 +208,11 @@ def loss_fn(outputs, labels):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
     knots = (df2 * beta_0).sum(dim=2) + (knots.pow(2) * beta).sum(dim=2)
     knots = pad(knots.T, (1, 0))[:, :-1]  # F(ksi_1~K)=0~max
 
-    diff = labels - knots
+    diff = label - knots
     alpha_l = diff > 0
     alpha_A = torch.sum(alpha_l * beta, dim=1)
     alpha_B = beta_0[:, 0] - 2 * torch.sum(alpha_l * beta * ksi, dim=1)
-    alpha_C = -labels.squeeze() + torch.sum(alpha_l * beta * ksi * ksi, dim=1)
+    alpha_C = -label.squeeze() + torch.sum(alpha_l * beta * ksi * ksi, dim=1)
 
     # since A may be zero, roots can be from different methods.
     not_zero = (alpha_A != 0)
@@ -203,13 +231,12 @@ def loss_fn(outputs, labels):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
     alpha[not_zero] = (-alpha_B[not_zero] + torch.sqrt(delta)) / (2 * alpha_A[not_zero])
 
     # formula for CRPS is here!
-    crps_1 = labels * (2 * alpha - 1)
+    crps_1 = label * (2 * alpha - 1)
     crps_2 = beta_0[:, 0] * (1 / 3 - alpha.pow(2))
     crps_3 = torch.sum(beta / 6 * (1 - ksi).pow(4), dim=1)
     crps_4 = torch.sum(alpha_l * 2 / 3 * beta * (alpha.unsqueeze(1) - ksi).pow(3), dim=1)
     crps = crps_1 + crps_2 + crps_3 - crps_4
 
     crps = torch.mean(crps)
-    # crps = crps * pred_len
 
     return crps

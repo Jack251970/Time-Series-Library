@@ -306,7 +306,7 @@ class HyperOptimizer(object):
 
             # start experiment
             eva_config, run_time, setting = self._start_experiment(args, parameter, config, False,
-                                                                      (_process_index == 0 and _time == 1))
+                                                                   (_process_index == 0 and _time == 1))
 
             # phase criteria and save data
             if eva_config is not None:
@@ -468,11 +468,12 @@ class HyperOptimizer(object):
             if this model can work, then return True.
         """
         # init time and setting
-        t = time.localtime()
-        _run_time = time.strftime('%Y-%m-%d %H-%M-%S', t)
+        _time = time.localtime()
+        _format = '%Y-%m-%d %H-%M-%S'
+        _run_time = time.strftime(_format, _time)
 
         # build the setting of the experiment
-        _setting = self.build_setting(_args, _run_time)
+        _setting = self.build_setting(_args, _time, _format)
 
         # get the experiment type
         self._init_experiment(_args.task_name)
@@ -523,7 +524,7 @@ class HyperOptimizer(object):
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
             exp.train(_setting, check_folder=_check_folder, only_init=True)
-            _eva_config = exp.test(_setting, check_folder=_check_folder)
+            _eva_config = exp.test(_setting, test=True, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()

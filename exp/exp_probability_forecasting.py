@@ -403,7 +403,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         low_value = low_value.detach().cpu().numpy()  # [15616]
 
         # convert to shape: (sample, feature) for inverse transform
-        new_shape = (length, 14)
+        new_shape = (length, self.args.enc_in)
         _ = np.zeros(new_shape)
         _[:, -1] = pred_value
         pred_value = _
