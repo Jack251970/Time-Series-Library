@@ -1,11 +1,6 @@
-import os.path
-
-import numpy as np
 import torch
 import torch.nn as nn
-from matplotlib import pyplot as plt
 from torch.nn.functional import pad
-from tqdm import tqdm
 
 # -*- coding: utf-8 -*-
 """
@@ -189,7 +184,7 @@ class Model(nn.Module):
 
 # noinspection DuplicatedCode
 def loss_fn(list_param):
-    beta_0, gamma, labels = list_param[0], list_param[1], list_param[2]  # [256, 1], [256, 20]}, [256,]
+    beta_0, gamma, labels = list_param[0], list_param[1], list_param[2]  # [256, 1], [256, 20], [256,]
 
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
 

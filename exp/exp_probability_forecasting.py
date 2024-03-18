@@ -61,19 +61,18 @@ class Exp_Probability_Forecast(Exp_Basic):
             self.model.train()
             epoch_time = time.time()
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
-                # [32, 96, 17], [32, 96, 17], [32, 96, 5], [32, 96, 5]
                 iter_count += 1
                 model_optim.zero_grad()
 
-                batch_x = batch_x.float().to(self.device)  # [32, 96, 17]
-                batch_y = batch_y.float().to(self.device)  # [32, 96, 17]
-                batch_x_mark = batch_x_mark.float().to(self.device)  # [32, 96, 5]
-                batch_y_mark = batch_y_mark.float().to(self.device)  # [32, 96, 5]
+                batch_x = batch_x.float().to(self.device)  # [256, 96, 14]
+                batch_y = batch_y.float().to(self.device)  # [256, 32, 14]
+                batch_x_mark = batch_x_mark.float().to(self.device)  # [256, 96, 5]
+                batch_y_mark = batch_y_mark.float().to(self.device)  # [256, 32, 5]
 
                 # decoder input
-                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float().to(self.device)  # [32, 96, 17]
+                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float().to(self.device)
                 if self.args.label_len != 0:
-                    dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float()
+                    dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float()  # [256, 32, 14]
 
                 # try model if needed
                 if self.try_model:
@@ -105,6 +104,11 @@ class Exp_Probability_Forecast(Exp_Basic):
                         else:
                             raise NotImplementedError('The output of the model should be list for the model with '
                                                       'custom loss function!')
+                elif isinstance(outputs, tuple):
+                    f_dim = -1 if self.args.features == 'MS' else 0
+                    outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
+                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+                    loss = criterion(outputs, batch_y)
                 else:
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -218,6 +222,15 @@ class Exp_Probability_Forecast(Exp_Basic):
                                                       'loss function!')
 
                     loss = loss.detach().cpu()
+                elif isinstance(outputs, tuple):
+                    f_dim = -1 if self.args.features == 'MS' else 0
+                    outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
+                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+
+                    outputs = tuple([output.detach().cpu() for output in outputs])
+                    batch_y = batch_y.detach().cpu()
+
+                    loss = criterion(outputs, batch_y)
                 else:
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
