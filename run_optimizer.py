@@ -105,6 +105,10 @@ def parse_launch_parameters(_script_mode):
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
+    # QSQF
+    parser.add_argument('--num_spline', type=int, default=20, help='number of spline')
+    parser.add_argument('--sample_times', type=int, default=99, help='sample times')
+
     return parser.parse_args()
 
 
@@ -182,6 +186,10 @@ def build_config_dict(_args):
         # de-stationary projector params
         'p_hidden_dims': _args.p_hidden_dims,
         'p_hidden_layers': _args.p_hidden_layers,
+
+        # QSQF
+        'num_spline': _args.num_spline,
+        'sample_times': _args.sample_times
     }
 
 
@@ -258,6 +266,10 @@ def set_args(_args, _config):
     # de-stationary projector params
     _args.p_hidden_dims = _config['p_hidden_dims']
     _args.p_hidden_layers = _config['p_hidden_layers']
+
+    # QSQF
+    _args.num_spline = _config['num_spline']
+    _args.sample_times = _config['sample_times']
 
     return _args
 
@@ -402,6 +414,18 @@ def prepare_config(_params, _script_mode=False):
         if 'devices' in _params:
             _args.devices = _params['devices']
 
+        # de-stationary projector params
+        if 'p_hidden_dims' in _params:
+            _args.p_hidden_dims = _params['p_hidden_dims']
+        if 'p_hidden_layers' in _params:
+            _args.p_hidden_layers = _params['p_hidden_layers']
+
+        # QSQF
+        if 'num_spline' in _params:
+            _args.num_spline = _params['num_spline']
+        if 'sample_times' in _params:
+            _args.sample_times = _params['sample_times']
+
         # build new model_id for interface
         _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
@@ -473,7 +497,8 @@ def get_fieldnames(mode='all'):
                       'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil',
                       'dropout', 'embed', 'activation', 'output_attention', 'channel_independence', 'num_workers',
                       'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp',
-                      'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers']
+                      'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers',
+                      'num_spline', 'sample_times']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'is_training',
@@ -640,13 +665,20 @@ def get_search_space(_model):
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 20},
-        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99},
     }
 
     transformer_qsqf_config = {
-        "d_model": {"_type": "single", "_value": 256},
         'dropout': {'_type': 'single', '_value': 0.1},
-        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+
+        'e_layers': {'_type': 'single', '_value': 2},
+        'd_layers': {'_type': 'single', '_value': 1},
+        'train_epochs': {'_type': 'single', '_value': 10},
+
+        'num_spline': {'_type': 'single', '_value': 10},
+        'sample_times': {'_type': 'single', '_value': 99},
     }
 
     model_configs = {
@@ -673,7 +705,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['QSQF-C', 'Transformer-QSQF'],
+h = HyperOptimizer(False, ['Transformer-QSQF'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')

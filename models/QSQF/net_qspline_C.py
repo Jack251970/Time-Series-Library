@@ -23,9 +23,9 @@ class Model(nn.Module):
         self.lstm_input_size = params.enc_in + params.lag - 1  # take lag dimension into account
         self.lstm_hidden_dim = 40
         self.lstm_layers = 2
-        self.sample_times = 99
+        self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
-        self.num_spline = 20
+        self.num_spline = params.num_spline
         self.pred_start = params.seq_len
         self.pred_steps = params.pred_len
         self.lag = params.lag

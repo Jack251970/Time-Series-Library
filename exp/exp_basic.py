@@ -79,7 +79,7 @@ class Exp_Basic(object):
     def _select_criterion(self):
         criterion_dict = {
             'QSQF-C': net_qspline_C.loss_fn,
-            'Transformer-QSQF': Transformer_QSQF.loss_fn_multi_steps
+            'Transformer-QSQF': Transformer_QSQF.loss_fn
         }
 
         loss = self.args.loss

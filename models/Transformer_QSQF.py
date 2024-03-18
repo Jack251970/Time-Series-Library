@@ -64,14 +64,13 @@ class Model(nn.Module):
         )
 
         # QSQF - Plan C:
-        self.num_spline = 20
+        self.num_spline = configs.num_spline
+        self.sample_times = configs.sample_times
 
         self.pre_beta_0 = nn.Linear(configs.c_out, 1)
         self.pre_gamma = nn.Linear(configs.c_out, self.num_spline)
         self.beta_0 = nn.Softplus()
         self.gamma = nn.Softplus()
-
-        self.sample_times = 99
 
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         # [256, 96, 14], [256, 96, 5], [256, 32, 14], [256, 32, 14], [256, 32, 5]
@@ -91,12 +90,12 @@ class Model(nn.Module):
             cdf_high = 1 - (1 - probability_range) / 2
             cdf_low = (1 - probability_range) / 2
 
-            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
-            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
-            samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device, requires_grad=False)  # [99, 256, 12]
+            samples_high = torch.zeros(1, batch_size, self.pred_len, device=device, requires_grad=False)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_len, device=device, requires_grad=False)  # [1, 256, 16]
+            samples = torch.zeros(self.sample_times, batch_size, self.pred_len, device=device, requires_grad=False)  # [99, 256, 12]
 
             for j in range(self.sample_times + 2):
-                for t in range(self.pred_steps):
+                for t in range(self.pred_len):
                     # Plan C:
                     beta_0 = beta_0s[:, t, :]  # [256, 1]
                     gamma = gammas[:, t, :]  # [256, 20]
@@ -156,37 +155,33 @@ class Model(nn.Module):
 
 
 # noinspection DuplicatedCode
-def loss_fn(outputs, labels):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
+def loss_fn(outputs, labels, steps=-1):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
     loss = torch.zeros(1, device=labels.device, requires_grad=True)  # [,]
 
     beta_0, gamma = outputs  # [256, 16, 1], [256, 16, 20]
 
-    # get pred_len and reshape
-    pred_len = labels.shape[1]
-    beta_0 = beta_0.reshape(-1, beta_0.shape[-1])  # [4096, 1]
-    gamma = gamma.reshape(-1, gamma.shape[-1])  # [4096, 20]
-    labels = labels.reshape(-1, labels.shape[-1])  # [4096, 1]
+    if steps == -1:
+        # get pred_len and reshape
+        pred_len = labels.shape[1]
+        beta_0 = beta_0.reshape(-1, beta_0.shape[-1])  # [4096, 1]
+        gamma = gamma.reshape(-1, gamma.shape[-1])  # [4096, 20]
+        labels = labels.reshape(-1, labels.shape[-1])  # [4096, 1]
+    else:
+        # select data from steps
+        beta_0 = beta_0[:, 0:steps, :]
+        gamma = gamma[:, 0:steps, :]
+        labels = labels[:, 0:steps, :]
+
+        # get pred_len and reshape
+        pred_len = labels.shape[1]
+        beta_0 = beta_0.reshape(-1, beta_0.shape[-1])  # [256 * steps, 1]
+        gamma = gamma.reshape(-1, gamma.shape[-1])  # [256 * steps, 1]
+        labels = labels.reshape(-1, labels.shape[-1])  # [256 * steps, 1]
 
     crps = get_crps(beta_0, gamma, labels)
 
     crps = crps * pred_len
 
     loss = loss + crps
-
-    return loss
-
-
-def loss_fn_multi_steps(outputs, labels, steps=-1):  # [256, 16, 1], [256, 16, 20], [256, 16, 1]
-    loss = torch.zeros(1, device=labels.device, requires_grad=True)  # [,]
-
-    beta_0s, gammas = outputs  # [256, 1], [256, 20], [256, 1]
-
-    steps = labels.shape[1] if steps == -1 else steps
-
-    l = []
-    for step in range(steps):
-        crps = get_crps(beta_0s[:, step, :], gammas[:, step, :], labels[:, step, :])
-        l.append(crps)
-        loss = loss + crps
 
     return loss
