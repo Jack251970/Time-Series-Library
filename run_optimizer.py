@@ -1,4 +1,7 @@
 import argparse
+import datetime
+import os
+import time
 
 import torch
 
@@ -39,7 +42,7 @@ def parse_launch_parameters(_script_mode):
                              'or 3h')
     parser.add_argument('--lag', type=int, default=0, help='lag of time series, only for RNN & LSTM related model')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
-
+    parser.add_argument('--scaler', type=str, default='StandardScaler', help='feature scaling method')
     # forecasting task
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=48, help='start token length')
@@ -123,6 +126,7 @@ def build_config_dict(_args):
         'freq': _args.freq,
         'lag': _args.lag,
         'checkpoints': _args.checkpoints,
+        'scaler': _args.scaler,
 
         # forecasting task
         'seq_len': _args.seq_len,
@@ -198,6 +202,7 @@ def set_args(_args, _config):
     _args.freq = _config['freq']
     _args.lag = _config['lag']
     _args.checkpoints = _config['checkpoints']
+    _args.scaler = _config['scaler']
 
     # forecasting task
     _args.seq_len = _config['seq_len']
@@ -304,6 +309,8 @@ def prepare_config(_params, _script_mode=False):
             _args.lag = _params['lag']
         if 'checkpoints' in _params:
             _args.checkpoints = _params['checkpoints']
+        if 'scaler' in _params:
+            _args.scaler = _params['scaler']
 
         # forecasting task
         if 'seq_len' in _params:
@@ -433,22 +440,20 @@ def build_setting(_args, _time, _format):
         _args.des)
     checkpoints_folder = _args.checkpoints
 
-    import os
-    import time
-    import datetime
-    checkpoints = os.listdir(checkpoints_folder)
-    latest_time = None
-    for checkpoint in checkpoints:
-        if not os.listdir(os.path.join(checkpoints_folder, checkpoint)):
-            continue
-        if checkpoint.startswith(prefix):
-            checkpoint_time = checkpoint.split('_')[-1]
-            checkpoint_time = datetime.datetime.strptime(checkpoint_time, _format)
-            if latest_time is None or checkpoint_time > latest_time:
-                latest_time = checkpoint_time
+    if not _args.is_training:
+        checkpoints = os.listdir(checkpoints_folder)
+        latest_time = None
+        for checkpoint in checkpoints:
+            if not os.listdir(os.path.join(checkpoints_folder, checkpoint)):
+                continue
+            if checkpoint.startswith(prefix):
+                checkpoint_time = checkpoint.split('_')[-1]
+                checkpoint_time = datetime.datetime.strptime(checkpoint_time, _format)
+                if latest_time is None or checkpoint_time > latest_time:
+                    latest_time = checkpoint_time
 
-    if latest_time is not None:
-        _time = latest_time
+        if latest_time is not None:
+            _time = latest_time
 
     return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
@@ -463,12 +468,12 @@ def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed', 'task_name',
                       'is_training', 'model_id', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
-                      'checkpoints', 'seq_len', 'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate',
-                      'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads',
-                      'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout',
-                      'embed', 'activation', 'output_attention', 'channel_independence', 'num_workers', 'train_epochs',
-                      'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu',
-                      'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers']
+                      'checkpoints', 'scaler', 'seq_len', 'label_len', 'pred_len', 'seasonal_patterns', 'inverse',
+                      'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model',
+                      'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil',
+                      'dropout', 'embed', 'activation', 'output_attention', 'channel_independence', 'num_workers',
+                      'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp',
+                      'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'is_training',
@@ -635,11 +640,13 @@ def get_search_space(_model):
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 20},
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
     }
 
     transformer_qsqf_config = {
         "d_model": {"_type": "single", "_value": 256},
         'dropout': {'_type': 'single', '_value': 0.1},
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
     }
 
     model_configs = {

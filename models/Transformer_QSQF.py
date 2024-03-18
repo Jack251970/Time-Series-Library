@@ -181,9 +181,10 @@ def loss_fn_multi_steps(outputs, labels, steps=-1):  # [256, 16, 1], [256, 16, 2
 
     steps = labels.shape[1] if steps == -1 else steps
 
+    l = []
     for step in range(steps):
         crps = get_crps(beta_0s[:, step, :], gammas[:, step, :], labels[:, step, :])
-
+        l.append(crps)
         loss = loss + crps
 
     return loss
