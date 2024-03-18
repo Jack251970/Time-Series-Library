@@ -24,7 +24,7 @@ def parse_launch_parameters(_script_mode):
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
-                             "'Koopa', 'QSQF-C', 'Transformer-QSQF']")
+                             "'Koopa', 'QSQF-C', 'Transformer-QSQF', 'Autoformer-QSQF']")
 
     # data loader
     parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
@@ -677,8 +677,11 @@ def get_search_space(_model):
         'd_layers': {'_type': 'single', '_value': 1},
         'train_epochs': {'_type': 'single', '_value': 10},
 
-        'num_spline': {'_type': 'single', '_value': 10},
         'sample_times': {'_type': 'single', '_value': 99},
+    }
+
+    autoformer_qsqf_config = {
+        'train_epochs': {'_type': 'single', '_value': 10},
     }
 
     model_configs = {
@@ -688,7 +691,8 @@ def get_search_space(_model):
         'TimesNet': timesnet_config,
         'Transformer': transformer_config,
         'QSQF-C': qsqf_c_config,
-        'Transformer-QSQF': transformer_qsqf_config
+        'Transformer-QSQF': transformer_qsqf_config,
+        'Autoformer-QSQF': autoformer_qsqf_config
     }
 
     # get config for specific model
@@ -705,7 +709,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['Transformer-QSQF'],
+h = HyperOptimizer(False, ['Autoformer-QSQF'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
