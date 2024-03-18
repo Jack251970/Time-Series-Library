@@ -5,6 +5,8 @@ from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed import DataEmbedding
 from torch.nn.functional import pad
 
+from models.QSQF.net_qspline_C import get_crps
+
 
 class Model(nn.Module):
     """
@@ -188,56 +190,3 @@ def loss_fn_multi_steps(outputs, labels, steps=-1):  # [256, 16, 1], [256, 16, 2
         loss = loss + crps
 
     return loss
-
-
-def get_crps(beta_0, gamma, label):
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
-
-    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-    beta[:, 0] = beta_0[:, 0]
-    beta = (gamma - beta) / (2 * sigma)
-    beta = beta - pad(beta, (1, 0))[:, :-1]
-    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)
-
-    # calculate the maximum for each segment of the spline
-    ksi = torch.cumsum(sigma, dim=1)
-    df1 = ksi.expand(sigma.shape[1], sigma.shape[0], sigma.shape[1]).T.clone()
-    df2 = ksi.T.unsqueeze(2)
-    ksi = pad(ksi, (1, 0))[:, :-1]
-    knots = df1 - ksi
-    knots[knots < 0] = 0
-    knots = (df2 * beta_0).sum(dim=2) + (knots.pow(2) * beta).sum(dim=2)
-    knots = pad(knots.T, (1, 0))[:, :-1]  # F(ksi_1~K)=0~max
-
-    diff = label - knots
-    alpha_l = diff > 0
-    alpha_A = torch.sum(alpha_l * beta, dim=1)
-    alpha_B = beta_0[:, 0] - 2 * torch.sum(alpha_l * beta * ksi, dim=1)
-    alpha_C = -label.squeeze() + torch.sum(alpha_l * beta * ksi * ksi, dim=1)
-
-    # since A may be zero, roots can be from different methods.
-    not_zero = (alpha_A != 0)
-    alpha = torch.zeros_like(alpha_A)
-    # since there may be numerical calculation error,#0
-    idx = (alpha_B ** 2 - 4 * alpha_A * alpha_C) < 0  # 0
-    diff = diff.abs()
-    index = diff == (diff.min(dim=1)[0].view(-1, 1))
-    index[~idx, :] = False
-    # index=diff.abs()<1e-4#0,1e-4 is a threshold
-    # idx=index.sum(dim=1)>0#0
-    alpha[idx] = ksi[index]  # 0
-    alpha[~not_zero] = -alpha_C[~not_zero] / alpha_B[~not_zero]
-    not_zero = ~(~not_zero | idx)  # 0
-    delta = alpha_B[not_zero].pow(2) - 4 * alpha_A[not_zero] * alpha_C[not_zero]
-    alpha[not_zero] = (-alpha_B[not_zero] + torch.sqrt(delta)) / (2 * alpha_A[not_zero])
-
-    # formula for CRPS is here!
-    crps_1 = label * (2 * alpha - 1)
-    crps_2 = beta_0[:, 0] * (1 / 3 - alpha.pow(2))
-    crps_3 = torch.sum(beta / 6 * (1 - ksi).pow(4), dim=1)
-    crps_4 = torch.sum(alpha_l * 2 / 3 * beta * (alpha.unsqueeze(1) - ksi).pow(3), dim=1)
-    crps = crps_1 + crps_2 + crps_3 - crps_4
-
-    crps = torch.mean(crps)
-
-    return crps

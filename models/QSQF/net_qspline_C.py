@@ -186,6 +186,10 @@ class Model(nn.Module):
 def loss_fn(list_param):
     beta_0, gamma, labels = list_param[0], list_param[1], list_param[2]  # [256, 1], [256, 20], [256,]
 
+    return get_crps(beta_0, gamma, labels)
+
+
+def get_crps(beta_0, gamma, label):
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
 
     beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
@@ -204,11 +208,11 @@ def loss_fn(list_param):
     knots = (df2 * beta_0).sum(dim=2) + (knots.pow(2) * beta).sum(dim=2)
     knots = pad(knots.T, (1, 0))[:, :-1]  # F(ksi_1~K)=0~max
 
-    diff = labels.view(-1, 1) - knots
+    diff = label - knots
     alpha_l = diff > 0
     alpha_A = torch.sum(alpha_l * beta, dim=1)
     alpha_B = beta_0[:, 0] - 2 * torch.sum(alpha_l * beta * ksi, dim=1)
-    alpha_C = -labels + torch.sum(alpha_l * beta * ksi * ksi, dim=1)
+    alpha_C = -label.squeeze() + torch.sum(alpha_l * beta * ksi * ksi, dim=1)
 
     # since A may be zero, roots can be from different methods.
     not_zero = (alpha_A != 0)
@@ -227,7 +231,7 @@ def loss_fn(list_param):
     alpha[not_zero] = (-alpha_B[not_zero] + torch.sqrt(delta)) / (2 * alpha_A[not_zero])
 
     # formula for CRPS is here!
-    crps_1 = labels * (2 * alpha - 1)
+    crps_1 = label * (2 * alpha - 1)
     crps_2 = beta_0[:, 0] * (1 / 3 - alpha.pow(2))
     crps_3 = torch.sum(beta / 6 * (1 - ksi).pow(4), dim=1)
     crps_4 = torch.sum(alpha_l * 2 / 3 * beta * (alpha.unsqueeze(1) - ksi).pow(3), dim=1)
