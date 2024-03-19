@@ -71,7 +71,7 @@ class Model(nn.Module):
                                         output_attention=False, agg_mode=agg_mode),
                         configs.d_model, configs.n_heads),
                     configs.d_model,
-                    configs.c_out,
+                    configs.d_model,  # remove last projection
                     configs.d_ff,
                     _moving_avg=configs.moving_avg,
                     series_decomp_mode=configs.series_decomp_mode,
@@ -162,38 +162,40 @@ class Model(nn.Module):
     def probability_forecast(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         """
         32 is the batch size, 16 is the sequence length (time steps), and 14 is the feature dimension.
-        :param x_enc: shape [32, 16, 14]
-        :param x_mark_enc: [32, 16, 5]
-        :param x_dec: [32, 32, 14]
-        :param y_enc: [32, 32, 14]
-        :param x_mark_dec: [32, 32, 5]
+        :param x_enc: shape [256, 96, 5]
+        :param x_mark_enc: [256, 96, 5]
+        :param x_dec: [256, 32, 14]
+        :param y_enc: [256, 32, 14]
+        :param x_mark_dec: [256, 32, 5]
         :param mask: mask
         :return:
         """
         # init padding sequence
-        mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len, 1)  # mean in every feature
-        zeros = torch.zeros([x_dec.shape[0], self.pred_len, x_dec.shape[2]], device=x_enc.device)
+        mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len,
+                                                            1)  # mean in every feature  # [256, 16, 5]
+        zeros = torch.zeros([x_dec.shape[0], self.pred_len, x_dec.shape[2]], device=x_enc.device)  # [256, 16, 5]
 
         # init series decomposition
-        seasonal_init, trend_init = self.series_decomp(x_enc)
+        seasonal_init, trend_init = self.series_decomp(x_enc)  # [256, 32, 5], [256, 32, 5]
 
         # decoder input
         # the second 32 is the sequence length (time steps) plus the prediction length.
-        trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)  # shape: [32, 32, 14]
-        seasonal_init = torch.cat([seasonal_init[:, -self.label_len:, :], zeros], dim=1)  # shape: [32, 32, 14]
+        trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)  # [256, 32, 5]
+        seasonal_init = torch.cat([seasonal_init[:, -self.label_len:, :], zeros], dim=1)  # [256, 32, 5]
 
         # enc: input the original data
         # 512 is the size of dmodel.
-        enc_in = self.enc_embedding(x_enc, x_mark_enc)  # shape: [32, 16, 512]
-        enc_out, attentions = self.encoder(enc_in, attn_mask=None)  # [32, 16, 512], Unknown
+        enc_in = self.enc_embedding(x_enc, x_mark_enc)  # [256, 96, 512]
+        enc_out, attentions = self.encoder(enc_in, attn_mask=None)  # [256, 96, 512], Unknown
 
         # dec: input the data after decomposition
-        dec_in = self.dec_embedding(seasonal_init, x_mark_dec)  # shape: [32, 32, 512]
+        dec_in = self.dec_embedding(seasonal_init, x_mark_dec)  # [256, 32, 512]
+        trend_init = self.dec_embedding(trend_init, x_mark_dec)  # [256, 32, 512]
         seasonal_part, trend_part = self.decoder(dec_in, enc_out, x_mask=None, cross_mask=None, trend=trend_init)
-        # shape: [32, 32, 512], [32, 32, 52]
+        # [256, 32, 512], [256, 32, 5]
 
         # final
-        dec_out = trend_part + seasonal_part  # shape: [32, 32, 512]
+        dec_out = trend_part + seasonal_part  # [32, 32, 512]
 
         # Plan C:
         pre_beta_0 = self.pre_beta_0(dec_out)  # [256, 32, 1]

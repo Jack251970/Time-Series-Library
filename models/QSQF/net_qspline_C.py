@@ -108,7 +108,7 @@ class Model(nn.Module):
                 if torch.isnan(hidden).sum() > 0:
                     raise ValueError(f'Backward Error! Process Stop!')
 
-                loss_list.append([beta_0, gamma, labels_batch[t].clone()])
+                loss_list.append((beta_0, gamma, labels_batch[t].clone()))
 
             return loss_list
         else:
@@ -152,6 +152,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample([batch_size])  # [256, 1]
 
+                    # Plan C
                     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
                     beta = pad(gamma, (1, 0))[:, :-1]
                     beta[:, 0] = beta_0[:, 0]
@@ -182,9 +183,8 @@ class Model(nn.Module):
             return samples, sample_mu, sample_std, samples_high, samples_low
 
 
-# noinspection DuplicatedCode
 def loss_fn(list_param):
-    beta_0, gamma, labels = list_param[0], list_param[1], list_param[2]  # [256, 1], [256, 20], [256,]
+    beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
     labels = labels.unsqueeze(1)  # [256, 1]
 

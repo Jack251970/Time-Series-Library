@@ -21,7 +21,7 @@ class Exp_Probability_Forecast(Exp_Basic):
     def __init__(self, args, try_model=False, save_process=True):
         super(Exp_Probability_Forecast, self).__init__(args, try_model, save_process)
 
-    def train(self, setting, check_folder=False, only_init=False, adjust_lr=False):
+    def train(self, setting, check_folder=False, only_init=False, adjust_lr=True):
         if check_folder:
             self._check_folders([self.args.checkpoints, "./process"])
 
@@ -99,7 +99,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if isinstance(outputs, list):
                     loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
                     for output in outputs:
-                        if isinstance(output, list):
+                        if isinstance(output, tuple):
                             loss = loss + criterion(output)
                         else:
                             raise NotImplementedError('The output of the model should be list for the model with '
@@ -215,7 +215,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if isinstance(outputs, list):
                     loss = torch.zeros(1, device=self.device, requires_grad=False)  # [,]
                     for output in outputs:  # [32, 1], [32, 20], [32]
-                        if isinstance(output, list):
+                        if isinstance(output, tuple):
                             loss = loss + criterion(output)
                         else:
                             raise NotImplementedError('The output of the model should be list for a model with custom '

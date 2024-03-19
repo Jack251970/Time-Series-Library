@@ -14,28 +14,37 @@ from torch.nn.functional import pad
 from torch.autograd import Variable
 import logging
 
-logger = logging.getLogger('DeepAR.Net')
 
-
-class Net(nn.Module):
-    def __init__(self, params, device):
-        '''
+class Model(nn.Module):
+    def __init__(self, params):
+        """
         We define a recurrent network that predicts the future values
-        of a time-dependent variable based on past inputs and covariates.
-        '''
-        super(Net, self).__init__()
-        self.params = params
-        self.device = device
-        self.lstm = nn.LSTM(input_size=params.lstm_input_size,
-                            hidden_size=params.lstm_hidden_dim,
-                            num_layers=params.lstm_layers,
+        of a time-dependent variable based on past inputs and covariances.
+        """
+        super(Model, self).__init__()
+        self.task_name = params.task_name
+        self.lstm_input_size = params.enc_in + params.lag - 1  # take lag dimension into account
+        self.lstm_hidden_dim = 40
+        self.lstm_layers = 2
+        self.sample_times = params.sample_times
+        self.lstm_dropout = params.dropout
+        self.num_spline = params.num_spline
+        self.pred_start = params.seq_len
+        self.pred_steps = params.pred_len
+        self.lag = params.lag
+        self.train_window = self.pred_steps + self.pred_start
+
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size,
+                            hidden_size=self.lstm_hidden_dim,
+                            num_layers=self.lstm_layers,
                             bias=True,
                             batch_first=False,
-                            dropout=params.lstm_dropout)
+                            dropout=self.lstm_dropout)
         # initialize LSTM forget gate bias to be 1 as recommanded by
         # http://proceedings.mlr.press/v37/jozefowicz15.pdf
+        # noinspection PyProtectedMember
         for names in self.lstm._all_weights:
-            for name in filter(lambda n: "bias" in n, names):
+            for name in filter(lambda _n: "bias" in _n, names):
                 bias = getattr(self.lstm, name)
                 n = bias.size(0)
                 start, end = n // 4, n // 2
@@ -43,12 +52,9 @@ class Net(nn.Module):
 
         # Plan A:
         # beta_02k:[beta0,beta2,beta_kand1]
-        self.beta_02k = nn.Linear(
-            params.lstm_hidden_dim * params.lstm_layers, 2 + 1)
-        self.pre_sigma = nn.Linear(
-            params.lstm_hidden_dim * params.lstm_layers, params.num_spline)
-        self.pre_gamma = nn.Linear(
-            params.lstm_hidden_dim * params.lstm_layers, params.num_spline)
+        self.beta_02k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 2 + 1)
+        self.pre_sigma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
+        self.pre_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
         # softmax to make sure Σu equals to 1
         self.sigma = nn.Softmax(dim=1)
         # softplus to make sure gamma is positive
@@ -56,83 +62,154 @@ class Net(nn.Module):
         # softplus to make sure beta2 and beta_kand1 not negative
         self.beta_2k = nn.ReLU()
 
-    def forward(self, x, hidden, cell):
-        _, (hidden, cell) = self.lstm(x, (hidden, cell))
-        # use h from all three layers to calculate mu and sigma
-        hidden_permute = \
-            hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)
-        # Plan A:
-        beta_02k = self.beta_02k(hidden_permute)
-        beta_0 = beta_02k[:, 0]
-        pre_sigma = self.pre_sigma(hidden_permute)
-        sigma = self.sigma(pre_sigma)
-        pre_gamma = self.pre_gamma(hidden_permute)
-        gamma = self.gamma(pre_gamma)
-        beta_2k = self.beta_2k(beta_02k[:, 1:])
-        # to make sure beta_2 is negative
-        beta_2k[:, 0] = -beta_2k[:, 0]
-        return ((beta_0, beta_2k, sigma, torch.squeeze(gamma)), hidden, cell)
+    def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
+        if self.task_name == 'probability_forecast':
+            # we don't need to use mark data because lstm can handle time series relation information
+            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            train_batch = batch[:, :, :-1]
+            labels_batch = batch[:, :, -1]
+            return self.probability_forecast(train_batch, labels_batch)  # return loss list
+        return None
 
-    def init_hidden(self, input_size):
-        return torch.zeros(self.params.lstm_layers, input_size,
-                           self.params.lstm_hidden_dim,
-                           device=self.device)
+    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=0.95):
+        if self.task_name == 'probability_forecast':
+            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            train_batch = batch[:, :, :-1]
+            return self.probability_forecast(train_batch, probability_range=probability_range)
+        return None
 
-    def init_cell(self, input_size):
-        return torch.zeros(self.params.lstm_layers, input_size,
-                           self.params.lstm_hidden_dim,
-                           device=self.device)
+    def probability_forecast(self, train_batch, labels_batch=None, probability_range=0.95):  # [256, 108, 7], [256, 108,]
+        batch_size = train_batch.shape[0]  # 256
+        device = train_batch.device
 
-    def predict(self, x, hidden, cell, sampling=False):
-        """
-        generate samples by sampling from
-        """
-        batch_size = x.shape[1]
-        samples = torch.zeros(self.params.sample_times, batch_size,
-                              self.params.pred_steps,
-                              device=self.device)
-        for j in range(self.params.sample_times):
-            decoder_hidden = hidden
-            decoder_cell = cell
-            for t in range(self.params.pred_steps):
-                func_param, decoder_hidden, decoder_cell = \
-                    self(x[self.params.pred_start + t].unsqueeze(0),
-                         decoder_hidden, decoder_cell)
-                beta_0, beta_2k, sigma, gamma = func_param
-                # pred_cdf is a uniform ditribution
-                uniform = torch.distributions.uniform.Uniform(
-                    torch.tensor([0.0], device=sigma.device),
-                    torch.tensor([1.0], device=sigma.device))
-                pred_cdf = uniform.sample([batch_size])
+        train_batch = train_batch.permute(1, 0, 2)  # [108, 256, 7]
+        if labels_batch is not None:
+            labels_batch = labels_batch.permute(1, 0)  # [108, 256]
 
-                beta_1 = gamma[:, 0] - 2 * beta_2k[:, 0] * sigma[:, 0]
-                beta_N = pad(torch.unsqueeze(beta_1, dim=1), (1, 0))
-                beta_N[:, 0] = beta_0
+        # hidden and cell are initialized to zero
+        hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
+        cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
 
-                beta = (gamma - pad(gamma, (1, 0))[:, :-1]) / (2 * sigma)
-                beta[:, 0] = beta_2k[:, 0]
-                beta = beta - pad(beta, (1, 0))[:, :-1]
-                beta[:, -1] = beta_2k[:, 1] - beta[:, :-1].sum(dim=1)
+        if labels_batch is not None:
+            # train mode or validate mode
+            loss_list = []
+            for t in range(self.train_window):
+                # {[256, 1], [256, 20]}, [2, 256, 40], [2, 256, 40]
+                x = train_batch[t].unsqueeze_(0).clone()  # [1, 256, 7]
 
-                ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]
-                indices = ksi < pred_cdf
-                pred = (beta_N * pad(pred_cdf, (1, 0), value=1)).sum(dim=1)
-                pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)
+                _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+                # use h from all three layers to calculate mu and sigma
+                hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
 
-                samples[j, :, t] = pred
-                # predict value at t-1 is as a covars for t,t+1,...,t+lag
-                for lag in range(self.params.lag):
-                    if t < self.params.pred_steps - lag - 1:
-                        x[self.params.pred_start + t + 1, :, 0] = pred
+                # Plan A:
+                beta_02k = self.beta_02k(hidden_permute)  # [256, 3]
+                beta_0 = beta_02k[:, 0]  # [256]
+                pre_sigma = self.pre_sigma(hidden_permute)  # [256, 20]
+                sigma = self.sigma(pre_sigma)  # [256, 20]
+                pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
+                gamma = self.gamma(pre_gamma)  # [256, 20]
+                beta_2k = self.beta_2k(beta_02k[:, 1:])  # [256, 2]
+                # to make sure beta_2 is negative
+                beta_2k_neg = beta_2k.clone()  # clone this to avoid gradient error!!!
+                beta_2k_neg[:, 0] = -beta_2k[:, 0]
 
-        sample_mu = torch.mean(samples, dim=0)  # mean or median ?
-        sample_std = samples.std(dim=0)
-        return samples, sample_mu, sample_std
+                # check if hidden contains NaN
+                if torch.isnan(hidden).sum() > 0:
+                    raise ValueError(f'Backward Error! Process Stop!')
+
+                loss_list.append((beta_0, beta_2k_neg, sigma, gamma, labels_batch[t].clone()))
+
+            return loss_list
+        else:
+            # test mode
+            # condition range
+            test_batch = train_batch  # [108, 256, 7]
+            for t in range(self.pred_start):
+                x = test_batch[t].unsqueeze(0)  # [1, 256, 7]
+
+                _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+
+            # prediction range
+            cdf_high = 1 - (1 - probability_range) / 2
+            cdf_low = (1 - probability_range) / 2
+
+            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
+            samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
+            for j in range(self.sample_times + 2):
+                for t in range(self.pred_steps):
+                    x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
+
+                    _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+                    # use h from all three layers to calculate mu and sigma
+                    hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
+
+                    # Plan A:
+                    beta_02k = self.beta_02k(hidden_permute)
+                    beta_0 = beta_02k[:, 0]
+                    pre_sigma = self.pre_sigma(hidden_permute)
+                    sigma = self.sigma(pre_sigma)
+                    pre_gamma = self.pre_gamma(hidden_permute)
+                    gamma = self.gamma(pre_gamma)
+                    beta_2k = self.beta_2k(beta_02k[:, 1:])
+                    # to make sure beta_2 is negative
+                    beta_2k_neg = beta_2k.clone()
+                    beta_2k_neg[:, 0] = -beta_2k[:, 0]
+
+                    # pred_cdf is a uniform distribution
+                    if j == 0:  # high
+                        pred_cdf = torch.Tensor([cdf_high]).to(device)
+                    elif j == 1:  # low
+                        pred_cdf = torch.Tensor([cdf_low]).to(device)
+                    else:
+                        uniform = torch.distributions.uniform.Uniform(
+                            torch.tensor([0.0], device=device),
+                            torch.tensor([1.0], device=device))
+                        pred_cdf = uniform.sample([batch_size])  # [256, 1]
+
+                    # Plan AB
+                    beta_1 = gamma[:, 0] - 2 * beta_2k_neg[:, 0] * sigma[:, 0]
+                    beta_N = pad(torch.unsqueeze(beta_1, dim=1), (1, 0))
+                    beta_N[:, 0] = beta_0
+
+                    beta = (gamma - pad(gamma, (1, 0))[:, :-1]) / (2 * sigma)
+                    beta[:, 0] = beta_2k_neg[:, 0]
+                    beta = beta - pad(beta, (1, 0))[:, :-1]
+                    beta[:, -1] = beta_2k_neg[:, 1] - beta[:, :-1].sum(dim=1)
+
+                    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]
+                    indices = ksi < pred_cdf
+                    pred = (beta_N * pad(pred_cdf, (1, 0), value=1)).sum(dim=1)
+                    pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)
+
+                    if j == 0:
+                        samples_high[0, :, t] = pred
+                    elif j == 1:
+                        samples_low[0, :, t] = pred
+                    else:
+                        samples[j - 2, :, t] = pred
+
+                    # predict value at t-1 is as a covars for t,t+1,...,t+lag
+                    for lag in range(self.lag):
+                        if t < self.pred_steps - lag - 1:
+                            test_batch[self.pred_start + t + 1, :, 0] = pred
+
+            sample_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
+            sample_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
+
+            return samples, sample_mu, sample_std, samples_high, samples_low
 
 
-def loss_fn(func_param, labels: Variable):
-    beta_0, beta_2k, sigma, gamma = func_param
+# noinspection DuplicatedCode
+def loss_fn(list_param):
+    beta_0, beta_2k, sigma, gamma, labels = list_param
 
+    labels = labels.unsqueeze(1)  # [256, 1]
+
+    return get_crps(beta_0, beta_2k, sigma, gamma, labels)
+
+
+def get_crps(beta_0, beta_2k, sigma, gamma, labels):
     beta_1 = gamma[:, 0] - 2 * beta_2k[:, 0] * sigma[:, 0]
     beta_N = pad(torch.unsqueeze(beta_1, dim=1), (1, 0))
     beta_N[:, 0] = beta_0
@@ -152,7 +229,8 @@ def loss_fn(func_param, labels: Variable):
     knots = (df2 * beta_N).sum(dim=2) + (knots.pow(2) * beta).sum(dim=2)
     knots = pad(knots.T, (1, 0))[:, :-1]  # F(ksi_1~K)=0~max
 
-    diff = labels.view(-1, 1) - knots
+    diff = labels - knots
+    labels = labels.squeeze()
     alpha_l = diff > 0
     alpha_A = torch.sum(alpha_l * beta, dim=1)
     alpha_B = beta_N[:, 1] - 2 * torch.sum(alpha_l * beta * ksi, dim=1)

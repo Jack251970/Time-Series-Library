@@ -24,7 +24,7 @@ def parse_launch_parameters(_script_mode):
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
-                             "'Koopa', 'QSQF-C', 'Transformer-QSQF', 'Autoformer-QSQF']")
+                             "'Koopa', 'QSQF-AB', 'QSQF-C', 'Transformer-QSQF', 'Autoformer-QSQF']")
 
     # data loader
     parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
@@ -477,7 +477,7 @@ def build_setting(_args, _time, _format):
                     latest_time = checkpoint_time
 
         if latest_time is not None:
-            _time = latest_time
+            prefix = '{}_{}'.format(prefix, latest_time.strftime(_format))
 
     return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
@@ -657,7 +657,7 @@ def get_search_space(_model):
     transformer_config = {
     }
 
-    qsqf_c_config = {
+    qsqf_config = {
         # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
@@ -681,6 +681,7 @@ def get_search_space(_model):
     }
 
     autoformer_qsqf_config = {
+        'd_model': {'_type': 'single', '_value': 256},
         'train_epochs': {'_type': 'single', '_value': 10},
     }
 
@@ -690,7 +691,8 @@ def get_search_space(_model):
         'Crossformer': crossformer_config,
         'TimesNet': timesnet_config,
         'Transformer': transformer_config,
-        'QSQF-C': qsqf_c_config,
+        'QSQF-AB': qsqf_config,
+        'QSQF-C': qsqf_config,
         'Transformer-QSQF': transformer_qsqf_config,
         'Autoformer-QSQF': autoformer_qsqf_config
     }
@@ -709,11 +711,11 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['Autoformer-QSQF'],
+h = HyperOptimizer(False, ['QSQF-AB'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=False)
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)
 
 if __name__ == "__main__":
     h.start_search(0)

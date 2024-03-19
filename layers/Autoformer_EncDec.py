@@ -313,7 +313,7 @@ class DecoderLayer(nn.Module):
         self.decomp3 = series_decomp(_moving_avg, series_decomp_mode=series_decomp_mode)
         self.dropout = nn.Dropout(dropout)
         self.projection = nn.Conv1d(in_channels=d_model, out_channels=c_out, kernel_size=3, stride=1, padding=1,
-                                    padding_mode='circular', bias=False)
+                                    padding_mode='circular', bias=False) if c_out != d_model else None
         self.activation = F.relu if activation == "relu" else F.gelu
 
     def forward(self, x_de, cross, x_mask=None, cross_mask=None):
@@ -350,7 +350,8 @@ class DecoderLayer(nn.Module):
         t_de = t_de_1 + t_de_2 + t_de_3
 
         # project the deep transformed seasonal component to the target dimension.
-        t_de = self.projection(t_de.permute(0, 2, 1)).transpose(1, 2)
+        if self.projection is not None:
+            t_de = self.projection(t_de.permute(0, 2, 1)).transpose(1, 2)
 
         # return two decomposed component
         return s_de_3, t_de
