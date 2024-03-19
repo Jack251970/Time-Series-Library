@@ -60,15 +60,15 @@ class Model(nn.Module):
                 for _ in range(configs.d_layers)
             ],
             norm_layer=torch.nn.LayerNorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            projection=None
         )
 
         # QSQF - Plan C:
         self.num_spline = configs.num_spline
         self.sample_times = configs.sample_times
 
-        self.pre_beta_0 = nn.Linear(configs.c_out, 1)
-        self.pre_gamma = nn.Linear(configs.c_out, self.num_spline)
+        self.pre_beta_0 = nn.Linear(configs.d_model, 1)
+        self.pre_gamma = nn.Linear(configs.d_model, self.num_spline)
         self.beta_0 = nn.Softplus()
         self.gamma = nn.Softplus()
 
@@ -143,7 +143,7 @@ class Model(nn.Module):
         enc_out, attns = self.encoder(enc_out, attn_mask=None)  # [256, 96, 512], unknown
 
         dec_out = self.dec_embedding(x_dec, x_mark_dec)  # [256, 32, 512]
-        dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)  # [256, 32, 14]
+        dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)  # [256, 32, 512]
 
         # Plan C:
         pre_beta_0 = self.pre_beta_0(dec_out)  # [256, 32, 1]

@@ -81,15 +81,15 @@ class Model(nn.Module):
                 for _ in range(configs.d_layers)
             ],
             norm_layer=LayerNorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            projection=None
         )
 
         # QSQF - Plan C:
         self.num_spline = configs.num_spline
         self.sample_times = configs.sample_times
 
-        self.pre_beta_0 = nn.Linear(configs.c_out, 1)
-        self.pre_gamma = nn.Linear(configs.c_out, self.num_spline)
+        self.pre_beta_0 = nn.Linear(configs.d_model, 1)
+        self.pre_gamma = nn.Linear(configs.d_model, self.num_spline)
         self.beta_0 = nn.Softplus()
         self.gamma = nn.Softplus()
 
@@ -190,10 +190,10 @@ class Model(nn.Module):
         # dec: input the data after decomposition
         dec_in = self.dec_embedding(seasonal_init, x_mark_dec)  # shape: [32, 32, 512]
         seasonal_part, trend_part = self.decoder(dec_in, enc_out, x_mask=None, cross_mask=None, trend=trend_init)
-        # shape: [32, 32, 14], [32, 32, 14]
+        # shape: [32, 32, 512], [32, 32, 52]
 
         # final
-        dec_out = trend_part + seasonal_part  # shape: [32, 32, 14]
+        dec_out = trend_part + seasonal_part  # shape: [32, 32, 512]
 
         # Plan C:
         pre_beta_0 = self.pre_beta_0(dec_out)  # [256, 32, 1]
