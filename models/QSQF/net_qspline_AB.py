@@ -50,7 +50,7 @@ class Model(nn.Module):
                 start, end = n // 4, n // 2
                 bias.data[start:end].fill_(1.)
 
-        # Plan A:
+        # Plan AB:
         # beta_02k:[beta0,beta2,beta_kand1]
         self.beta_02k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 2 + 1)
         self.pre_sigma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
@@ -101,7 +101,7 @@ class Model(nn.Module):
                 # use h from all three layers to calculate mu and sigma
                 hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
 
-                # Plan A:
+                # Plan AB:
                 beta_02k = self.beta_02k(hidden_permute)  # [256, 3]
                 beta_0 = beta_02k[:, 0]  # [256]
                 pre_sigma = self.pre_sigma(hidden_permute)  # [256, 20]
@@ -144,7 +144,7 @@ class Model(nn.Module):
                     # use h from all three layers to calculate mu and sigma
                     hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
 
-                    # Plan A:
+                    # Plan AB:
                     beta_02k = self.beta_02k(hidden_permute)
                     beta_0 = beta_02k[:, 0]
                     pre_sigma = self.pre_sigma(hidden_permute)

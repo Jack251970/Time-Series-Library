@@ -477,7 +477,7 @@ def build_setting(_args, _time, _format):
                     latest_time = checkpoint_time
 
         if latest_time is not None:
-            prefix = '{}_{}'.format(prefix, latest_time.strftime(_format))
+            return '{}_{}'.format(prefix, latest_time.strftime(_format))
 
     return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
@@ -565,7 +565,7 @@ def get_search_space(_model):
         # 'features': {'_type': 'single', '_value': 'MS'},
         # 'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
         # 'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-        # 'c_out': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
+        # 'c_out': {'_type': 'single', '_value': 14},
 
         # wind dataset
         'root_path': {'_type': 'single', '_value': './dataset/wind/Zone1/'},
@@ -681,8 +681,9 @@ def get_search_space(_model):
     }
 
     autoformer_qsqf_config = {
-        'd_model': {'_type': 'single', '_value': 256},
+        'd_model': {'_type': 'single', '_value': 512},
         'train_epochs': {'_type': 'single', '_value': 10},
+        'c_out': {'_type': 'single', '_value': 512},
     }
 
     model_configs = {
@@ -711,11 +712,11 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['QSQF-AB'],
+h = HyperOptimizer(False, ['Autoformer-QSQF'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)
+h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=False)
 
 if __name__ == "__main__":
     h.start_search(0)
