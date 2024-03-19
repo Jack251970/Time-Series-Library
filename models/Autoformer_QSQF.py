@@ -217,8 +217,7 @@ class Model(nn.Module):
         :return:
         """
         # init padding sequence
-        mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len,
-                                                            1)  # mean in every feature  # [256, 16, 5]
+        mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len, 1)  # [256, 16, 5]
         zeros = torch.zeros([x_dec.shape[0], self.pred_len, x_dec.shape[2]], device=x_enc.device)  # [256, 16, 5]
 
         # init series decomposition
@@ -236,12 +235,11 @@ class Model(nn.Module):
 
         # dec: input the data after decomposition
         dec_in = self.dec_embedding(seasonal_init, x_mark_dec)  # [256, 32, 512]
-        trend_init = self.dec_embedding(trend_init, x_mark_dec)  # [256, 32, 64]
         seasonal_part, trend_part = self.decoder(dec_in, enc_out, x_mask=None, cross_mask=None, trend=trend_init)
-        # [256, 32, 512], [256, 32, 5]
+        # [256, 32, 5], [256, 32, 5]
 
         # final
-        dec_out = trend_part + seasonal_part  # [32, 32, 512]
+        dec_out = trend_part + seasonal_part  # [32, 32, 5]
 
         if self.plan == 'AB':
             # Plan AB:
