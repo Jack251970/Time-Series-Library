@@ -155,7 +155,7 @@ class Model(nn.Module):
 
                         # Plan C
                         sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-                        beta = pad(gamma, (1, 0))[:, :-1]
+                        beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
                         beta[:, 0] = beta_0[:, 0]
                         beta = (gamma - beta) / (2 * sigma)
                         beta = beta - pad(beta, (1, 0))[:, :-1]
@@ -178,17 +178,17 @@ class Model(nn.Module):
                             if t < self.pred_steps - lag - 1:
                                 test_batch[self.pred_start + t + 1, :, 0] = pred
 
-                sample_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
-                sample_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
+                samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
+                samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
-                return samples, sample_mu, sample_std, samples_high, samples_low
+                return samples, samples_mu, samples_std, samples_high, samples_low
             else:
                 # cannot sample these
                 samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)
                 samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)
                 samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)
-                sample_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
-                sample_std = torch.zeros(batch_size, self.pred_steps, 1, device=device)
+                samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
+                samples_std = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
                 for t in range(self.pred_steps):
                     x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
@@ -206,10 +206,15 @@ class Model(nn.Module):
                     # Plan C
                     # TODO: Add pred here, [256,].
 
+
+                    samples_mu[:, t] = pred
+
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
                             test_batch[self.pred_start + t + 1, :, 0] = pred
+
+                return samples, samples_mu, samples_std, samples_high, samples_low
 
 
 def loss_fn(list_param):
