@@ -234,7 +234,8 @@ def get_crps(beta_0, gamma, labels):
     alpha[not_zero] = (-alpha_B[not_zero] + torch.sqrt(delta)) / (2 * alpha_A[not_zero])
 
     # formula for CRPS is here!
-    crps_1 = labels * (2 * alpha - 1)
+    gamma_0 = torch.zeros_like(labels)
+    crps_1 = (gamma_0 - labels) * (1 - 2 * alpha)
     crps_2 = beta_0[:, 0] * (1 / 3 - alpha.pow(2))
     crps_3 = torch.sum(beta / 6 * (1 - ksi).pow(4), dim=1)
     crps_4 = torch.sum(alpha_l * 2 / 3 * beta * (alpha.unsqueeze(1) - ksi).pow(3), dim=1)

@@ -21,7 +21,7 @@ class Exp_Probability_Forecast(Exp_Basic):
     def __init__(self, args, try_model=False, save_process=True):
         super(Exp_Probability_Forecast, self).__init__(args, try_model, save_process)
 
-    def train(self, setting, check_folder=False, only_init=False, adjust_lr=True):
+    def train(self, setting, check_folder=False, only_init=False, adjust_lr=False):
         if check_folder:
             self._check_folders([self.args.checkpoints, "./process"])
 

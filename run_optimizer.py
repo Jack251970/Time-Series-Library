@@ -668,6 +668,8 @@ def get_search_space(_model):
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
     }
 
     transformer_qsqf_config = {
@@ -684,6 +686,8 @@ def get_search_space(_model):
         'd_model': {'_type': 'single', '_value': 512},
         'train_epochs': {'_type': 'single', '_value': 10},
         'c_out': {'_type': 'single', '_value': 5},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
     }
 
     model_configs = {
