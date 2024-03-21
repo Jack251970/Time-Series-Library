@@ -162,9 +162,10 @@ class Model(nn.Module):
                         beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
 
                         ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
-                        indices = ksi < pred_cdf  # [256, 20]
+                        indices = ksi < pred_cdf  # [256, 20] # if smaller than pred_cdf, True
+                        # Q(alpha) = beta_0 * pred_cdf + sum(beta * (pred_cdf - ksi) ^ 2)
                         pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
-                        pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256, 20] # Q(alpha)公式?
+                        pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,] # Q(alpha)公式?
 
                         if j == 0:
                             samples_high[0, :, t] = pred
@@ -204,15 +205,39 @@ class Model(nn.Module):
                     gamma = self.gamma(pre_gamma)  # [256, 20]
 
                     # Plan C
-                    # TODO: Add pred here, [256,].
+                    min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
+                    max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
 
+                    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+                    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
+                    beta[:, 0] = beta_0[:, 0]
+                    beta = (gamma - beta) / (2 * sigma)
+                    beta = beta - pad(beta, (1, 0))[:, :-1]
+                    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
+                    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
 
-                    samples_mu[:, t] = pred
+                    # get min pred and max pred
+                    # indices = ksi < min_cdf  # [256, 20] # True
+                    # min_pred = (beta_0 * min_cdf).sum(dim=1)  # [256,]
+                    # min_pred = min_pred + ((min_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+                    # indices = ksi < max_cdf  # [256, 20] # True
+                    # max_pred = (beta_0 * max_cdf).sum(dim=1)  # [256,]
+                    # max_pred = max_pred + ((max_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+                    # total_area = ((max_cdf - min_cdf) * (max_pred - min_pred))  # [256,]
+
+                    # calculate integral
+                    # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
+                    integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
+                    integral2 = 1/3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
+                    integral = integral1 + integral2  # [256,]
+                    pred_mu = integral / (max_cdf - min_cdf)  # [256,]
+
+                    samples_mu[:, t, 0] = pred_mu
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            test_batch[self.pred_start + t + 1, :, 0] = pred
+                            test_batch[self.pred_start + t + 1, :, 0] = pred_mu
 
                 return samples, samples_mu, samples_std, samples_high, samples_low
 
