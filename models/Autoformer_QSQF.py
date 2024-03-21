@@ -119,7 +119,7 @@ class Model(nn.Module):
                 return beta_0, gamma
         return None
 
-    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=0.95):
+    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, sample=True, probability_range=0.95):
         if self.task_name == 'probability_forecast':  # [256, 32, 1], [256, 32, 20]
             outputs = self.probability_forecast(x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask)
 

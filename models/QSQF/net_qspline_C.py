@@ -245,9 +245,33 @@ class Model(nn.Module):
 def loss_fn(list_param):
     beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
-    labels = labels.unsqueeze(1)  # [256, 1]
+    # Plan C
+    device = beta_0.device
+    min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
+    max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
 
-    return get_crps(beta_0, gamma, labels)
+    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
+    beta[:, 0] = beta_0[:, 0]
+    beta = (gamma - beta) / (2 * sigma)
+    beta = beta - pad(beta, (1, 0))[:, :-1]
+    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
+    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
+
+    # calculate integral
+    # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
+    integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
+    integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
+    integral = integral1 + integral2  # [256,]
+    pred = integral / (max_cdf - min_cdf)  # [256,]
+
+    loss = nn.MSELoss()
+    mseLoss = loss(pred, labels)
+
+    labels = labels.unsqueeze(1)  # [256, 1]
+    crpsLoss = get_crps(beta_0, gamma, labels)
+
+    return mseLoss
 
 
 def get_crps(beta_0, gamma, labels):
