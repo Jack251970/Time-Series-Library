@@ -660,7 +660,7 @@ def get_search_space(_model):
     qsqf_config = {
         # model
         'label_len': {'_type': 'single', '_value': 0},
-        #'lag': {'_type': 'single', '_value': 3},
+        'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
