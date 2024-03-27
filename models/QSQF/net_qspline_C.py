@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import pad
 
+from layers.SelfAttention_Family import AttentionLayer, FullAttention
+
 # -*- coding: utf-8 -*-
 """
 Created on Wed Oct 21 19:52:22 2020
@@ -30,6 +32,7 @@ class Model(nn.Module):
         self.pred_steps = params.pred_len
         self.lag = params.lag
         self.train_window = self.pred_steps + self.pred_start
+        self.n_heads = 8
 
         self.lstm = nn.LSTM(input_size=self.lstm_input_size,
                             hidden_size=self.lstm_hidden_dim,
@@ -47,6 +50,13 @@ class Model(nn.Module):
                 n = bias.size(0)
                 start, end = n // 4, n // 2
                 bias.data[start:end].fill_(1.)
+
+        # attention
+        self.attention = attention = AttentionLayer(
+            attention=FullAttention(False, params.factor, attention_dropout=params.dropout),
+            d_model=self.lstm_hidden_dim,
+            n_heads=self.n_heads
+        )
 
         # Plan C:
         self.pre_beta_0 = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
@@ -95,6 +105,7 @@ class Model(nn.Module):
                 _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                 # use h from all three layers to calculate mu and sigma
                 hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
+                hidden_permute, _ = self.attention(hidden_permute, hidden_permute, hidden_permute)  # [256, 2, 40]
                 hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
                 hidden_permutes[:, t - self.pred_start, :] = hidden_permute
 
@@ -141,6 +152,7 @@ class Model(nn.Module):
                     _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                     # use h from all three layers to calculate mu and sigma
                     hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
+                    hidden_permute, _ = self.attention(hidden_permute, hidden_permute, hidden_permute)  # [256, 2, 40]
                     hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
                     hidden_permutes[:, t, :] = hidden_permute
 
