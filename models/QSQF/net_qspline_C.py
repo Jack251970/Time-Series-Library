@@ -271,7 +271,7 @@ def loss_fn(list_param):
     labels = labels.unsqueeze(1)  # [256, 1]
     crpsLoss = get_crps(beta_0, gamma, labels)
 
-    return mseLoss
+    return crpsLoss
 
 
 def get_crps(beta_0, gamma, labels):
