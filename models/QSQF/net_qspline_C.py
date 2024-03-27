@@ -94,7 +94,8 @@ class Model(nn.Module):
 
                 _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                 # use h from all three layers to calculate mu and sigma
-                hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
+                hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
+                hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
                 hidden_permutes[:, t - self.pred_start, :] = hidden_permute
 
                 # check if hidden contains NaN
@@ -139,7 +140,8 @@ class Model(nn.Module):
 
                     _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                     # use h from all three layers to calculate mu and sigma
-                    hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
+                    hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
+                    hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
                     hidden_permutes[:, t, :] = hidden_permute
 
                     # Plan C:
