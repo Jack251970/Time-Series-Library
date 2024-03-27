@@ -107,7 +107,7 @@ class Model(nn.Module):
 
             # get loss list
             loss_list = []
-            for t in range(self.train_window):
+            for t in range(self.pred_steps):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
 
                 # Plan C:
