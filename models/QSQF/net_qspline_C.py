@@ -82,14 +82,12 @@ class Model(nn.Module):
             labels_batch = labels_batch.permute(1, 0)  # [108, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim,
-                             device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim,
-                           device=device)  # [2, 256, 40]
+        hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
+        cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
 
         if labels_batch is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers, device=device)
+            hidden_permutes = torch.zeros(batch_size, self.train_window, self.lstm_hidden_dim * self.lstm_layers, device=device)
             for t in range(self.train_window):
                 # {[256, 1], [256, 20]}, [2, 256, 40], [2, 256, 40]
                 x = train_batch[t].unsqueeze_(0).clone()  # [1, 256, 7]
@@ -97,9 +95,7 @@ class Model(nn.Module):
                 _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                 # use h from all three layers to calculate mu and sigma
                 hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
-
-                if t >= self.pred_start:
-                    hidden_permutes[:, t - self.pred_start, :] = hidden_permute
+                hidden_permutes[:, t - self.pred_start, :] = hidden_permute
 
                 # check if hidden contains NaN
                 if torch.isnan(hidden).sum() > 0:
@@ -107,7 +103,7 @@ class Model(nn.Module):
 
             # get loss list
             loss_list = []
-            for t in range(self.pred_steps):
+            for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
 
                 # Plan C:
