@@ -660,7 +660,7 @@ def get_search_space(_model):
     qsqf_config = {
         # model
         'label_len': {'_type': 'single', '_value': 0},
-        'lag': {'_type': 'single', '_value': 3},
+        #'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
@@ -722,7 +722,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=[], try_model=False, force_exp=True)
+h.config_optimizer_settings(scan_all_csv=True, add_tags=["attn"], try_model=False, force_exp=True)
 
 if __name__ == "__main__":
     h.start_search(0)
