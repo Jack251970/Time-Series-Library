@@ -89,7 +89,7 @@ class Model(nn.Module):
 
         if labels_batch is not None:
             # train mode or validate mode
-            loss_list = []
+            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers, device=device)
             for t in range(self.train_window):
                 # {[256, 1], [256, 20]}, [2, 256, 40], [2, 256, 40]
                 x = train_batch[t].unsqueeze_(0).clone()  # [1, 256, 7]
@@ -98,15 +98,23 @@ class Model(nn.Module):
                 # use h from all three layers to calculate mu and sigma
                 hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
 
+                if t >= self.pred_start:
+                    hidden_permutes[:, t - self.pred_start, :] = hidden_permute
+
+                # check if hidden contains NaN
+                if torch.isnan(hidden).sum() > 0:
+                    raise ValueError(f'Backward Error! Process Stop!')
+
+            # get loss list
+            loss_list = []
+            for t in range(self.train_window):
+                hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
+
                 # Plan C:
                 pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
                 beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
                 pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
                 gamma = self.gamma(pre_gamma)  # [256, 20]
-
-                # check if hidden contains NaN
-                if torch.isnan(hidden).sum() > 0:
-                    raise ValueError(f'Backward Error! Process Stop!')
 
                 loss_list.append((beta_0, gamma, labels_batch[t].clone()))
 
@@ -125,18 +133,18 @@ class Model(nn.Module):
             cdf_low = (1 - probability_range) / 2
 
             # sample
-            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device,
-                                       requires_grad=False)  # [1, 256, 16]
-            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device,
-                                      requires_grad=False)  # [1, 256, 16]
+            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
             for j in range(self.sample_times + 2):
+                hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers, device=device)
                 for t in range(self.pred_steps):
                     x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
 
                     _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                     # use h from all three layers to calculate mu and sigma
                     hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
+                    hidden_permutes[:, t, :] = hidden_permute
 
                     # Plan C:
                     pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
