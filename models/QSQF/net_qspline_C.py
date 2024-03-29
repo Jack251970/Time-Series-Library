@@ -20,6 +20,7 @@ class ConvLayer(nn.Module):
         self.downConv = nn.Conv1d(in_channels=c_in,
                                   out_channels=c_in,
                                   kernel_size=3,
+                                  stride=1,
                                   padding=2,
                                   padding_mode='circular')
         self.norm = nn.BatchNorm1d(c_in)
@@ -28,10 +29,10 @@ class ConvLayer(nn.Module):
 
     def forward(self, x):  # [1, 256, 7] (time, batch, features)
         x = x.permute(1, 0, 2)  # [256, 1, 7]
-        x = self.downConv(x)
+        x = self.downConv(x)  # [256, 1, 9]
         x = self.norm(x)
         x = self.activation(x)
-        x = self.maxPool(x)
+        x = self.maxPool(x)  # [256, 1, 5]
         x = x.permute(1, 0, 2)  # [1, 256, 5]
         return x  # [1, 256, 5]
 
@@ -44,7 +45,10 @@ class Model(nn.Module):
         """
         super(Model, self).__init__()
         self.task_name = params.task_name
-        self.lstm_input_size = params.enc_in + params.lag - 1  # take lag dimension into account
+        input_size1 = params.enc_in + params.lag - 1  # take lag into account
+        input_size2 = input_size1 + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
+        input_size3 = (input_size2 + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
+        self.lstm_input_size = input_size3
         self.lstm_hidden_dim = 40
         self.lstm_layers = 2
         self.sample_times = params.sample_times
@@ -181,7 +185,8 @@ class Model(nn.Module):
                                               device=device)
 
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
+                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden,
+                                                 cell)  # [2, 256, 40], [2, 256, 40]
 
                     # use h from all three layers to calculate mu and sigma
                     hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
