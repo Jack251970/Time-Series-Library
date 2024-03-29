@@ -38,15 +38,16 @@ class ConvLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=False):
+    def __init__(self, params, use_cnn=False, use_attention=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
         """
         super(Model, self).__init__()
+        self.use_cnn = use_cnn
+        self.use_attention = use_attention
         self.task_name = params.task_name
         input_size = params.enc_in + params.lag - 1  # take lag into account
-        self.use_cnn = use_cnn
         if use_cnn:
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
@@ -123,6 +124,15 @@ class Model(nn.Module):
 
         return hidden, cell
 
+    def run_after_lstm(self, hidden):
+        # use h from all three layers to calculate mu and sigma
+        hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
+        if self.use_attention:
+            hidden_permute = self.attention(hidden_permute, hidden_permute, hidden_permute, None)  # [256, 2, 40]
+        hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
+
+        return hidden_permute
+
     def probability_forecast(self, train_batch, labels_batch=None, sample=False,
                              probability_range=0.4):  # [256, 108, 7], [256, 108,]
         batch_size = train_batch.shape[0]  # 256
@@ -142,10 +152,7 @@ class Model(nn.Module):
                                           device=device)
             for t in range(self.train_window):
                 hidden, cell = self.run_lstm(train_batch[t].unsqueeze_(0).clone(), hidden, cell)
-
-                # use h from all three layers to calculate mu and sigma
-                hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
-                hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
+                hidden_permute = self.run_after_lstm(hidden)
                 hidden_permutes[:, t, :] = hidden_permute
 
                 # check if hidden contains NaN
@@ -188,12 +195,8 @@ class Model(nn.Module):
                                               device=device)
 
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden,
-                                                 cell)  # [2, 256, 40], [2, 256, 40]
-
-                    # use h from all three layers to calculate mu and sigma
-                    hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
-                    hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
+                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
+                    hidden_permute = self.run_after_lstm(hidden)
                     hidden_permutes[:, t, :] = hidden_permute
 
                 for t in range(self.pred_steps):
@@ -246,14 +249,14 @@ class Model(nn.Module):
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
             if not sample:
+                hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers,
+                                              device=device)
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden,
-                                                 cell)  # [2, 256, 40], [2, 256, 40]
-
-                    # use h from all three layers to calculate mu and sigma
-                    hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
+                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
+                    hidden_permute = self.run_after_lstm(hidden)
+                    hidden_permutes[:, t, :] = hidden_permute
 
                     # Plan C:
                     pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]

@@ -490,8 +490,8 @@ def check_jump_experiment(_parameter):
 # noinspection DuplicatedCode
 def get_fieldnames(mode='all'):
     # init the all fieldnames
-    all_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed', 'task_name',
-                      'is_training', 'model_id', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
+    all_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed', 'task_name',
+                      'is_training', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
                       'checkpoints', 'scaler', 'seq_len', 'label_len', 'pred_len', 'seasonal_patterns', 'inverse',
                       'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model',
                       'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil',
@@ -501,9 +501,9 @@ def get_fieldnames(mode='all'):
                       'num_spline', 'sample_times']
 
     # init the fieldnames need to be checked
-    _removed_fieldnames = ['mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'is_training',
-                           'model_id', 'root_path', 'checkpoints', 'output_attention', 'num_workers', 'use_gpu', 'gpu',
-                           'use_multi_gpu', 'devices', 'run_time']
+    _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
+                           'is_training', 'root_path', 'checkpoints', 'output_attention', 'num_workers', 'use_gpu',
+                           'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
     # init the required fieldnames
@@ -533,6 +533,8 @@ def get_model_id_tags(_args, _add_tags):
 
     for add_tag in _add_tags:
         tags.append(add_tag)
+
+    tags.append(f"{_args.lag}_lag")
 
     if len(tags) == 0:
         return ''
@@ -722,7 +724,8 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, add_tags=["crps", "non_cnn"], try_model=False, force_exp=True)
+h.config_optimizer_settings(scan_all_csv=True, try_model=False, force_exp=True,
+                            add_tags=["ori", "crps_loss", "non_cnn", "attn"])
 
 if __name__ == "__main__":
     h.start_search(0)
