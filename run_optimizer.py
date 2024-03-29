@@ -663,6 +663,7 @@ def get_search_space(_model):
         # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
+        #'lag': {'_type': 'choice', '_value': [0, 3]},
         'dropout': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
@@ -725,7 +726,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "crps_loss", "non_cnn", "attn"])
+                            add_tags=["ori", "crps_loss", "non_cnn", "non_new_id", "non_attn"])
 
 if __name__ == "__main__":
     h.start_search(0)

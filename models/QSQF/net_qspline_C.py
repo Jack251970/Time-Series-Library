@@ -1,3 +1,7 @@
+import itertools
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.nn.functional import pad
@@ -38,7 +42,7 @@ class ConvLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=False, use_attention=False):
+    def __init__(self, params, use_cnn=False, use_new_index=False, use_attention=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
@@ -46,6 +50,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.use_cnn = use_cnn
         self.use_attention = use_attention
+        self.use_new_index = use_new_index
         self.task_name = params.task_name
         input_size = params.enc_in + params.lag - 1  # take lag into account
         if use_cnn:
@@ -81,6 +86,13 @@ class Model(nn.Module):
                 start, end = n // 4, n // 2
                 bias.data[start:end].fill_(1.)
 
+        # adjust index
+        self.new_index = None
+        # self.lag_index = []
+        # for i in range(self.lag):
+        #     self.lag_index.append(i)
+        self.lag_index = 0
+
         # cnn
         self.cnn = ConvLayer(1)
 
@@ -106,6 +118,8 @@ class Model(nn.Module):
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
             labels_batch = batch[:, :, -1]
+            if self.use_new_index:
+                train_batch = self.adjust_dimension(train_batch)
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
@@ -113,7 +127,132 @@ class Model(nn.Module):
         if self.task_name == 'probability_forecast':
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
+            if self.use_new_index:
+                train_batch = self.adjust_dimension(train_batch)
             return self.probability_forecast(train_batch, probability_range=probability_range)
+        return None
+
+    def adjust_dimension(self, train_batch):  # [256, 112, 7]
+        if self.task_name == 'probability_forecast':
+            if self.new_index is not None:
+                train_batch = train_batch[:, :, self.new_index]
+                return train_batch
+
+            # convert to 2D tensor
+            corr_data = train_batch.view(-1, train_batch.shape[2])  # [256*112, 7]
+
+            # convert to pandas dataframe
+            corr_data = corr_data.cpu().detach().numpy()
+
+            # get correlation matrix
+            corr_data = pd.DataFrame(corr_data)
+            corr = corr_data.corr()
+
+            # traverse the upper triangle of the correlation matrix
+            # rank correlation coefficient
+            ranked_corr_data = []  # a list of tuples, like [((2,3), 0.95), ...], (2,3) is the index, 0.95 is the value
+            for i in range(corr.shape[0]):
+                for j in range(i + 1, corr.shape[0]):
+                    ranked_corr_data.append(((i, j), np.abs(corr.iloc[i, j])))
+            ranked_corr_data.sort(key=lambda x: x[1], reverse=True)
+
+            # group those features with high correlation
+            new_indexes = None
+            between_group = False
+            groups = []
+            grouped_num = 0
+            between_groups = []
+            between_grouped_num = 0
+            total_num = corr.shape[0]
+            for item in ranked_corr_data:
+                i = item[0][0]
+                j = item[0][1]
+                if not between_group:
+                    # start to group within groups
+                    if len(groups) == 0:
+                        groups.append({i, j})
+                        grouped_num += 2
+                    else:
+                        error_flag = False
+                        add_flag = True
+                        for group in groups:
+                            if i in group and j in group:
+                                error_flag = True
+                                break
+                            if i in group:
+                                group.add(j)
+                                grouped_num += 1
+                                add_flag = False
+                                break
+                            if j in group:
+                                group.add(i)
+                                grouped_num += 1
+                                add_flag = False
+                                break
+                        if not error_flag and add_flag:
+                            groups.append({i, j})
+                            grouped_num += 2
+                    if grouped_num >= total_num:
+                        between_group = True
+                else:
+                    # start to group between groups
+                    _ = []
+                    for k in range(len(groups)):
+                        group = groups[k]
+                        if i in group or j in group:
+                            _.append(k)
+                    if len(_) == 2:
+                        value_1 = _[0]
+                        value_2 = _[1]
+                        if value_1 > value_2:
+                            value_1, value_2 = value_2, value_1
+                        if (value_1, value_2) not in between_groups:
+                            between_groups.append((value_1, value_2))
+                            between_grouped_num += 1
+                    if between_grouped_num >= len(groups) - 1:
+                        # start to adjust the sequence of groups
+                        # traverse all possible combinations
+                        final_out = None
+                        numbers = list(range(len(groups)))
+                        permutations = itertools.permutations(numbers)
+                        for permutation in list(permutations):
+                            quit_this = False
+                            for t in range(len(permutation) - 1):
+                                a = permutation[t]
+                                b = permutation[t + 1]
+                                find = False
+                                for _ in between_groups:
+                                    if a in _ and b in _:
+                                        find = True
+                                        break
+                                if not find:
+                                    quit_this = True
+                                    break
+                            if quit_this:
+                                continue
+                            else:
+                                final_out = permutation
+                                break
+                        if final_out is not None:
+                            new_groups = []
+                            for i in final_out:
+                                new_groups.append(groups[i])
+                            new_indexes = []
+                            for group in new_groups:
+                                for index in group:
+                                    new_indexes.append(index)
+                        break
+
+            # adjust the dimension of train_batch
+            if new_indexes is not None:
+                self.new_index = new_indexes
+                train_batch = train_batch[:, :, new_indexes]
+                # self.lag_index.clear()
+                # for i in self.lag:
+                #     self.lag_index.append(new_indexes[i])
+                self.lag_index = new_indexes[0]
+
+            return train_batch
         return None
 
     def run_lstm(self, x, hidden, cell):
@@ -191,16 +330,9 @@ class Model(nn.Module):
                                       requires_grad=False)  # [1, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
             for j in range(self.sample_times + 2):
-                hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers,
-                                              device=device)
-
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.run_after_lstm(hidden)
-                    hidden_permutes[:, t, :] = hidden_permute
-
-                for t in range(self.pred_steps):
-                    hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
 
                     # Plan C:
                     pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
@@ -241,22 +373,23 @@ class Model(nn.Module):
                         samples[j - 2, :, t] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
+                    # for lag in range(self.lag):
+                    #     z = self.lag - lag
+                    #     if self.pred_start + t + z < self.train_window:
+                    #         test_batch[self.pred_start + t + z, :, self.lag_index[lag]] = pred
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            test_batch[self.pred_start + t + 1, :, 0] = pred
+                            test_batch[self.pred_start + t + 1, :, self.lag_index] = pred
 
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
             if not sample:
-                hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers,
-                                              device=device)
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.run_after_lstm(hidden)
-                    hidden_permutes[:, t, :] = hidden_permute
 
                     # Plan C:
                     pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
@@ -290,14 +423,18 @@ class Model(nn.Module):
                     integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
                     integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
                     integral = integral1 + integral2  # [256,]
-                    pred_mu = integral / (max_cdf - min_cdf)  # [256,]
+                    pred = integral / (max_cdf - min_cdf)  # [256,]
 
-                    samples_mu[:, t, 0] = pred_mu
+                    samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
+                    # for lag in range(self.lag):
+                    #     z = self.lag - lag
+                    #     if self.pred_start + t + z < self.train_window:
+                    #         test_batch[self.pred_start + t + z, :, self.lag_index[lag]] = pred
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            test_batch[self.pred_start + t + 1, :, 0] = pred_mu
+                            test_batch[self.pred_start + t + 1, :, self.lag_index] = pred
 
             return samples, samples_mu, samples_std, samples_high, samples_low
 
