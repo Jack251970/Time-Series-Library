@@ -450,8 +450,8 @@ class Exp_Probability_Forecast(Exp_Basic):
             plt.plot(true_value[i*interval: (i+1)*interval], label='True Value', color='blue')
             plt.plot(high_value[i*interval: (i+1)*interval], label='High Value', color='green')
             plt.plot(low_value[i*interval: (i+1)*interval], label='Low Value', color='green')
-            # plt.fill_between(range(interval), high_value[i*interval: (i+1)*interval],
-            #                  low_value[i*interval: (i+1)*interval], color='gray', alpha=0.5)
+            plt.fill_between(range(interval), high_value[i*interval: (i+1)*interval],
+                             low_value[i*interval: (i+1)*interval], color='gray', alpha=0.5)
             plt.title('Prediction')
             plt.legend()
             path = os.path.join(folder_path, f'prediction {i}.png')

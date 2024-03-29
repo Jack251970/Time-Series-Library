@@ -14,6 +14,28 @@ Created on Wed Oct 21 19:52:22 2020
 '''Defines the neural network, loss function and metrics'''
 
 
+class ConvLayer(nn.Module):
+    def __init__(self, c_in):
+        super(ConvLayer, self).__init__()
+        self.downConv = nn.Conv1d(in_channels=c_in,
+                                  out_channels=c_in,
+                                  kernel_size=3,
+                                  padding=2,
+                                  padding_mode='circular')
+        self.norm = nn.BatchNorm1d(c_in)
+        self.activation = nn.ELU()
+        self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
+
+    def forward(self, x):  # [1, 256, 7] (time, batch, features)
+        x = x.permute(1, 0, 2)  # [256, 1, 7]
+        x = self.downConv(x)
+        x = self.norm(x)
+        x = self.activation(x)
+        x = self.maxPool(x)
+        x = x.permute(1, 0, 2)  # [1, 256, 5]
+        return x  # [1, 256, 5]
+
+
 class Model(nn.Module):
     def __init__(self, params):
         """
@@ -39,6 +61,7 @@ class Model(nn.Module):
                             num_layers=self.lstm_layers,
                             bias=True,
                             batch_first=False,
+                            bidirectional=False,
                             dropout=self.lstm_dropout)
 
         # initialize LSTM forget gate bias to be 1 as recommended by
@@ -51,8 +74,11 @@ class Model(nn.Module):
                 start, end = n // 4, n // 2
                 bias.data[start:end].fill_(1.)
 
+        # cnn
+        self.cnn = ConvLayer(1)
+
         # attention
-        self.attention = attention = AttentionLayer(
+        self.attention = AttentionLayer(
             attention=FullAttention(False, params.factor, attention_dropout=params.dropout),
             d_model=self.lstm_hidden_dim,
             n_heads=self.n_heads
@@ -83,7 +109,15 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, probability_range=probability_range)
         return None
 
-    def probability_forecast(self, train_batch, labels_batch=None, sample=False, probability_range=0.4):  # [256, 108, 7], [256, 108,]
+    def run_lstm(self, batch, hidden, cell):
+        x = self.cnn(batch)  # [1, 256, 5]
+
+        _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+
+        return hidden, cell
+
+    def probability_forecast(self, train_batch, labels_batch=None, sample=False,
+                             probability_range=0.4):  # [256, 108, 7], [256, 108,]
         batch_size = train_batch.shape[0]  # 256
         device = train_batch.device
 
@@ -97,12 +131,11 @@ class Model(nn.Module):
 
         if labels_batch is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(batch_size, self.train_window, self.lstm_hidden_dim * self.lstm_layers, device=device)
+            hidden_permutes = torch.zeros(batch_size, self.train_window, self.lstm_hidden_dim * self.lstm_layers,
+                                          device=device)
             for t in range(self.train_window):
-                # {[256, 1], [256, 20]}, [2, 256, 40], [2, 256, 40]
-                x = train_batch[t].unsqueeze_(0).clone()  # [1, 256, 7]
+                hidden, cell = self.run_lstm(train_batch[t].unsqueeze_(0).clone(), hidden, cell)
 
-                _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                 # use h from all three layers to calculate mu and sigma
                 hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
                 hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
@@ -131,26 +164,25 @@ class Model(nn.Module):
             # condition range
             test_batch = train_batch  # [108, 256, 7]
             for t in range(self.pred_start):
-                x = test_batch[t].unsqueeze(0)  # [1, 256, 7]
-
-                _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+                hidden, cell = self.run_lstm(test_batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
 
             # prediction range
             cdf_high = 1 - (1 - probability_range) / 2
             cdf_low = (1 - probability_range) / 2
 
             # sample
-            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
-            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device, requires_grad=False)  # [1, 256, 16]
+            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device,
+                                       requires_grad=False)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device,
+                                      requires_grad=False)  # [1, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
             for j in range(self.sample_times + 2):
                 hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_dim * self.lstm_layers,
                                               device=device)
 
                 for t in range(self.pred_steps):
-                    x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
+                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
 
-                    _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                     # use h from all three layers to calculate mu and sigma
                     hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
                     hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
