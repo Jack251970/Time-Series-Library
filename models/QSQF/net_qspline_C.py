@@ -146,7 +146,7 @@ class Model(nn.Module):
                 # use h from all three layers to calculate mu and sigma
                 hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
                 hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
-                hidden_permutes[:, t - self.pred_start, :] = hidden_permute
+                hidden_permutes[:, t, :] = hidden_permute
 
                 # check if hidden contains NaN
                 if torch.isnan(hidden).sum() > 0:
