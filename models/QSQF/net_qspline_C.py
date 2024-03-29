@@ -38,17 +38,19 @@ class ConvLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, params):
+    def __init__(self, params, use_cnn=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
         """
         super(Model, self).__init__()
         self.task_name = params.task_name
-        input_size1 = params.enc_in + params.lag - 1  # take lag into account
-        input_size2 = input_size1 + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
-        input_size3 = (input_size2 + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
-        self.lstm_input_size = input_size3
+        input_size = params.enc_in + params.lag - 1  # take lag into account
+        self.use_cnn = use_cnn
+        if use_cnn:
+            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
+            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
+        self.lstm_input_size = input_size
         self.lstm_hidden_dim = 40
         self.lstm_layers = 2
         self.sample_times = params.sample_times
@@ -113,8 +115,9 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, probability_range=probability_range)
         return None
 
-    def run_lstm(self, batch, hidden, cell):
-        x = self.cnn(batch)  # [1, 256, 5]
+    def run_lstm(self, x, hidden, cell):
+        if self.use_cnn:
+            x = self.cnn(x)  # [1, 256, 5]
 
         _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
@@ -246,9 +249,9 @@ class Model(nn.Module):
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
                 for t in range(self.pred_steps):
-                    x = test_batch[self.pred_start + t].unsqueeze(0)  # [1, 256, 7]
+                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden,
+                                                 cell)  # [2, 256, 40], [2, 256, 40]
 
-                    _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
                     # use h from all three layers to calculate mu and sigma
                     hidden_permute = hidden.permute(1, 2, 0).contiguous().view(hidden.shape[1], -1)  # [256, 80]
 
