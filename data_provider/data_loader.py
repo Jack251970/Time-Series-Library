@@ -1,4 +1,5 @@
 import glob
+import itertools
 import os
 import re
 import warnings
@@ -261,6 +262,8 @@ class Dataset_Custom(Dataset):
         assert flag in ['train', 'test', 'val']
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
+        self.data_x = None
+        self.data_y = None
 
         self.features = features
         self.target = target
@@ -382,6 +385,137 @@ class Dataset_Custom(Dataset):
 
     def get_all_data(self):
         return self.data_x, self.data_y, self.data_stamp
+
+    def get_new_indexes(self):
+        # get correlation matrix
+        corr_data = pd.DataFrame(self.data_x)
+        corr = corr_data.corr()
+
+        # traverse the upper triangle of the correlation matrix
+        # rank correlation coefficient
+        ranked_corr_data = []  # a list of tuples, like [((2,3), 0.95), ...], (2,3) is the index, 0.95 is the value
+        for i in range(corr.shape[0]):
+            for j in range(i + 1, corr.shape[0]):
+                ranked_corr_data.append(((i, j), np.abs(corr.iloc[i, j])))
+        ranked_corr_data.sort(key=lambda x: x[1], reverse=True)
+
+        # group those features with high correlation
+        new_indexes = None
+        between_group = False
+        groups = []
+        grouped_num = 0
+        between_groups = []
+        between_groups_in = []
+        total_num = corr.shape[0]
+        for item in ranked_corr_data:
+            i = item[0][0]
+            j = item[0][1]
+            if not between_group:
+                # start to group within groups
+                if len(groups) == 0:
+                    groups.append({i, j})
+                    grouped_num += 2
+                else:
+                    error_flag = False
+                    add_flag = True
+                    for group in groups:
+                        if i in group and j in group:
+                            error_flag = True
+                            break
+                        if i in group:
+                            group.add(j)
+                            grouped_num += 1
+                            add_flag = False
+                            break
+                        if j in group:
+                            group.add(i)
+                            grouped_num += 1
+                            add_flag = False
+                            break
+                    if not error_flag and add_flag:
+                        groups.append({i, j})
+                        grouped_num += 2
+                if grouped_num >= total_num:
+                    between_group = True
+            else:
+                # start to group between groups
+                _ = []
+                for k in range(len(groups)):
+                    group = groups[k]
+                    if i in group or j in group:
+                        _.append(k)
+                if len(_) == 2:
+                    value_1 = _[0]
+                    value_2 = _[1]
+                    if value_1 > value_2:
+                        value_1, value_2 = value_2, value_1
+
+                    # two connected, skip
+                    if value_1 in between_groups_in and value_2 in between_groups_in:
+                        continue
+
+                    # not connected, add
+                    if value_1 not in between_groups_in and value_2 not in between_groups_in:
+                        between_groups.append((value_1, value_2))
+                        between_groups_in.append(value_1)
+                        between_groups_in.append(value_2)
+                    else:
+                        # just one connected, check
+                        if value_1 in between_groups_in:
+                            connect_num = 0
+                            for edge in between_groups:
+                                if value_1 in edge:
+                                    connect_num += 1
+                            if connect_num <= 1:
+                                between_groups.append((value_1, value_2))
+                                between_groups_in.append(value_2)
+                        else:
+                            connect_num = 0
+                            for edge in between_groups:
+                                if value_2 in edge:
+                                    connect_num += 1
+                            if connect_num <= 1:
+                                between_groups.append((value_1, value_2))
+                                between_groups_in.append(value_1)
+                if len(between_groups_in) >= len(groups):
+                    # start to adjust the sequence of groups
+                    # traverse all possible combinations
+                    final_out = None
+                    numbers = list(range(len(groups)))
+                    permutations = itertools.permutations(numbers)
+                    for permutation in list(permutations):
+                        quit_this = False
+                        for t in range(len(permutation) - 1):
+                            a = permutation[t]
+                            b = permutation[t + 1]
+                            find = False
+                            for _ in between_groups:
+                                if a in _ and b in _:
+                                    find = True
+                                    break
+                            if not find:
+                                quit_this = True
+                                break
+                        if quit_this:
+                            continue
+                        else:
+                            final_out = permutation
+                            break
+                    if final_out is not None:
+                        new_groups = []
+                        for i in final_out:
+                            new_groups.append(groups[i])
+                        new_indexes = []
+                        for group in new_groups:
+                            for index in group:
+                                new_indexes.append(index)
+                    break
+
+        return new_indexes
+
+    def set_new_indexes(self, new_indexes):
+        self.data_x = self.data_x[:, new_indexes]
+        self.data_y = self.data_y[:, new_indexes]
 
 
 # noinspection DuplicatedCode

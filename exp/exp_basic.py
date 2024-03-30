@@ -15,10 +15,21 @@ class Exp_Basic(object):
         self.args = args
         self.try_model = try_model
         self.save_process = save_process
-        self.process_path = None
         self.process_content = ""
+        self.process_file_path = None
         self.device = self._acquire_device(try_model)
         self.model = self._build_model().to(self.device)
+        self.new_index = None
+
+        # folder paths
+        self.root_process_path = './process'
+        self.root_results_path = './results'
+        self.root_test_results_path = './test_results'
+        self.root_m4_results_path = './m4_results'
+        self.root_prob_results_path = './prob_results'
+
+        # file paths
+        self.checkpoints_file_path = 'checkpoint.pth'
 
     def _build_model(self):
         # get model from model dictionary
@@ -69,7 +80,8 @@ class Exp_Basic(object):
         return device
 
     def _get_data(self, flag):
-        data_set, data_loader, info = data_provider(self.args, flag)
+        data_set, data_loader, info, new_index = data_provider(self.args, flag, self.args.reindex, self.new_index)
+        self.new_index = new_index
         if not self.try_model:
             self.print_content(info)
         return data_set, data_loader
@@ -141,7 +153,7 @@ class Exp_Basic(object):
         if self.save_process:
             self.process_content = self.process_content + content + "\n"
             if write:
-                f = open(self.process_path, 'a')
+                f = open(self.process_file_path, 'a')
                 f.write(self.process_content)
                 f.write('\n')
                 f.write('\n')

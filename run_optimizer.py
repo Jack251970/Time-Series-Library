@@ -43,6 +43,8 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--lag', type=int, default=0, help='lag of time series, only for RNN & LSTM related model')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--scaler', type=str, default='StandardScaler', help='feature scaling method')
+    parser.add_argument('--reindex', type=int, default=0, help='reindex feature dimensions data, 1: enable 0: disable')
+
     # forecasting task
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=48, help='start token length')
@@ -131,6 +133,7 @@ def build_config_dict(_args):
         'lag': _args.lag,
         'checkpoints': _args.checkpoints,
         'scaler': _args.scaler,
+        'reindex': _args.reindex,
 
         # forecasting task
         'seq_len': _args.seq_len,
@@ -211,6 +214,7 @@ def set_args(_args, _config):
     _args.lag = _config['lag']
     _args.checkpoints = _config['checkpoints']
     _args.scaler = _config['scaler']
+    _args.reindex = _config['reindex']
 
     # forecasting task
     _args.seq_len = _config['seq_len']
@@ -323,6 +327,8 @@ def prepare_config(_params, _script_mode=False):
             _args.checkpoints = _params['checkpoints']
         if 'scaler' in _params:
             _args.scaler = _params['scaler']
+        if 'reindex' in _params:
+            _args.reindex = _params['reindex']
 
         # forecasting task
         if 'seq_len' in _params:
@@ -490,15 +496,15 @@ def check_jump_experiment(_parameter):
 # noinspection DuplicatedCode
 def get_fieldnames(mode='all'):
     # init the all fieldnames
-    all_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed', 'task_name',
-                      'is_training', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
-                      'checkpoints', 'scaler', 'seq_len', 'label_len', 'pred_len', 'seasonal_patterns', 'inverse',
-                      'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model',
-                      'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil',
-                      'dropout', 'embed', 'activation', 'output_attention', 'channel_independence', 'num_workers',
-                      'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp',
-                      'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims', 'p_hidden_layers',
-                      'num_spline', 'sample_times']
+    all_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed',
+                      'task_name', 'is_training', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
+                      'checkpoints', 'scaler', 'reindex', 'seq_len', 'label_len', 'pred_len', 'seasonal_patterns',
+                      'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out',
+                      'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode',
+                      'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention', 'channel_independence',
+                      'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj',
+                      'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims',
+                      'p_hidden_layers', 'num_spline', 'sample_times']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
@@ -550,7 +556,7 @@ def get_model_id_tags(_args, _add_tags):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 1},
+        'is_training': {'_type': 'single', '_value': 0},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -673,6 +679,8 @@ def get_search_space(_model):
         'sample_times': {'_type': 'single', '_value': 99},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+
+        'reindex': {'_type': 'single', '_value': 0},
     }
 
     transformer_qsqf_config = {
@@ -726,7 +734,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "crps_loss", "non_cnn", "non_new_id", "non_attn"])
+                            add_tags=["ori", "crps_loss", "cnn", "non_new_id", "non_attn"])
 
 if __name__ == "__main__":
     h.start_search(0)

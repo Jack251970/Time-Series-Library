@@ -19,7 +19,7 @@ data_dict = {
 }
 
 
-def data_provider(args, flag):
+def data_provider(args, flag, reindex, new_indexes=None):
     # get data class
     Data = data_dict[args.data]
 
@@ -48,19 +48,42 @@ def data_provider(args, flag):
             win_size=args.seq_len,
             flag=flag,
         )
+        # reindex if needed
+        if reindex:
+            if new_indexes is None:
+                if flag == 'train':
+                    new_indexes = data_set.get_new_indexes()
+                else:
+                    new_indexes = Data(
+                        root_path=args.root_path,
+                        win_size=args.seq_len,
+                        flag='train',
+                    ).get_new_indexes()
+            data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
-        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}"
+        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
     elif args.task_name == 'classification':
         drop_last = False
         data_set = Data(
             root_path=args.root_path,
             flag=flag,
         )
+        # reindex if needed
+        if reindex:
+            if new_indexes is None:
+                if flag == 'train':
+                    new_indexes = data_set.get_new_indexes()
+                else:
+                    new_indexes = Data(
+                        root_path=args.root_path,
+                        flag='train',
+                    ).get_new_indexes()
+            data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -69,7 +92,7 @@ def data_provider(args, flag):
             drop_last=drop_last,
             collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
         )
-        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}"
+        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
     else:
         if args.data == 'm4':
             drop_last = False
@@ -87,10 +110,31 @@ def data_provider(args, flag):
             lag=args.lag,
             seasonal_patterns=args.seasonal_patterns
         )
+        # reindex if needed
+        if reindex:
+            if new_indexes is None:
+                if flag == 'train':
+                    new_indexes = data_set.get_new_indexes()
+                else:
+                    new_indexes = Data(
+                        root_path=args.root_path,
+                        data_path=args.data_path,
+                        flag='train',
+                        size=[args.seq_len, args.label_len, args.pred_len],
+                        features=args.features,
+                        target=args.target,
+                        scale=True,
+                        scaler=args.scaler,
+                        timeenc=timeenc,
+                        freq=freq,
+                        lag=args.lag,
+                        seasonal_patterns=args.seasonal_patterns
+                    ).get_new_indexes()
+            data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
-        return data_set, data_loader,  f"{args.data}: {flag} {len(data_set)}"
+        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes

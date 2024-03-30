@@ -42,10 +42,14 @@ class ConvLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=False, use_new_index=False, use_attention=False):
+    def __init__(self, params, use_cnn=True, use_new_index=False, use_attention=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
+
+        Use cun for feature extraction.
+        Use attention for feature selection.
+        Use new index is deprecated, and this function has been moved to the data preprocessing part.
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
@@ -272,14 +276,59 @@ class Model(nn.Module):
 
         return hidden_permute
 
+    def get_plan_c_par(self, hidden_permute):
+        pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
+        beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
+        pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
+        gamma = self.gamma(pre_gamma)  # [256, 20]
+
+        return beta_0, gamma
+
+    # noinspection DuplicatedCode
+    @staticmethod
+    def sample_plan_c(beta_0, gamma, pred_cdf, min_cdf, max_cdf):
+        sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+        beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
+        beta[:, 0] = beta_0[:, 0]
+        beta = (gamma - beta) / (2 * sigma)
+        beta = beta - pad(beta, (1, 0))[:, :-1]
+        beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
+        ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
+
+        if pred_cdf is not None:
+            indices = ksi < pred_cdf  # [256, 20] # if smaller than pred_cdf, True
+            # Q(alpha) = beta_0 * pred_cdf + sum(beta * (pred_cdf - ksi) ^ 2)
+            pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
+            pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+
+            return pred
+        else:
+            # get min pred and max pred
+            # indices = ksi < min_cdf  # [256, 20] # True
+            # min_pred = (beta_0 * min_cdf).sum(dim=1)  # [256,]
+            # min_pred = min_pred + ((min_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+            # indices = ksi < max_cdf  # [256, 20] # True
+            # max_pred = (beta_0 * max_cdf).sum(dim=1)  # [256,]
+            # max_pred = max_pred + ((max_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+            # total_area = ((max_cdf - min_cdf) * (max_pred - min_pred))  # [256,]
+
+            # calculate integral
+            # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
+            integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
+            integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
+            integral = integral1 + integral2  # [256,]
+            pred_mu = integral / (max_cdf - min_cdf)  # [256,]
+
+            return pred_mu
+
     def probability_forecast(self, train_batch, labels_batch=None, sample=False,
-                             probability_range=0.4):  # [256, 108, 7], [256, 108,]
+                             probability_range=0.4):  # [256, 112, 7], [256, 112,]
         batch_size = train_batch.shape[0]  # 256
         device = train_batch.device
 
-        train_batch = train_batch.permute(1, 0, 2)  # [108, 256, 7]
+        train_batch = train_batch.permute(1, 0, 2)  # [112, 256, 7]
         if labels_batch is not None:
-            labels_batch = labels_batch.permute(1, 0)  # [108, 256]
+            labels_batch = labels_batch.permute(1, 0)  # [112, 256]
 
         # hidden and cell are initialized to zero
         hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
@@ -302,43 +351,41 @@ class Model(nn.Module):
             loss_list = []
             for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
-
-                # Plan C:
-                pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
-                beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
-                pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
-                gamma = self.gamma(pre_gamma)  # [256, 20]
-
+                beta_0, gamma = self.get_plan_c_par(hidden_permute)  # [256, 1], [256, 20]
                 loss_list.append((beta_0, gamma, labels_batch[t].clone()))
 
             return loss_list
         else:
             # test mode
-            # condition range
-            test_batch = train_batch  # [108, 256, 7]
-            for t in range(self.pred_start):
-                hidden, cell = self.run_lstm(test_batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
-
-            # prediction range
+            # initialize cdf range
             cdf_high = 1 - (1 - probability_range) / 2
             cdf_low = (1 - probability_range) / 2
+            cdf_min = 0
+            cdf_max = 1
+            min_cdf = torch.Tensor([cdf_min]).to(device)  # [1]
+            max_cdf = torch.Tensor([cdf_max]).to(device)  # [1]
 
-            # sample
-            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device,
-                                       requires_grad=False)  # [1, 256, 16]
-            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device,
-                                      requires_grad=False)  # [1, 256, 16]
+            # initialize samples
+            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device)  # [1, 256, 16]
+            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device)  # [1, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
+
+            # condition range
+            test_batch = train_batch.clone()  # [112, 256, 7]
+            for t in range(self.pred_start):
+                hidden, cell = self.run_lstm(test_batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
+            hidden_init = hidden.clone()
+            cell_init = cell.clone()
+
             for j in range(self.sample_times + 2):
+                # initialize hidden and cell
+                hidden, cell = hidden_init.clone(), cell_init.clone()
+
+                # prediction range
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.run_after_lstm(hidden)
-
-                    # Plan C:
-                    pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
-                    beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
-                    pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
-                    gamma = self.gamma(pre_gamma)  # [256, 20]
+                    beta_0, gamma = self.get_plan_c_par(hidden_permute)
 
                     # pred_cdf is a uniform distribution
                     if j == 0:  # high
@@ -351,20 +398,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample([batch_size])  # [256, 1]
 
-                    # Plan C
-                    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-                    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-                    beta[:, 0] = beta_0[:, 0]
-                    beta = (gamma - beta) / (2 * sigma)
-                    beta = beta - pad(beta, (1, 0))[:, :-1]
-                    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-
-                    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
-                    indices = ksi < pred_cdf  # [256, 20] # if smaller than pred_cdf, True
-                    # Q(alpha) = beta_0 * pred_cdf + sum(beta * (pred_cdf - ksi) ^ 2)
-                    pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
-                    pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,] # Q(alpha)公式?
-
+                    pred = self.sample_plan_c(beta_0, gamma, pred_cdf, min_cdf, max_cdf)
                     if j == 0:
                         samples_high[0, :, t] = pred
                     elif j == 1:
@@ -384,47 +418,27 @@ class Model(nn.Module):
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
+            # use integral to calculate the mean
             if not sample:
+                # hidden and cell are initialized to zero
+                hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)
+                cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)
+
+                # condition range
+                test_batch = train_batch.clone()
+                for t in range(self.pred_start):
+                    hidden, cell = self.run_lstm(test_batch[t].unsqueeze(0), hidden, cell)
+
+                # prediction range
+                # sample
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.run_after_lstm(hidden)
+                    beta_0, gamma = self.get_plan_c_par(hidden_permute)
 
-                    # Plan C:
-                    pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
-                    beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
-                    pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
-                    gamma = self.gamma(pre_gamma)  # [256, 20]
-
-                    # Plan C
-                    min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
-                    max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
-
-                    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-                    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-                    beta[:, 0] = beta_0[:, 0]
-                    beta = (gamma - beta) / (2 * sigma)
-                    beta = beta - pad(beta, (1, 0))[:, :-1]
-                    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-                    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
-
-                    # get min pred and max pred
-                    # indices = ksi < min_cdf  # [256, 20] # True
-                    # min_pred = (beta_0 * min_cdf).sum(dim=1)  # [256,]
-                    # min_pred = min_pred + ((min_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-                    # indices = ksi < max_cdf  # [256, 20] # True
-                    # max_pred = (beta_0 * max_cdf).sum(dim=1)  # [256,]
-                    # max_pred = max_pred + ((max_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-                    # total_area = ((max_cdf - min_cdf) * (max_pred - min_pred))  # [256,]
-
-                    # calculate integral
-                    # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
-                    integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
-                    integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
-                    integral = integral1 + integral2  # [256,]
-                    pred = integral / (max_cdf - min_cdf)  # [256,]
-
+                    pred = self.sample_plan_c(beta_0, gamma, None, min_cdf, max_cdf)
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
@@ -442,28 +456,28 @@ class Model(nn.Module):
 def loss_fn(list_param):
     beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
-    # Plan C
-    device = beta_0.device
-    min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
-    max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
-
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-    beta[:, 0] = beta_0[:, 0]
-    beta = (gamma - beta) / (2 * sigma)
-    beta = beta - pad(beta, (1, 0))[:, :-1]
-    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
-
-    # calculate integral
-    # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
-    integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
-    integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
-    integral = integral1 + integral2  # [256,]
-    pred = integral / (max_cdf - min_cdf)  # [256,]
-
-    loss = nn.MSELoss()
-    mseLoss = loss(pred, labels)
+    # # Plan C
+    # device = beta_0.device
+    # min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
+    # max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
+    #
+    # sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+    # beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
+    # beta[:, 0] = beta_0[:, 0]
+    # beta = (gamma - beta) / (2 * sigma)
+    # beta = beta - pad(beta, (1, 0))[:, :-1]
+    # beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
+    # ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
+    #
+    # # calculate integral
+    # # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
+    # integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
+    # integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
+    # integral = integral1 + integral2  # [256,]
+    # pred = integral / (max_cdf - min_cdf)  # [256,]
+    #
+    # loss = nn.MSELoss()
+    # mseLoss = loss(pred, labels)
 
     labels = labels.unsqueeze(1)  # [256, 1]
     crpsLoss = get_crps(beta_0, gamma, labels)

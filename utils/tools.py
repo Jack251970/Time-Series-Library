@@ -33,8 +33,9 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 
 class EarlyStopping:
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, checkpoints_file_path, patience=7, verbose=False, delta=0):
         self.patience = patience
+        self.checkpoints = checkpoints_file_path
         self.verbose = verbose
         self.counter = 0
         self.best_score = None
@@ -59,7 +60,7 @@ class EarlyStopping:
         return _
 
     def save_checkpoint(self, val_loss, model, path):
-        best_model_path = path + '/' + 'checkpoint.pth'
+        best_model_path = path + '/' + self.checkpoints
         if self.verbose:
             _ = (f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). '
                  f'Saving model to {best_model_path}.')

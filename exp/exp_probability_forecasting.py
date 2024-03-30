@@ -23,16 +23,16 @@ class Exp_Probability_Forecast(Exp_Basic):
 
     def train(self, setting, check_folder=False, only_init=False, adjust_lr=False):
         if check_folder:
-            self._check_folders([self.args.checkpoints, "./process"])
+            self._check_folders([self.args.checkpoints, self.root_process_path])
 
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path) and not self.try_model:
             os.makedirs(path)
 
-        process_path = './process/' + setting + '/'
+        process_path = self.root_process_path + f'/{setting}/'
         if not os.path.exists(process_path) and not self.try_model:
             os.makedirs(process_path)
-        self.process_path = process_path + 'probability_forecast.txt'
+        self.process_file_path = process_path + f'{self.args.task_name}.txt'
 
         if only_init:
             return
@@ -44,7 +44,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         time_now = time.time()
 
         train_steps = len(train_loader)
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        early_stopping = EarlyStopping(self.checkpoints_file_path, patience=self.args.patience, verbose=True)
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -178,7 +178,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         self.print_content("", True)
 
-        best_model_path = path + '/' + 'checkpoint.pth'
+        best_model_path = path + '/' + self.checkpoints_file_path
         self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
@@ -251,19 +251,19 @@ class Exp_Probability_Forecast(Exp_Basic):
         if test:
             self.print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)
-            best_model_path = path + '/' + 'checkpoint.pth'
+            best_model_path = path + '/' + self.checkpoints_file_path
             if os.path.exists(best_model_path):
                 self.model.load_state_dict(torch.load(best_model_path))
             else:
                 raise FileNotFoundError('You need to train this model before testing it!')
 
         if check_folder:
-            self._check_folders(['./test_results', './results'])
+            self._check_folders([self.root_test_results_path, self.root_results_path, self.root_prob_results_path])
 
         preds = []
         trues = []
 
-        folder_path = './test_results/' + setting + '/'
+        folder_path = self.root_test_results_path + f'/{setting}/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
@@ -364,7 +364,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         self.print_content(f'test shape: {preds.shape} {trues.shape}')  # (5632, 16, 1) (5632, 16, 1)
 
         # result save
-        folder_path = './results/' + setting + '/'
+        folder_path = self.root_results_path + f'/{setting}/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
@@ -395,6 +395,10 @@ class Exp_Probability_Forecast(Exp_Basic):
         np.save(folder_path + 'true.npy', trues)
 
         self.print_content("", True)
+
+        folder_path = self.root_prob_results_path + f'/{setting}/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
         # move to cpu and covert to numpy for plotting
         pred_value = pred_value.detach().cpu().numpy()  # [15616]
