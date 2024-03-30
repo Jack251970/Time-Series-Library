@@ -267,11 +267,16 @@ class Exp_Probability_Forecast(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+        probability_step = 0
+        select_position = -test_data.pred_len + probability_step
+        probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+        probability_range_len = len(probability_range)
+
         length = len(test_data)
         pred_value = torch.zeros(length).to(self.device)
         true_value = torch.zeros(length).to(self.device)
-        high_value = torch.zeros(length).to(self.device)
-        low_value = torch.zeros(length).to(self.device)
+        high_value = torch.zeros(probability_range_len, length).to(self.device)
+        low_value = torch.zeros(probability_range_len, length).to(self.device)
 
         self.model.eval()
         with torch.no_grad():
@@ -294,19 +299,25 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         if self.args.output_attention:
-                            outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
+                            outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark,
+                                                         probability_range=probability_range)[0]
                         else:
-                            outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
+                            outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark,
+                                                         probability_range=probability_range)
                 else:
                     if self.args.output_attention:
-                        outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
+                        outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark,
+                                                     probability_range=probability_range)[0]
                     else:
-                        outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
+                        outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark,
+                                                     probability_range=probability_range)
 
                 samples, sample_mu, sample_std, samples_high, samples_low = outputs
-                pred_value[i * batch_size: (i + 1) * batch_size] = sample_mu[:, 0, 0].squeeze()
-                high_value[i * batch_size: (i + 1) * batch_size] = samples_high[:, 0, 0].squeeze()
-                low_value[i * batch_size: (i + 1) * batch_size] = samples_low[0, :, 0].squeeze()
+                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 26], [3, 256, 16]
+
+                pred_value[i * batch_size: (i + 1) * batch_size] = sample_mu[:, select_position, -1].squeeze()
+                high_value[:, i * batch_size: (i + 1) * batch_size] = samples_high[:, :, select_position].squeeze()
+                low_value[:, i * batch_size: (i + 1) * batch_size] = samples_low[:, :, select_position].squeeze()
                 # for j in range(batch_size):
                 #     pred_value[i * batch_size + j] = sample_mu[0, :, 0]
                 #     high_value[i] = samples_high[0, 0, 0]
@@ -322,7 +333,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
                 labels = labels.unsqueeze(-1)  # [256, 112, 1]
 
-                true_value[i * batch_size: (i + 1) * batch_size] = batch_y[:, -test_data.pred_len, -1].squeeze()
+                true_value[i * batch_size: (i + 1) * batch_size] = batch_y[:, select_position, -1].squeeze()
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = sample_mu[:, -self.args.pred_len:, :]  # [256, 16, 1]
@@ -403,8 +414,12 @@ class Exp_Probability_Forecast(Exp_Basic):
         # move to cpu and covert to numpy for plotting
         pred_value = pred_value.detach().cpu().numpy()  # [15616]
         true_value = true_value.detach().cpu().numpy()  # [15616]
-        high_value = high_value.detach().cpu().numpy()  # [15616]
-        low_value = low_value.detach().cpu().numpy()  # [15616]
+        high_value = high_value.detach().cpu().numpy()  # [3, 15616]
+        low_value = low_value.detach().cpu().numpy()  # [3, 15616]
+
+        # integrate different probability range data
+        high_value = high_value.reshape(-1)  # [46848]
+        low_value = low_value.reshape(-1)  # [46848]
 
         # convert to shape: (sample, feature) for inverse transform
         new_shape = (length, self.args.enc_in)
@@ -414,6 +429,8 @@ class Exp_Probability_Forecast(Exp_Basic):
         _ = np.zeros(new_shape)
         _[:, -1] = true_value
         true_value = _
+
+        new_shape = (probability_range_len * length, self.args.enc_in)
         _ = np.zeros(new_shape)
         _[:, -1] = high_value
         high_value = _
@@ -429,37 +446,27 @@ class Exp_Probability_Forecast(Exp_Basic):
         low_value = dataset.inverse_transform(low_value)
 
         # get the original data
-        pred_value = pred_value[:, -1].squeeze()  # predicted value
-        true_value = true_value[:, -1].squeeze()  # true value
-        high_value = high_value[:, -1].squeeze()  # high-probability value
-        low_value = low_value[:, -1].squeeze()  # low-probability value
+        pred_value = pred_value[:, -1].squeeze()  # [15616]
+        true_value = true_value[:, -1].squeeze()  # [15616]
+        high_value = high_value[:, -1].squeeze()  # [46848]
+        low_value = low_value[:, -1].squeeze()  # [46848]
 
-        plt.clf()
-        plt.plot(pred_value, label='Predicted Value', color='red')
-        plt.plot(true_value, label='True Value', color='blue')
-        plt.fill_between(range(len(test_data)), high_value, low_value, color='gray',
-                         alpha=0.5)
-        plt.title('Prediction')
-        plt.legend()
-        path = os.path.join(folder_path, 'prediction all.png')
-        plt.savefig(path)
+        # restore different probability range data
+        high_value = high_value.reshape(probability_range_len, length)  # [3, 15616]
+        low_value = low_value.reshape(probability_range_len, length)  # [3, 15616]
+
+        # draw figures
+        draw_figure(range(length), pred_value, true_value, high_value, low_value, probability_range,
+                    os.path.join(folder_path, 'prediction all.png'))
 
         interval = 128
         num = math.floor(length / interval)
         for i in range(num):
-            if (i + 1)*interval >= length:
+            if (i + 1) * interval >= length:
                 continue
-            plt.clf()
-            plt.plot(pred_value[i*interval: (i+1)*interval], label='Predicted Value', color='red')
-            plt.plot(true_value[i*interval: (i+1)*interval], label='True Value', color='blue')
-            plt.plot(high_value[i*interval: (i+1)*interval], label='High Value', color='green')
-            plt.plot(low_value[i*interval: (i+1)*interval], label='Low Value', color='green')
-            plt.fill_between(range(interval), high_value[i*interval: (i+1)*interval],
-                             low_value[i*interval: (i+1)*interval], color='gray', alpha=0.5)
-            plt.title('Prediction')
-            plt.legend()
-            path = os.path.join(folder_path, f'prediction {i}.png')
-            plt.savefig(path)
+            draw_figure(range(interval), pred_value[i * interval: (i + 1) * interval], true_value[i * interval: (i + 1) * interval],
+                        high_value[:, i * interval: (i + 1) * interval], low_value[:, i * interval: (i + 1) * interval],
+                        probability_range, os.path.join(folder_path, f'prediction {i}.png'))
 
         # convert to float
         crps = float(ss_metric['CRPS_Mean'].item())
@@ -473,3 +480,17 @@ class Exp_Probability_Forecast(Exp_Basic):
             'mre': mre,
             'pinaw': pinaw
         }
+
+
+def draw_figure(x, pred, true, high, low, pred_range, path):
+    plt.clf()
+    plt.plot(pred.squeeze(), label='Predicted Value', color='red')
+    plt.plot(true.squeeze(), label='True Value', color='blue')
+    for j in range(len(pred_range)):
+        # plt.plot(high[j, :].squeeze(), label='High Value', color='green')
+        # plt.plot(low[j, :].squeeze(), label='Low Value', color='green')
+        plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
+                         alpha=1-pred_range[j])
+    plt.title('Prediction')
+    plt.legend()
+    plt.savefig(path)

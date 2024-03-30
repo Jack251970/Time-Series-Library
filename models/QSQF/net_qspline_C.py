@@ -127,12 +127,14 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
-    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=0.95):
+    def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
             if self.use_new_index:
                 train_batch = self.adjust_dimension(train_batch)
+            if probability_range is None:
+                probability_range = [0.5]
             return self.probability_forecast(train_batch, probability_range=probability_range)
         return None
 
@@ -321,10 +323,17 @@ class Model(nn.Module):
 
             return pred_mu
 
-    def probability_forecast(self, train_batch, labels_batch=None, sample=False,
-                             probability_range=0.4):  # [256, 112, 7], [256, 112,]
+    # noinspection DuplicatedCode
+    def probability_forecast(self, train_batch, labels_batch=None, sample=False, probability_range=None):  # [256, 112, 7], [256, 112,]
+        if probability_range is None:
+            probability_range = [0.5]
+
         batch_size = train_batch.shape[0]  # 256
         device = train_batch.device
+
+        assert isinstance(probability_range, list)
+        probability_range_len = len(probability_range)
+        probability_range = torch.Tensor(probability_range).to(device)  # [3]
 
         train_batch = train_batch.permute(1, 0, 2)  # [112, 256, 7]
         if labels_batch is not None:
@@ -358,26 +367,28 @@ class Model(nn.Module):
         else:
             # test mode
             # initialize cdf range
-            cdf_high = 1 - (1 - probability_range) / 2
-            cdf_low = (1 - probability_range) / 2
-            cdf_min = 0
-            cdf_max = 1
-            min_cdf = torch.Tensor([cdf_min]).to(device)  # [1]
-            max_cdf = torch.Tensor([cdf_max]).to(device)  # [1]
+            min_cdf = torch.Tensor([0.0]).to(device)  # [1]
+            max_cdf = torch.Tensor([1.0]).to(device)  # [1]
+            cdf_low = (1 - probability_range) / 2  # [3]
+            cdf_high = 1 - (1 - probability_range) / 2  # [3]
+            low_cdf = cdf_low.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
+            high_cdf = cdf_high.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
 
             # initialize samples
-            samples_high = torch.zeros(1, batch_size, self.pred_steps, device=device)  # [1, 256, 16]
-            samples_low = torch.zeros(1, batch_size, self.pred_steps, device=device)  # [1, 256, 16]
+            samples_low = torch.zeros(probability_range_len, batch_size, self.pred_steps, device=device)  # [3, 256, 16]
+            samples_high = samples_low.clone()  # [3, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
 
             # condition range
-            test_batch = train_batch.clone()  # [112, 256, 7]
             for t in range(self.pred_start):
-                hidden, cell = self.run_lstm(test_batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
+                hidden, cell = self.run_lstm(train_batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
             hidden_init = hidden.clone()
             cell_init = cell.clone()
 
-            for j in range(self.sample_times + 2):
+            for j in range(self.sample_times + probability_range_len * 2):
+                # clone test batch
+                test_batch = train_batch.clone()  # [112, 256, 7]
+
                 # initialize hidden and cell
                 hidden, cell = hidden_init.clone(), cell_init.clone()
 
@@ -387,24 +398,24 @@ class Model(nn.Module):
                     hidden_permute = self.run_after_lstm(hidden)
                     beta_0, gamma = self.get_plan_c_par(hidden_permute)
 
-                    # pred_cdf is a uniform distribution
-                    if j == 0:  # high
-                        pred_cdf = torch.Tensor([cdf_high]).to(device)
-                    elif j == 1:  # low
-                        pred_cdf = torch.Tensor([cdf_low]).to(device)
+                    if j < probability_range_len:
+                        pred_cdf = low_cdf[:, j].unsqueeze(-1)  # [256, 1]
+                    elif j < 2 * probability_range_len:
+                        pred_cdf = high_cdf[:, j - probability_range_len].unsqueeze(-1)  # [256, 1]
                     else:
+                        # pred_cdf is a uniform distribution
                         uniform = torch.distributions.uniform.Uniform(
                             torch.tensor([0.0], device=device),
                             torch.tensor([1.0], device=device))
-                        pred_cdf = uniform.sample([batch_size])  # [256, 1]
+                        pred_cdf = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
                     pred = self.sample_plan_c(beta_0, gamma, pred_cdf, min_cdf, max_cdf)
-                    if j == 0:
-                        samples_high[0, :, t] = pred
-                    elif j == 1:
-                        samples_low[0, :, t] = pred
+                    if j < probability_range_len:
+                        samples_low[j, :, t] = pred
+                    elif j < 2 * probability_range_len:
+                        samples_high[j - probability_range_len, :, t] = pred
                     else:
-                        samples[j - 2, :, t] = pred
+                        samples[j - probability_range_len * 2, :, t] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
                     # for lag in range(self.lag):
