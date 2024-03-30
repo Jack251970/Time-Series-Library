@@ -387,8 +387,11 @@ class Dataset_Custom(Dataset):
         return self.data_x, self.data_y, self.data_stamp
 
     def get_new_indexes(self):
+        # get data except the last column
+        data = self.data_x[:, :-1]
+
         # get correlation matrix
-        corr_data = pd.DataFrame(self.data_x)
+        corr_data = pd.DataFrame(data)
         corr = corr_data.corr()
 
         # traverse the upper triangle of the correlation matrix
@@ -509,6 +512,7 @@ class Dataset_Custom(Dataset):
                         for group in new_groups:
                             for index in group:
                                 new_indexes.append(index)
+                        new_indexes.append(self.data_x.shape[1] - 1)
                     break
 
         return new_indexes

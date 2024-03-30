@@ -81,7 +81,13 @@ class Exp_Basic(object):
 
     def _get_data(self, flag):
         data_set, data_loader, info, new_index = data_provider(self.args, flag, self.args.reindex, self.new_index)
-        self.new_index = new_index
+        if new_index is not None and self.new_index is None:
+            self.new_index = new_index
+            try:
+                self.model.new_index = new_index
+                self.print_content('New index has been set for the model: {}'.format(new_index))
+            except:
+                pass
         if not self.try_model:
             self.print_content(info)
         return data_set, data_loader

@@ -556,7 +556,7 @@ def get_model_id_tags(_args, _add_tags):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -680,7 +680,7 @@ def get_search_space(_model):
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
 
-        'reindex': {'_type': 'single', '_value': 0},
+        'reindex': {'_type': 'single', '_value': 1},
     }
 
     transformer_qsqf_config = {
@@ -734,7 +734,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "crps_loss", "cnn", "non_new_id", "non_attn"])
+                            add_tags=["ori", "crps_loss", "cnn", "new_id", "non_attn"])
 
 if __name__ == "__main__":
     h.start_search(0)
