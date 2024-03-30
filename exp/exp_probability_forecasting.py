@@ -468,6 +468,31 @@ class Exp_Probability_Forecast(Exp_Basic):
                         high_value[:, i * interval: (i + 1) * interval], low_value[:, i * interval: (i + 1) * interval],
                         probability_range, os.path.join(folder_path, f'prediction {i}.png'))
 
+        # draw demo data for overall structure
+        # i = 19
+        # pred_data_prop = 1 / 3
+        # demo_pred_len = int(interval * pred_data_prop)
+        # demo_true_data = true_value[i * interval: (i + 1) * interval - demo_pred_len]
+        # demo_true_data_1 = true_value[i * interval + interval - demo_pred_len: (i + 1) * interval]
+        # demo_pred_data = pred_value[i * interval + interval - demo_pred_len: (i + 1) * interval]
+        # demo_high_data = high_value[:, i * interval + interval - demo_pred_len: (i + 1) * interval]
+        # demo_low_data = low_value[:, i * interval + interval - demo_pred_len: (i + 1) * interval]
+        # plt.clf()
+        # plt.plot(demo_true_data.squeeze(), color='black')
+        # plt.legend()
+        # plt.savefig(os.path.join(folder_path, f'overall structure 0.png'))
+        # plt.clf()
+        # plt.plot(demo_true_data_1.squeeze(), color='gray')
+        # plt.legend()
+        # plt.savefig(os.path.join(folder_path, f'overall structure 1.png'))
+        # plt.clf()
+        # plt.plot(demo_pred_data.squeeze(), color='black')
+        # for j in range(len(probability_range)):
+        #     plt.fill_between(range(demo_pred_len), demo_high_data[j, :].squeeze(), demo_low_data[j, :].squeeze(), color='gray',
+        #                      alpha=1 - probability_range[j])
+        # plt.legend()
+        # plt.savefig(os.path.join(folder_path, f'overall structure 2.png'))
+
         # convert to float
         crps = float(ss_metric['CRPS_Mean'].item())
         mre = float(ss_metric['mre'].item())
