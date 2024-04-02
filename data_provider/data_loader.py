@@ -401,7 +401,7 @@ class Dataset_Custom(Dataset):
 
         plt.show()
 
-    def get_new_indexes(self, visual=False):
+    def get_new_indexes(self, visual=False, tolerance=0.95):
         # get data except the last column
         data = self.data_x[:, :-1]
 
@@ -432,33 +432,47 @@ class Dataset_Custom(Dataset):
         for item in ranked_corr_data:
             i = item[0][0]
             j = item[0][1]
+            value = item[1]
             if not between_group:
                 # start to group within groups
-                if len(groups) == 0:
-                    groups.append({i, j})
-                    grouped_num += 2
+                if value <= tolerance:
+                    between_group = True
+                    if grouped_num < total_num:
+                        # fill the rest
+                        for k in range(total_num):
+                            find = False
+                            for group in groups:
+                                if k in group:
+                                    find = True
+                                    break
+                            if not find:
+                                groups.append({k})
                 else:
-                    error_flag = False
-                    add_flag = True
-                    for group in groups:
-                        if i in group and j in group:
-                            error_flag = True
-                            break
-                        if i in group:
-                            group.add(j)
-                            grouped_num += 1
-                            add_flag = False
-                            break
-                        if j in group:
-                            group.add(i)
-                            grouped_num += 1
-                            add_flag = False
-                            break
-                    if not error_flag and add_flag:
+                    if len(groups) == 0:
                         groups.append({i, j})
                         grouped_num += 2
-                if grouped_num >= total_num:
-                    between_group = True
+                    else:
+                        error_flag = False
+                        add_flag = True
+                        for group in groups:
+                            if i in group and j in group:
+                                error_flag = True
+                                break
+                            if i in group:
+                                group.add(j)
+                                grouped_num += 1
+                                add_flag = False
+                                break
+                            if j in group:
+                                group.add(i)
+                                grouped_num += 1
+                                add_flag = False
+                                break
+                        if not error_flag and add_flag:
+                            groups.append({i, j})
+                            grouped_num += 2
+                    if grouped_num >= total_num:
+                        between_group = True
             else:
                 # start to group between groups
                 _ = []
@@ -478,9 +492,17 @@ class Dataset_Custom(Dataset):
 
                     # not connected, add
                     if value_1 not in between_groups_in and value_2 not in between_groups_in:
-                        between_groups.append((value_1, value_2))
-                        between_groups_in.append(value_1)
-                        between_groups_in.append(value_2)
+                        if len(between_groups) == 0:
+                            between_groups.append((value_1, value_2))
+                            between_groups_in.append(value_1)
+                            between_groups_in.append(value_2)
+                        else:
+                            for edge in between_groups:
+                                if value_1 in edge:
+                                    between_groups_in.append(value_1)
+                                elif value_2 in edge:
+                                    between_groups_in.append(value_2)
+                            between_groups.append((value_1, value_2))
                     else:
                         # just one connected, check
                         if value_1 in between_groups_in:
@@ -489,17 +511,34 @@ class Dataset_Custom(Dataset):
                                 if value_1 in edge:
                                     connect_num += 1
                             if connect_num <= 1:
+                                for edge in between_groups:
+                                    if value_2 in edge:
+                                        if edge[0] == value_2:
+                                            if edge[1] not in between_groups_in:
+                                                between_groups_in.append(edge[1])
+                                        else:
+                                            if edge[0] not in between_groups_in:
+                                                between_groups_in.append(edge[0])
                                 between_groups.append((value_1, value_2))
                                 between_groups_in.append(value_2)
+
                         else:
                             connect_num = 0
                             for edge in between_groups:
                                 if value_2 in edge:
                                     connect_num += 1
                             if connect_num <= 1:
+                                for edge in between_groups:
+                                    if value_1 in edge:
+                                        if edge[0] == value_1:
+                                            if edge[1] not in between_groups_in:
+                                                between_groups_in.append(edge[1])
+                                        else:
+                                            if edge[0] not in between_groups_in:
+                                                between_groups_in.append(edge[0])
                                 between_groups.append((value_1, value_2))
                                 between_groups_in.append(value_1)
-                if len(between_groups_in) >= len(groups):
+                if len(between_groups_in) >= len(groups) and len(between_groups) + 1 >= len(groups):
                     # start to adjust the sequence of groups
                     # traverse all possible combinations
                     final_out = None
