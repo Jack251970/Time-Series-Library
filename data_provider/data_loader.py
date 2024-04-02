@@ -386,13 +386,32 @@ class Dataset_Custom(Dataset):
     def get_all_data(self):
         return self.data_x, self.data_y, self.data_stamp
 
-    def get_new_indexes(self):
+    @staticmethod
+    def _visual(corr, name):
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        plt.subplots(figsize=(16, 16))
+        plt.rc('font', family='Times New Roman', size=16)
+
+        sns.heatmap(corr, center=0, annot=True, vmax=1.0, vmin=-1, square=True, cmap="Blues")
+        plt.title("Heatmap", fontsize=18)
+        # plt.savefig(f'{name}.pdf', bbox_inches='tight', format='pdf')
+        plt.savefig(f'{name}.png', bbox_inches='tight')
+
+        plt.show()
+
+    def get_new_indexes(self, visual=False):
         # get data except the last column
         data = self.data_x[:, :-1]
 
         # get correlation matrix
         corr_data = pd.DataFrame(data)
         corr = corr_data.corr()
+
+        # visual if needed
+        if visual:
+            self._visual(corr, 'corr1')
 
         # traverse the upper triangle of the correlation matrix
         # rank correlation coefficient
@@ -514,6 +533,14 @@ class Dataset_Custom(Dataset):
                                 new_indexes.append(index)
                         new_indexes.append(self.data_x.shape[1] - 1)
                     break
+
+        # visual if needed
+        if visual:
+            data = self.data_x[:, new_indexes]
+            data = data[:, :-1]
+            corr_data = pd.DataFrame(data)
+            corr = corr_data.corr()
+            self._visual(corr, 'corr2')
 
         return new_indexes
 
