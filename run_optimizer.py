@@ -673,16 +673,16 @@ def get_search_space(_model):
         'dropout': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        # 'train_epochs': {'_type': 'single', '_value': 20},
-        'train_epochs': {'_type': 'single', '_value': 50},
+        'train_epochs': {'_type': 'single', '_value': 20},
+        # 'train_epochs': {'_type': 'single', '_value': 50},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
 
-        # 'reindex': {'_type': 'single', '_value': 1},
-        'reindex': {'_type': 'choice', '_value': [0, 1]},
+        'reindex': {'_type': 'single', '_value': 1},
+        # 'reindex': {'_type': 'choice', '_value': [0, 1]},
     }
 
     transformer_qsqf_config = {
