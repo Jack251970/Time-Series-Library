@@ -164,3 +164,10 @@ data_loader_all.py
 /results/
 /process/
 /prob_results/
+
+/*.npy
+/*.csv
+/*.xlsx
+/*.png
+/*.jpg
+/*.jpeg

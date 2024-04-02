@@ -91,7 +91,7 @@ class Model(nn.Module):
                 bias.data[start:end].fill_(1.)
 
         # adjust index
-        self.new_index = None
+        self.new_index = [0]
         # self.lag_index = []
         # for i in range(self.lag):
         #     self.lag_index.append(i)

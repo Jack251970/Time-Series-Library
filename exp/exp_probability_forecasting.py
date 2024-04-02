@@ -54,6 +54,10 @@ class Exp_Probability_Forecast(Exp_Basic):
         else:
             scaler = None
 
+        train_losses = []
+        vali_losses = []
+        test_losses = []
+
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -160,6 +164,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                  format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             self.print_content(_)
 
+            train_losses.append(train_loss)
+            vali_losses.append(vali_loss)
+            test_losses.append(test_loss)
+
             _ = early_stopping(vali_loss, self.model, path)
             if _ is not None:
                 self.print_content(_)
@@ -175,6 +183,11 @@ class Exp_Probability_Forecast(Exp_Basic):
             else:
                 lr = model_optim.param_groups[0]['lr']
                 self.print_content(f'learning rate is: {lr}')
+
+        # save train, vali, test loss to process path
+        np.save(process_path + 'train_loss.npy', np.array(train_losses))
+        np.save(process_path + 'vali_loss.npy', np.array(vali_losses))
+        np.save(process_path + 'test_loss.npy', np.array(test_losses))
 
         self.print_content("", True)
 

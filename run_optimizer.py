@@ -556,7 +556,7 @@ def get_model_id_tags(_args, _add_tags):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -669,18 +669,20 @@ def get_search_space(_model):
         # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
-        #'lag': {'_type': 'choice', '_value': [0, 3]},
+        # 'lag': {'_type': 'choice', '_value': [0, 3]},
         'dropout': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        'train_epochs': {'_type': 'single', '_value': 20},
+        # 'train_epochs': {'_type': 'single', '_value': 20},
+        'train_epochs': {'_type': 'single', '_value': 50},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
 
-        'reindex': {'_type': 'single', '_value': 1},
+        # 'reindex': {'_type': 'single', '_value': 1},
+        'reindex': {'_type': 'choice', '_value': [0, 1]},
     }
 
     transformer_qsqf_config = {
