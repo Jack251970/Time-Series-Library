@@ -674,8 +674,8 @@ def get_search_space(_model):
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
         # 'train_epochs': {'_type': 'single', '_value': 20},
-        # 'train_epochs': {'_type': 'single', '_value': 50},
-        'train_epochs': {'_type': 'choice', '_value': [20, 50]},
+        'train_epochs': {'_type': 'single', '_value': 50},
+        # 'train_epochs': {'_type': 'choice', '_value': [20, 50]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
@@ -737,7 +737,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "mse_loss", "cnn", "new_id", "non_attn"])
+                            add_tags=["ori", "crps_loss", "cnn", "new_id", "non_attn"])
 
 if __name__ == "__main__":
     h.start_search(0)
