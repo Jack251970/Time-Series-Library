@@ -467,7 +467,7 @@ class Model(nn.Module):
 def loss_fn(list_param):
     beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
-    # # Plan C
+    # MSE
     # device = beta_0.device
     # min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
     # max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
@@ -489,7 +489,10 @@ def loss_fn(list_param):
     #
     # loss = nn.MSELoss()
     # mseLoss = loss(pred, labels)
+    #
+    # return mseLoss
 
+    # CRPS
     labels = labels.unsqueeze(1)  # [256, 1]
     crpsLoss = get_crps(beta_0, gamma, labels)
 
