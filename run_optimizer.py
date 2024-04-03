@@ -447,7 +447,7 @@ def prepare_config(_params, _script_mode=False):
 
 
 # noinspection DuplicatedCode
-def build_setting(_args, _time, _format):
+def build_setting(_args, _time, _format, _custom_time):
     prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
         _args.task_name,
         _args.model_id,
@@ -481,10 +481,18 @@ def build_setting(_args, _time, _format):
                 checkpoint_time = datetime.datetime.strptime(checkpoint_time, _format)
                 if latest_time is None or checkpoint_time > latest_time:
                     latest_time = checkpoint_time
+                if latest_time.strftime(_format) == _custom_time:
+                    print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                    return '{}_{}'.format(prefix, latest_time.strftime(_format))
 
         if latest_time is not None:
+            print(f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
             return '{}_{}'.format(prefix, latest_time.strftime(_format))
 
+        print(f'Generate a new model to test in the time: {time.strftime(_format, _time)}!')
+        return '{}_{}'.format(prefix, time.strftime(_format, _time))
+
+    print(f'Generate a new model to train in the time: {time.strftime(_format, _time)}!')
     return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
 
@@ -556,7 +564,7 @@ def get_model_id_tags(_args, _add_tags):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 1},
+        'is_training': {'_type': 'single', '_value': 0},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -736,7 +744,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(scan_all_csv=True, try_model=False, force_exp=True,
+h.config_optimizer_settings(custom_test_time="2024-04-02 12-15-46", scan_all_csv=True, try_model=False, force_exp=True,
                             add_tags=["ori", "crps_loss", "cnn", "new_id", "non_attn"])
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ class HyperOptimizer(object):
 
         # all mode settings
         self.seed = 2021  # random seed
+        self.custom_test_time = None  # time of a custom model when testing
         self.add_tags = []  # added tags in the model id
         self.jump_csv_file = 'jump_data.csv'  # config data to be jumped
         self.data_csv_file_format = 'data_{}.csv'  # config data to be stored in other processes
@@ -71,11 +72,13 @@ class HyperOptimizer(object):
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
-    def config_optimizer_settings(self, random_seed=None, add_tags=None, jump_csv_file=None, data_csv_file_format=None,
-                                  scan_all_csv=None, process_number=None, save_process=None, try_model=None,
-                                  force_exp=None):
+    def config_optimizer_settings(self, custom_test_time=None, random_seed=None, add_tags=None, jump_csv_file=None,
+                                  data_csv_file_format=None, scan_all_csv=None, process_number=None, save_process=None,
+                                  try_model=None, force_exp=None):
         if random_seed is not None:
             self.seed = random_seed
+        if custom_test_time is not None:
+            self.custom_test_time = custom_test_time
         if add_tags is not None:
             self.add_tags = add_tags
         if jump_csv_file is not None:
@@ -473,7 +476,7 @@ class HyperOptimizer(object):
         _run_time = time.strftime(_format, _time)
 
         # build the setting of the experiment
-        _setting = self.build_setting(_args, _time, _format)
+        _setting = self.build_setting(_args, _time, _format, self.custom_test_time)
 
         # get the experiment type
         self._init_experiment(_args.task_name)
