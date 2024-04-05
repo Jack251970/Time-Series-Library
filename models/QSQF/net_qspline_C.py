@@ -468,13 +468,13 @@ def loss_fn(list_param):
     beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
     # MSE
-    mseLoss = get_mse(beta_0, gamma, labels)
+    # mseLoss = get_mse(beta_0, gamma, labels)
 
     # CRPS
     labels = labels.unsqueeze(1)  # [256, 1]
     crpsLoss = get_crps(beta_0, gamma, labels)
 
-    return crpsLoss + 0.1 * mseLoss
+    return crpsLoss # + 0.1 * mseLoss
 
 
 def get_mse(beta_0, gamma, labels):
