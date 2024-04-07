@@ -42,7 +42,7 @@ class ConvLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_new_index=False, use_attention=False):
+    def __init__(self, params, use_cnn=True, use_new_index=False, use_attention=False, use_qrnn=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
@@ -50,11 +50,13 @@ class Model(nn.Module):
         Use cun for feature extraction.
         Use attention for feature selection.
         Use new index is deprecated, and this function has been moved to the data preprocessing part.
+        Use qrnn for choosing the qrnn to replace lstm.
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
         self.use_attention = use_attention
         self.use_new_index = use_new_index
+        self.use_qrnn = use_qrnn
         self.task_name = params.task_name
         input_size = params.enc_in + params.lag - 1  # take lag into account
         if use_cnn:
@@ -72,23 +74,31 @@ class Model(nn.Module):
         self.train_window = self.pred_steps + self.pred_start
         self.n_heads = 8
 
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size,
-                            hidden_size=self.lstm_hidden_dim,
-                            num_layers=self.lstm_layers,
-                            bias=True,
-                            batch_first=False,
-                            bidirectional=False,
-                            dropout=self.lstm_dropout)
+        if self.use_qrnn:
+            from layers.pytorch_qrnn.torchqrnn import QRNN
+            self.lstm = QRNN(input_size=self.lstm_input_size,
+                             hidden_size=self.lstm_hidden_dim,
+                             num_layers=self.lstm_layers,
+                             dropout=self.lstm_dropout,
+                             use_cuda=params.use_gpu)
+        else:
+            self.lstm = nn.LSTM(input_size=self.lstm_input_size,
+                                hidden_size=self.lstm_hidden_dim,
+                                num_layers=self.lstm_layers,
+                                bias=True,
+                                batch_first=False,
+                                bidirectional=False,
+                                dropout=self.lstm_dropout)
 
-        # initialize LSTM forget gate bias to be 1 as recommended by
-        # http://proceedings.mlr.press/v37/jozefowicz15.pdf
-        # noinspection PyProtectedMember
-        for names in self.lstm._all_weights:
-            for name in filter(lambda _n: "bias" in _n, names):
-                bias = getattr(self.lstm, name)
-                n = bias.size(0)
-                start, end = n // 4, n // 2
-                bias.data[start:end].fill_(1.)
+            # initialize LSTM forget gate bias to be 1 as recommended by
+            # http://proceedings.mlr.press/v37/jozefowicz15.pdf
+            # noinspection PyProtectedMember
+            for names in self.lstm._all_weights:
+                for name in filter(lambda _n: "bias" in _n, names):
+                    bias = getattr(self.lstm, name)
+                    n = bias.size(0)
+                    start, end = n // 4, n // 2
+                    bias.data[start:end].fill_(1.)
 
         # adjust index
         self.new_index = [0]
@@ -265,7 +275,10 @@ class Model(nn.Module):
         if self.use_cnn:
             x = self.cnn(x)  # [1, 256, 5]
 
-        _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+        if self.use_qrnn:
+            _, hidden = self.lstm(x, hidden)
+        else:
+            _, (hidden, cell) = self.lstm(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell
 
