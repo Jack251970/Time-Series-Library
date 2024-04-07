@@ -24,7 +24,7 @@ def parse_launch_parameters(_script_mode):
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
-                             "'Koopa', 'QSQF-AB', 'QSQF-C', 'Transformer-QSQF', 'Autoformer-QSQF']")
+                             "'Koopa', 'QSQF-AB', 'QSQF-C', 'Transformer-QSQF', 'Autoformer-QSQF', 'LSTM-CQ']")
 
     # data loader
     parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
@@ -677,23 +677,15 @@ def get_search_space(_model):
         # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
-        # 'lag': {'_type': 'choice', '_value': [0, 3]},
         'dropout': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        # 'train_epochs': {'_type': 'single', '_value': 20},
         'train_epochs': {'_type': 'single', '_value': 50},
-        # 'train_epochs': {'_type': 'choice', '_value': [20, 50]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
-
-        'reindex': {'_type': 'single', '_value': 1},
-        # 'reindex': {'_type': 'choice', '_value': [0, 1]},
-
-        'use_gpu': {'_type': 'single', '_value': False},
     }
 
     transformer_qsqf_config = {
@@ -716,6 +708,27 @@ def get_search_space(_model):
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
     }
 
+    lstm_cq_config = {
+        # model
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        # 'lag': {'_type': 'choice', '_value': [0, 3]},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        # 'train_epochs': {'_type': 'single', '_value': 20},
+        'train_epochs': {'_type': 'single', '_value': 50},
+        # 'train_epochs': {'_type': 'choice', '_value': [20, 50]},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+
+        'reindex': {'_type': 'single', '_value': 1},
+        # 'reindex': {'_type': 'choice', '_value': [0, 1]},
+    }
+
     model_configs = {
         'Autoformer': autoformer_config,
         'FEDformer': fedformer_config,
@@ -725,7 +738,8 @@ def get_search_space(_model):
         'QSQF-AB': qsqf_config,
         'QSQF-C': qsqf_config,
         'Transformer-QSQF': transformer_qsqf_config,
-        'Autoformer-QSQF': autoformer_qsqf_config
+        'Autoformer-QSQF': autoformer_qsqf_config,
+        'LSTM-CQ': lstm_cq_config,
     }
 
     # get config for specific model
@@ -742,12 +756,12 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['QSQF-C'],
+h = HyperOptimizer(False, ['LSTM-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(custom_test_time="2024-04-02 12-15-46", scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "crps_loss", "cnn", "new_id", "non_attn", "qrnn"])
+                            add_tags=["ori", "crps_loss", "cnn"])
 
 if __name__ == "__main__":
     h.start_search(0)

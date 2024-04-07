@@ -104,6 +104,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if isinstance(outputs[1], bool):
                     stop_flag = outputs[1]
                     outputs = outputs[0]
+                    if stop_flag:
+                        break
 
                 if isinstance(outputs, list):
                     loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
@@ -183,6 +185,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             if stop_flag:
                 self.print_content("Raise error and stop")
+                break
 
             if adjust_lr:
                 _ = adjust_learning_rate(model_optim, epoch + 1, self.args)

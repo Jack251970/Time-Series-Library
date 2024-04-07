@@ -6,41 +6,11 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import pad
 
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Oct 21 19:52:22 2020
-
-@author: 18096
-"""
-
-'''Defines the neural network, loss function and metrics'''
-
-
-class ConvLayer(nn.Module):
-    def __init__(self, c_in):
-        super(ConvLayer, self).__init__()
-        self.downConv = nn.Conv1d(in_channels=c_in,
-                                  out_channels=c_in,
-                                  kernel_size=3,
-                                  stride=1,
-                                  padding=2,
-                                  padding_mode='circular')
-        self.norm = nn.BatchNorm1d(c_in)
-        self.activation = nn.ELU()
-        self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
-
-    def forward(self, x):  # [1, 256, 7] (time, batch, features)
-        x = x.permute(1, 0, 2)  # [256, 1, 7]
-        x = self.downConv(x)  # [256, 1, 9]
-        x = self.norm(x)
-        x = self.activation(x)
-        x = self.maxPool(x)  # [256, 1, 5]
-        x = x.permute(1, 0, 2)  # [1, 256, 5]
-        return x  # [1, 256, 5]
+from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=False, use_new_index=False, use_qrnn=False):
+    def __init__(self, params, use_cnn=True, use_new_index=False, use_qrnn=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
@@ -70,6 +40,10 @@ class Model(nn.Module):
         self.train_window = self.pred_steps + self.pred_start
         self.n_heads = 8
 
+        # CNN
+        self.cnn = ConvLayer(1)
+
+        # LSTM
         if self.use_qrnn:
             from layers.pytorch_qrnn.torchqrnn import QRNN
             self.lstm = QRNN(input_size=self.lstm_input_size,
@@ -96,24 +70,17 @@ class Model(nn.Module):
                     start, end = n // 4, n // 2
                     bias.data[start:end].fill_(1.)
 
-        # adjust index
+        # QSQM
+        self.pre_beta_0 = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
+        self.pre_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
+        self.soft_plus = nn.Softplus()  # make sure parameter is positive\
+
+        # Reindex
         self.new_index = [0]
         # self.lag_index = []
         # for i in range(self.lag):
         #     self.lag_index.append(i)
         self.lag_index = 0
-
-        # cnn
-        self.cnn = ConvLayer(1)
-
-        # Plan C:
-        self.pre_beta_0 = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
-        self.pre_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
-
-        self.beta_0 = nn.Softplus()
-        # soft-plus to make sure gamma is positive
-        # self.gamma=nn.ReLU()
-        self.gamma = nn.Softplus()
 
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
@@ -278,53 +245,17 @@ class Model(nn.Module):
 
         return hidden_permute
 
-    def get_plan_c_par(self, hidden_permute):
+    def get_qsqm_parameter(self, hidden_permute):
         pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
-        beta_0 = self.beta_0(pre_beta_0)  # [256, 1]
+        beta_0 = self.soft_plus(pre_beta_0)  # [256, 1]
         pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
-        gamma = self.gamma(pre_gamma)  # [256, 20]
+        gamma = self.soft_plus(pre_gamma)  # [256, 20]
 
         return beta_0, gamma
 
     # noinspection DuplicatedCode
-    @staticmethod
-    def sample_plan_c(beta_0, gamma, pred_cdf, min_cdf, max_cdf):
-        sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-        beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-        beta[:, 0] = beta_0[:, 0]
-        beta = (gamma - beta) / (2 * sigma)
-        beta = beta - pad(beta, (1, 0))[:, :-1]
-        beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-        ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
-
-        if pred_cdf is not None:
-            indices = ksi < pred_cdf  # [256, 20] # if smaller than pred_cdf, True
-            # Q(alpha) = beta_0 * pred_cdf + sum(beta * (pred_cdf - ksi) ^ 2)
-            pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
-            pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-
-            return pred
-        else:
-            # get min pred and max pred
-            # indices = ksi < min_cdf  # [256, 20] # True
-            # min_pred = (beta_0 * min_cdf).sum(dim=1)  # [256,]
-            # min_pred = min_pred + ((min_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-            # indices = ksi < max_cdf  # [256, 20] # True
-            # max_pred = (beta_0 * max_cdf).sum(dim=1)  # [256,]
-            # max_pred = max_pred + ((max_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-            # total_area = ((max_cdf - min_cdf) * (max_pred - min_pred))  # [256,]
-
-            # calculate integral
-            # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
-            integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
-            integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
-            integral = integral1 + integral2  # [256,]
-            pred_mu = integral / (max_cdf - min_cdf)  # [256,]
-
-            return pred_mu
-
-    # noinspection DuplicatedCode
-    def probability_forecast(self, train_batch, labels_batch=None, sample=False, probability_range=None):  # [256, 112, 7], [256, 112,]
+    def probability_forecast(self, train_batch, labels_batch=None, sample=False,
+                             probability_range=None):  # [256, 112, 7], [256, 112,]
         if probability_range is None:
             probability_range = [0.5]
 
@@ -364,7 +295,7 @@ class Model(nn.Module):
                 if torch.isnan(hidden_permute).sum() > 0:
                     stop_flag = True
                     break
-                beta_0, gamma = self.get_plan_c_par(hidden_permute)  # [256, 1], [256, 20]
+                beta_0, gamma = self.get_qsqm_parameter(hidden_permute)  # [256, 1], [256, 20]
                 loss_list.append((beta_0, gamma, labels_batch[t].clone()))
 
             return loss_list, stop_flag
@@ -400,7 +331,7 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.run_after_lstm(hidden)
-                    beta_0, gamma = self.get_plan_c_par(hidden_permute)
+                    beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
 
                     if j < probability_range_len:
                         pred_cdf = low_cdf[:, j].unsqueeze(-1)  # [256, 1]
@@ -413,7 +344,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = self.sample_plan_c(beta_0, gamma, pred_cdf, min_cdf, max_cdf)
+                    pred = sample_qsqm(beta_0, gamma, pred_cdf, min_cdf, max_cdf)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -451,9 +382,9 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.run_after_lstm(hidden)
-                    beta_0, gamma = self.get_plan_c_par(hidden_permute)
+                    beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
 
-                    pred = self.sample_plan_c(beta_0, gamma, None, min_cdf, max_cdf)
+                    pred = sample_qsqm(beta_0, gamma, None, min_cdf, max_cdf)
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
@@ -466,6 +397,48 @@ class Model(nn.Module):
                             test_batch[self.pred_start + t + 1, :, self.new_index[0]] = pred
 
             return samples, samples_mu, samples_std, samples_high, samples_low
+
+
+def phase_beta_0_and_gamma(sigma, beta_0, gamma):
+    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
+    beta[:, 0] = beta_0[:, 0]
+    beta = (gamma - beta) / (2 * sigma)
+    beta = beta - pad(beta, (1, 0))[:, :-1]
+    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
+    ksi = torch.cumsum(sigma, dim=1)  # [256, 20]
+
+    return beta, ksi
+
+def sample_qsqm(beta_0, gamma, pred_cdf, min_cdf, max_cdf):
+    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+    beta, ksi = phase_beta_0_and_gamma(sigma, beta_0, gamma)  # [256, 20], [256, 20]
+    ksi = pad(ksi, (1, 0))[:, :-1]  # [256, 20]
+
+    if pred_cdf is not None:
+        indices = ksi < pred_cdf  # [256, 20] # if smaller than pred_cdf, True
+        # Q(alpha) = beta_0 * pred_cdf + sum(beta * (pred_cdf - ksi) ^ 2)
+        pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
+        pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+
+        return pred
+    else:
+        # get min pred and max pred
+        # indices = ksi < min_cdf  # [256, 20] # True
+        # min_pred = (beta_0 * min_cdf).sum(dim=1)  # [256,]
+        # min_pred = min_pred + ((min_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+        # indices = ksi < max_cdf  # [256, 20] # True
+        # max_pred = (beta_0 * max_cdf).sum(dim=1)  # [256,]
+        # max_pred = max_pred + ((max_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+        # total_area = ((max_cdf - min_cdf) * (max_pred - min_pred))  # [256,]
+
+        # calculate integral
+        # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
+        integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
+        integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
+        integral = integral1 + integral2  # [256,]
+        pred_mu = integral / (max_cdf - min_cdf)  # [256,]
+
+        return pred_mu
 
 
 def loss_fn(list_param, crps=True):
@@ -490,12 +463,8 @@ def get_mse(beta_0, gamma, labels):
     max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
 
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-    beta[:, 0] = beta_0[:, 0]
-    beta = (gamma - beta) / (2 * sigma)
-    beta = beta - pad(beta, (1, 0))[:, :-1]
-    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
+    beta, ksi = phase_beta_0_and_gamma(sigma, beta_0, gamma)  # [256, 20], [256, 20]
+    ksi = pad(ksi, (1, 0))[:, :-1]  # [256, 20]
 
     # calculate integral
     # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
@@ -509,17 +478,13 @@ def get_mse(beta_0, gamma, labels):
 
     return mseLoss
 
+
 def get_crps(beta_0, gamma, labels):
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
 
-    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-    beta[:, 0] = beta_0[:, 0]
-    beta = (gamma - beta) / (2 * sigma)
-    beta = beta - pad(beta, (1, 0))[:, :-1]
-    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)
+    beta, ksi = phase_beta_0_and_gamma(sigma, beta_0, gamma)  # [256, 20], [256, 20]
 
     # calculate the maximum for each segment of the spline
-    ksi = torch.cumsum(sigma, dim=1)
     df1 = ksi.expand(sigma.shape[1], sigma.shape[0], sigma.shape[1]).T.clone()
     df2 = ksi.T.unsqueeze(2)
     ksi = pad(ksi, (1, 0))[:, :-1]
