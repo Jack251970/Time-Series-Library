@@ -574,24 +574,24 @@ def get_search_space(_model):
 
     dataset_config = {
         # solar dataset
-        'root_path': {'_type': 'single', '_value': './dataset/power/pvod/'},
-        'data_path': {'_type': 'single', '_value': 'station00.csv'},
-        'target': {'_type': 'single', '_value': 'power'},
-        'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'MS'},
-        'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-        'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
-        'c_out': {'_type': 'single', '_value': 14},
-
-        # wind dataset
-        # 'root_path': {'_type': 'single', '_value': './dataset/wind/Zone1/'},
-        # 'data_path': {'_type': 'single', '_value': 'Zone1.csv'},
-        # 'target': {'_type': 'single', '_value': 'wind'},
+        # 'root_path': {'_type': 'single', '_value': './dataset/power/pvod/'},
+        # 'data_path': {'_type': 'single', '_value': 'station00.csv'},
+        # 'target': {'_type': 'single', '_value': 'power'},
         # 'data': {'_type': 'single', '_value': 'custom'},
         # 'features': {'_type': 'single', '_value': 'MS'},
-        # 'enc_in': {'_type': 'single', '_value': 5},
-        # 'dec_in': {'_type': 'single', '_value': 5},
-        # 'c_out': {'_type': 'single', '_value': 5},
+        # 'enc_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
+        # 'dec_in': {'_type': 'single', '_value': 14},  # make sure it's same as the feature size
+        # 'c_out': {'_type': 'single', '_value': 14},
+
+        # wind dataset
+        'root_path': {'_type': 'single', '_value': './dataset/wind/Zone1/'},
+        'data_path': {'_type': 'single', '_value': 'Zone1.csv'},
+        'target': {'_type': 'single', '_value': 'wind'},
+        'data': {'_type': 'single', '_value': 'custom'},
+        'features': {'_type': 'single', '_value': 'MS'},
+        'enc_in': {'_type': 'single', '_value': 5},
+        'dec_in': {'_type': 'single', '_value': 5},
+        'c_out': {'_type': 'single', '_value': 5},
     }
 
     learning_config = {
@@ -692,6 +692,8 @@ def get_search_space(_model):
 
         'reindex': {'_type': 'single', '_value': 1},
         # 'reindex': {'_type': 'choice', '_value': [0, 1]},
+
+        'use_gpu': {'_type': 'single', '_value': False},
     }
 
     transformer_qsqf_config = {
@@ -745,7 +747,7 @@ h = HyperOptimizer(False, ['QSQF-C'],
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
 h.config_optimizer_settings(custom_test_time="2024-04-02 12-15-46", scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "crps_loss", "cnn", "new_id", "non_attn"])
+                            add_tags=["ori", "crps_loss", "cnn", "new_id", "non_attn", "qrnn"])
 
 if __name__ == "__main__":
     h.start_search(0)

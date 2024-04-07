@@ -58,6 +58,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         vali_losses = []
         test_losses = []
 
+        stop_flag = False
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -99,6 +100,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
                     else:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
+
+                if isinstance(outputs[1], bool):
+                    stop_flag = outputs[1]
+                    outputs = outputs[0]
 
                 if isinstance(outputs, list):
                     loss = torch.zeros(1, device=self.device, requires_grad=True)  # [,]
@@ -176,6 +181,9 @@ class Exp_Probability_Forecast(Exp_Basic):
                 self.print_content("Early stopping")
                 break
 
+            if stop_flag:
+                self.print_content("Raise error and stop")
+
             if adjust_lr:
                 _ = adjust_learning_rate(model_optim, epoch + 1, self.args)
                 if _ is not None:
@@ -224,6 +232,9 @@ class Exp_Probability_Forecast(Exp_Basic):
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)[0]
                     else:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark)
+
+                if isinstance(outputs[1], bool):
+                    outputs = outputs[0]
 
                 if isinstance(outputs, list):
                     loss = torch.zeros(1, device=self.device, requires_grad=False)  # [,]

@@ -42,7 +42,7 @@ class ConvLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_new_index=False, use_attention=False, use_qrnn=False):
+    def __init__(self, params, use_cnn=True, use_new_index=False, use_attention=False, use_qrnn=True):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
@@ -367,16 +367,20 @@ class Model(nn.Module):
 
                 # check if hidden contains NaN
                 if torch.isnan(hidden).sum() > 0:
-                    raise ValueError(f'Backward Error! Process Stop!')
+                    break
 
             # get loss list
+            stop_flag = False
             loss_list = []
             for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
+                if torch.isnan(hidden_permute).sum() > 0:
+                    stop_flag = True
+                    break
                 beta_0, gamma = self.get_plan_c_par(hidden_permute)  # [256, 1], [256, 20]
                 loss_list.append((beta_0, gamma, labels_batch[t].clone()))
 
-            return loss_list
+            return loss_list, stop_flag
         else:
             # test mode
             # initialize cdf range
@@ -477,17 +481,20 @@ class Model(nn.Module):
             return samples, samples_mu, samples_std, samples_high, samples_low
 
 
-def loss_fn(list_param):
+def loss_fn(list_param, crps=True):
     beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
-    # MSE
-    # mseLoss = get_mse(beta_0, gamma, labels)
+    if not crps:
+        # MSE
+        mseLoss = get_mse(beta_0, gamma, labels)
 
-    # CRPS
-    labels = labels.unsqueeze(1)  # [256, 1]
-    crpsLoss = get_crps(beta_0, gamma, labels)
+        return mseLoss
+    else:
+        # CRPS
+        labels = labels.unsqueeze(1)  # [256, 1]
+        crpsLoss = get_crps(beta_0, gamma, labels)
 
-    return crpsLoss # + 0.1 * mseLoss
+        return crpsLoss
 
 
 def get_mse(beta_0, gamma, labels):

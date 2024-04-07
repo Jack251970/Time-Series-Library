@@ -178,7 +178,7 @@ class ForgetMult(torch.nn.Module):
         ###
         # Avoiding 'RuntimeError: expected a Variable argument, but got NoneType' when hidden_init is None
         if hidden_init is None: return GPUForgetMult()(f, x) if use_cuda else CPUForgetMult()(f, x)
-        return GPUForgetMult()(f, x, hidden_init) if use_cuda else CPUForgetMult()(f, x, hidden_init)
+        return GPUForgetMult().forward(f, x, hidden_init) if use_cuda else CPUForgetMult().forward(f, x, hidden_init)
 
 ###
 
