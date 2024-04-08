@@ -65,9 +65,9 @@ class Model(nn.Module):
                     bias.data[start:end].fill_(1.)
 
         # QSQM
-        self.pre_beta_0 = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
-        self.pre_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
-        self.soft_plus = nn.Softplus()  # make sure parameter is positive\
+        self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
+        self.linear_eta_k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
+        self.soft_plus = nn.Softplus()  # make sure parameter is positive
 
         # Reindex
         self.new_index = [0]
@@ -111,12 +111,12 @@ class Model(nn.Module):
         return hidden_permute
 
     def get_qsqm_parameter(self, hidden_permute):
-        pre_beta_0 = self.pre_beta_0(hidden_permute)  # [256, 1]
-        beta_0 = self.soft_plus(pre_beta_0)  # [256, 1]
-        pre_gamma = self.pre_gamma(hidden_permute)  # [256, 20]
-        gamma = self.soft_plus(pre_gamma)  # [256, 20]
+        candidate_gamma = self.linear_gamma(hidden_permute)  # [256, 1]
+        gamma = self.soft_plus(candidate_gamma)  # [256, 1]
+        candidate_eta_k = self.linear_eta_k(hidden_permute)  # [256, 20]
+        eta_k = self.soft_plus(candidate_eta_k)  # [256, 20]
 
-        return beta_0, gamma
+        return gamma, eta_k
 
     # noinspection DuplicatedCode
     def probability_forecast(self, train_batch, labels_batch=None, sample=False,
@@ -160,8 +160,9 @@ class Model(nn.Module):
                 if torch.isnan(hidden_permute).sum() > 0:
                     stop_flag = True
                     break
-                beta_0, gamma = self.get_qsqm_parameter(hidden_permute)  # [256, 1], [256, 20]
-                loss_list.append((beta_0, gamma, labels_batch[t].clone()))
+                gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 1], [256, 20]
+                y = labels_batch[t].clone()  # [256,]
+                loss_list.append((gamma, eta_k, y))
 
             return loss_list, stop_flag
         else:
@@ -194,7 +195,7 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.get_hidden_permute(hidden)
-                    beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
+                    gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
                     if j < probability_range_len:
                         pred_cdf = low_cdf[:, j].unsqueeze(-1)  # [256, 1]
@@ -207,7 +208,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(beta_0, gamma, pred_cdf)
+                    pred = sample_qsqm(gamma, eta_k, pred_cdf)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -245,9 +246,9 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.get_hidden_permute(hidden)
-                    beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
+                    gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
-                    pred = sample_qsqm(beta_0, gamma, None)
+                    pred = sample_qsqm(gamma, eta_k, None)
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
