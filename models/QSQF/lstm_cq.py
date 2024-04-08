@@ -284,9 +284,6 @@ def phase_gamma_and_eta_k(gamma, eta_k):
     # get beta_k
     beta_k = x_k - pad(x_k, pad=(1, 0))[:, :-1]  # [256, 20]
 
-    # TODO: Check if need it?
-    beta_k[:, -1] = eta_k[:, -1] - beta_k[:, :-1].sum(dim=1)  # [256, 20]
-
     return alpha_prime_k, alpha_0_k, beta_k
 
 
