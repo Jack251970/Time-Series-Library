@@ -497,11 +497,6 @@ def build_setting(_args, _time, _format, _custom_time):
 
 
 # noinspection DuplicatedCode
-def check_jump_experiment(_parameter):
-    return False
-
-
-# noinspection DuplicatedCode
 def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed',
@@ -534,6 +529,11 @@ def get_fieldnames(mode='all'):
 
 
 # noinspection DuplicatedCode
+def check_jump_experiment(_parameter):
+    return False
+
+
+# noinspection DuplicatedCode
 def get_model_id_tags(_args, _add_tags):
     tags = []
     if _args.learning_rate == 0.001:
@@ -547,8 +547,6 @@ def get_model_id_tags(_args, _add_tags):
 
     for add_tag in _add_tags:
         tags.append(add_tag)
-
-    tags.append(f"{_args.lag}_lag")
 
     if len(tags) == 0:
         return ''
@@ -756,11 +754,11 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['LSTM-CQ'],
+h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment)
 # h.output_script('Power')
-h.config_optimizer_settings(custom_test_time="2024-04-02 12-15-46", scan_all_csv=True, try_model=False, force_exp=True,
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=True,
                             add_tags=["ori", "crps_loss", "cnn"])
 
 if __name__ == "__main__":
