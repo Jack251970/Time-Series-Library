@@ -8,11 +8,11 @@ from models.QSQF.net_qspline_C import ConvLayer
 class Model(nn.Module):
     def __init__(self, params, use_cnn=True, use_qrnn=False):
         """
-        We define a recurrent network that predicts the future values
-        of a time-dependent variable based on past inputs and covariances.
+        LSTM-CQ: Auto-Regressive LSTM with Convolution and QSpline to Provide Probabilistic Forecasting.
 
-        Use cun for feature extraction.
-        Use qrnn for choosing the qrnn to replace lstm.
+        params: parameters for the model.
+        use_cnn: whether to use cnn for feature extraction.
+        use_qrnn: whether to use qrnn to replace lstm.
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
