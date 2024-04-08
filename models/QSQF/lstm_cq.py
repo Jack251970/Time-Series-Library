@@ -1,7 +1,3 @@
-import itertools
-
-import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 from torch.nn.functional import pad
@@ -94,6 +90,7 @@ class Model(nn.Module):
             return self.probability_forecast(train_batch, probability_range=probability_range)
         return None
 
+    # noinspection DuplicatedCode
     def run_lstm(self, x, hidden, cell):
         if self.use_cnn:
             x = self.cnn(x)  # [1, 256, 5]
@@ -170,8 +167,6 @@ class Model(nn.Module):
         else:
             # test mode
             # initialize cdf range
-            min_cdf = torch.Tensor([0.0]).to(device)  # [1]
-            max_cdf = torch.Tensor([1.0]).to(device)  # [1]
             cdf_low = (1 - probability_range) / 2  # [3]
             cdf_high = 1 - (1 - probability_range) / 2  # [3]
             low_cdf = cdf_low.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
@@ -212,7 +207,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(beta_0, gamma, pred_cdf, min_cdf, max_cdf)
+                    pred = sample_qsqm(beta_0, gamma, pred_cdf)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -252,7 +247,7 @@ class Model(nn.Module):
                     hidden_permute = self.get_hidden_permute(hidden)
                     beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
 
-                    pred = sample_qsqm(beta_0, gamma, None, min_cdf, max_cdf)
+                    pred = sample_qsqm(beta_0, gamma, None)
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
@@ -267,109 +262,135 @@ class Model(nn.Module):
             return samples, samples_mu, samples_std, samples_high, samples_low
 
 
-def phase_beta_0_and_gamma(beta_0, gamma):
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+def phase_gamma_and_eta_k(gamma, eta_k):
+    """
+    Formula
+    beta_k = (eta_k - gamma) / (2 * alpha_prime_k), k = 1
+    beta_k = (eta_k - eta_{k-1}) / (2 * alpha_prime_k) - (eta_{k-1} - eta_{k-2}) / (2 * alpha_prime_{k-1}), k > 1
+    let x_k = (eta_k - gamma) / (2 * alpha_prime_k), and x_k = 0, and then beta_k = x_k - x_{k-1}
+    """
+    # use interval based on uniform distribution
+    alpha_prime_k = torch.full_like(eta_k, 1.0 / eta_k.shape[1])  # [256, 20]
 
-    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-    beta[:, 0] = beta_0[:, 0]
-    beta = (gamma - beta) / (2 * sigma)
-    beta = beta - pad(beta, (1, 0))[:, :-1]
-    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-    ksi = torch.cumsum(sigma, dim=1)  # [256, 20]
+    # get alpha_k ([0, k])
+    alpha_0_k = pad(torch.cumsum(alpha_prime_k, dim=1), pad=(1, 0))[:, :-1]  # [256, 20]
 
-    return sigma, beta, ksi
+    # get x_k
+    x_k = pad(eta_k, pad=(1, 0))[:, :-1]  # [256, 20]
+    x_k[:, 0] = gamma[:, 0]
+    x_k = (eta_k - x_k) / (2 * alpha_prime_k)
+
+    # get beta_k
+    beta_k = x_k - pad(x_k, pad=(1, 0))[:, :-1]  # [256, 20]
+
+    # TODO: Check if need it?
+    beta_k[:, -1] = eta_k[:, -1] - beta_k[:, :-1].sum(dim=1)  # [256, 20]
+
+    return alpha_prime_k, alpha_0_k, beta_k
 
 
-def sample_qsqm(beta_0, gamma, pred_cdf, min_cdf, max_cdf):
-    sigma, beta, ksi = phase_beta_0_and_gamma(beta_0, gamma)  # [256, 20], [256, 20]
-    ksi = pad(ksi, (1, 0))[:, :-1]  # [256, 20]
+# noinspection DuplicatedCode
+def get_y_hat(gamma, alpha_0_k, beta_k):
+    """
+    Formula
+    int{Q(alpha)} = 1/2 * gamma * (max_alpha ^ 2 - min_alpha ^ 2) + sum(1/3 * beta_k * (max_alpha - ksi) ^ 3)
+    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
+    """
+    # init min_alpha and max_alpha
+    device = gamma.device
+    min_alpha = torch.Tensor([0]).to(device)  # [1]
+    max_alpha = torch.Tensor([1]).to(device)  # [1]
 
-    if pred_cdf is not None:
-        indices = ksi < pred_cdf  # [256, 20] # if smaller than pred_cdf, True
-        # Q(alpha) = beta_0 * pred_cdf + sum(beta * (pred_cdf - ksi) ^ 2)
-        pred = (beta_0 * pred_cdf).sum(dim=1)  # [256,]
-        pred = pred + ((pred_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
+    # get min pred and max pred
+    # indices = alpha_0_k < min_alpha  # [256, 20]
+    # min_pred = (gamma * min_alpha).sum(dim=1)  # [256,]
+    # min_pred = min_pred + ((min_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
+    # indices = alpha_0_k < max_alpha  # [256, 20]
+    # max_pred = (gamma * max_alpha).sum(dim=1)  # [256,]
+    # max_pred = max_pred + ((max_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
+    # total_area = ((max_alpha - min_alpha) * (max_pred - min_pred))  # [256,]
+
+    # get int{Q(alpha)}
+    integral1 = 0.5 * gamma.squeeze() * (max_alpha.pow(2) - min_alpha.pow(2))  # [256,]
+    integral2 = 1 / 3 * ((max_alpha - alpha_0_k).pow(3) * beta_k).sum(dim=1)  # [256,]
+    integral = integral1 + integral2  # [256,]
+    y_hat = integral / (max_alpha - min_alpha)  # [256,]
+
+    return y_hat
+
+
+# noinspection DuplicatedCode
+def sample_qsqm(gamma, eta_k, alpha):
+    """
+    Formula
+    Q(alpha) = gamma * alpha + sum(beta_k * (alpha - alpha_k) ^ 2)
+    """
+    alpha_prime_k, alpha_0_k, beta_k = phase_gamma_and_eta_k(gamma, eta_k)  # [256, 20], [256, 20], [256, 20]
+
+    if alpha is not None:
+        # get Q(alpha)
+        indices = alpha_0_k < alpha  # [256, 20]
+        pred1 = (gamma * alpha).sum(dim=1)  # [256,]
+        pred2 = (beta_k * (alpha - alpha_0_k).pow(2) * indices).sum(dim=1)  # [256,]
+        pred = pred1 + pred2  # [256,]
 
         return pred
     else:
-        # get min pred and max pred
-        # indices = ksi < min_cdf  # [256, 20] # True
-        # min_pred = (beta_0 * min_cdf).sum(dim=1)  # [256,]
-        # min_pred = min_pred + ((min_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-        # indices = ksi < max_cdf  # [256, 20] # True
-        # max_pred = (beta_0 * max_cdf).sum(dim=1)  # [256,]
-        # max_pred = max_pred + ((max_cdf - ksi).pow(2) * beta * indices).sum(dim=1)  # [256,]
-        # total_area = ((max_cdf - min_cdf) * (max_pred - min_pred))  # [256,]
+        # get pred mean value
+        y_hat = get_y_hat(gamma, alpha_0_k, eta_k)  # [256,]
 
-        # calculate integral
-        # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
-        integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
-        integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
-        integral = integral1 + integral2  # [256,]
-        pred_mu = integral / (max_cdf - min_cdf)  # [256,]
-
-        return pred_mu
+        return y_hat
 
 
 def loss_fn(list_param, crps=True):
-    beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
+    gamma, eta_k, labels = list_param  # [256, 1], [256, 20], [256,]
 
     if not crps:
         # MSE
-        mseLoss = get_mse(beta_0, gamma, labels)
-
-        return mseLoss
+        return get_mse(gamma, eta_k, labels)
     else:
         # CRPS
         labels = labels.unsqueeze(1)  # [256, 1]
-        crpsLoss = get_crps(beta_0, gamma, labels)
-
-        return crpsLoss
+        return get_crps(torch.zeros_like(labels).to(labels.device), gamma, eta_k, labels)
 
 
-def get_mse(beta_0, gamma, labels):
-    device = beta_0.device
-    min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
-    max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
+def get_mse(gamma, eta_k, y):
+    alpha_prime_k, alpha_0_k, beta_k = phase_gamma_and_eta_k(gamma, eta_k)  # [256, 20], [256, 20]
 
-    sigma, beta, ksi = phase_beta_0_and_gamma(beta_0, gamma)  # [256, 20], [256, 20]
-    ksi = pad(ksi, (1, 0))[:, :-1]  # [256, 20]
+    # get y_hat
+    y_hat = get_y_hat(gamma, alpha_0_k, beta_k)  # [256,]
 
-    # calculate integral
-    # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
-    integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
-    integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
-    integral = integral1 + integral2  # [256,]
-    pred = integral / (max_cdf - min_cdf)  # [256,]
-
+    # calculate loss
     loss = nn.MSELoss()
-    mseLoss = loss(pred, labels)
+    mseLoss = loss(y_hat, y)
 
     return mseLoss
 
 
-def get_crps(beta_0, gamma, labels):
-    sigma, beta, ksi = phase_beta_0_and_gamma(beta_0, gamma)  # [256, 20], [256, 20]
+# noinspection DuplicatedCode
+def get_crps(_lambda, gamma, eta_k, y):
+    alpha_prime_k, alpha_0_k, beta_k = phase_gamma_and_eta_k(gamma, eta_k)  # [256, 20], [256, 20]
+    alpha_1_k1 = pad(alpha_0_k, pad=(0, 1), value=1)[:, 1:]  # [256, 20]
 
     # calculate the maximum for each segment of the spline
-    df1 = ksi.expand(sigma.shape[1], sigma.shape[0], sigma.shape[1]).T.clone()
-    df2 = ksi.T.unsqueeze(2)
-    ksi = pad(ksi, (1, 0))[:, :-1]
-    knots = df1 - ksi
+    df1 = alpha_1_k1.expand(alpha_prime_k.shape[1], alpha_prime_k.shape[0], alpha_prime_k.shape[1]).T.clone()
+    df2 = alpha_1_k1.T.unsqueeze(2)
+    alpha_0_k = pad(alpha_1_k1, (1, 0))[:, :-1]
+    knots = df1 - alpha_0_k
     knots[knots < 0] = 0
-    knots = (df2 * beta_0).sum(dim=2) + (knots.pow(2) * beta).sum(dim=2)
+    knots = (df2 * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)
     knots = pad(knots.T, (1, 0))[:, :-1]  # F(ksi_1~K)=0~max
 
-    diff = labels - knots
-    labels = labels.squeeze()
+    diff = y - knots
+    y = y.squeeze()
     alpha_l = diff > 0
-    alpha_A = torch.sum(alpha_l * beta, dim=1)
-    alpha_B = beta_0[:, 0] - 2 * torch.sum(alpha_l * beta * ksi, dim=1)
-    alpha_C = -labels + torch.sum(alpha_l * beta * ksi * ksi, dim=1)
+    alpha_A = torch.sum(alpha_l * beta_k, dim=1)
+    alpha_B = gamma[:, 0] - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)
+    alpha_C = -y + torch.sum(alpha_l * beta_k * alpha_0_k * alpha_0_k, dim=1)
 
     # since A may be zero, roots can be from different methods.
     not_zero = (alpha_A != 0)
-    alpha = torch.zeros_like(alpha_A)
+    alpha_plus = torch.zeros_like(alpha_A)
     # since there may be numerical calculation error,#0
     idx = (alpha_B ** 2 - 4 * alpha_A * alpha_C) < 0  # 0
     diff = diff.abs()
@@ -377,18 +398,17 @@ def get_crps(beta_0, gamma, labels):
     index[~idx, :] = False
     # index=diff.abs()<1e-4#0,1e-4 is a threshold
     # idx=index.sum(dim=1)>0#0
-    alpha[idx] = ksi[index]  # 0
-    alpha[~not_zero] = -alpha_C[~not_zero] / alpha_B[~not_zero]
+    alpha_plus[idx] = alpha_0_k[index]  # 0
+    alpha_plus[~not_zero] = -alpha_C[~not_zero] / alpha_B[~not_zero]
     not_zero = ~(~not_zero | idx)  # 0
     delta = alpha_B[not_zero].pow(2) - 4 * alpha_A[not_zero] * alpha_C[not_zero]
-    alpha[not_zero] = (-alpha_B[not_zero] + torch.sqrt(delta)) / (2 * alpha_A[not_zero])
+    alpha_plus[not_zero] = (-alpha_B[not_zero] + torch.sqrt(delta)) / (2 * alpha_A[not_zero])
 
     # formula for CRPS is here!
-    gamma_0 = torch.zeros_like(labels)
-    crps_1 = (gamma_0 - labels) * (1 - 2 * alpha)
-    crps_2 = beta_0[:, 0] * (1 / 3 - alpha.pow(2))
-    crps_3 = torch.sum(beta / 6 * (1 - ksi).pow(4), dim=1)
-    crps_4 = torch.sum(alpha_l * 2 / 3 * beta * (alpha.unsqueeze(1) - ksi).pow(3), dim=1)
+    crps_1 = (_lambda - y) * (1 - 2 * alpha_plus)
+    crps_2 = gamma[:, 0] * (1 / 3 - alpha_plus.pow(2))
+    crps_3 = torch.sum(beta_k / 6 * (1 - alpha_0_k).pow(4), dim=1)
+    crps_4 = torch.sum(alpha_l * 2 / 3 * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)
     crps = crps_1 + crps_2 + crps_3 - crps_4
 
     crps = torch.mean(crps)
