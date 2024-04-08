@@ -72,18 +72,20 @@ class Model(nn.Module):
         self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline if self.use_new_algorithm else 1)
         self.linear_eta_k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
+        device = torch.device("cuda" if params.use_gpu else "cpu")
         if window_type == 'uniform':
-            self.alpha_prime_k = torch.full((params.batch_size, self.num_spline), fill_value=1.0 / self.num_spline)
+            y = torch.ones(self.num_spline) / self.num_spline
+            self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)
         elif window_type == 'gaussian':
             x = torch.linspace(-1, 1, self.num_spline)
             y = (torch.sqrt(2 * torch.tensor(np.pi))) * torch.exp(-x ** 2 / 2)
             y = y / torch.sum(y)  # [20]
-            self.alpha_prime_k = y.repeat(params.batch_size, 1)
+            self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)
         elif window_type == 'triangle':
             x = torch.linspace(-1, 1, self.num_spline)
             y = 2 - x.abs()
             y = y / torch.sum(y)
-            self.alpha_prime_k = y.repeat(params.batch_size, 1)
+            self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)
 
         # Reindex
         self.new_index = [0]
