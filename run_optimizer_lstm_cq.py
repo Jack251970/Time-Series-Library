@@ -1,10 +1,3 @@
-import argparse
-import datetime
-import os
-import time
-
-import torch
-
 from hyper_optimizer.optimizer import HyperOptimizer
 from run_optimizer import prepare_config, build_setting, build_config_dict, set_args, get_fieldnames
 
