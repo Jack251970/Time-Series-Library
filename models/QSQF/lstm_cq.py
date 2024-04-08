@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.functional import pad
@@ -6,7 +7,7 @@ from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False):
+    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False, window_type='uniform'):
         """
         LSTM-CQ: Auto-Regressive LSTM with Convolution and QSpline to Provide Probabilistic Forecasting.
 
@@ -14,6 +15,7 @@ class Model(nn.Module):
         use_cnn: whether to use cnn for feature extraction.
         use_qrnn: whether to use qrnn to replace lstm.
         use_new_algorithm: whether to use new algorithm.
+        window_type: window type for the spline function, e.g. 'uniform', 'gaussian', 'triangle'
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
@@ -70,6 +72,18 @@ class Model(nn.Module):
         self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline if self.use_new_algorithm else 1)
         self.linear_eta_k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
+        if window_type == 'uniform':
+            self.alpha_prime_k = torch.full((params.batch_size, self.num_spline), fill_value=1.0 / self.num_spline)
+        elif window_type == 'gaussian':
+            x = torch.linspace(-1, 1, self.num_spline)
+            y = (torch.sqrt(2 * torch.tensor(np.pi))) * torch.exp(-x ** 2 / 2)
+            y = y / torch.sum(y)  # [20]
+            self.alpha_prime_k = y.repeat(params.batch_size, 1)
+        elif window_type == 'triangle':
+            x = torch.linspace(-1, 1, self.num_spline)
+            y = 2 - x.abs()
+            y = y / torch.sum(y)
+            self.alpha_prime_k = y.repeat(params.batch_size, 1)
 
         # Reindex
         self.new_index = [0]
@@ -164,7 +178,7 @@ class Model(nn.Module):
                     break
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]
                 y = labels_batch[t].clone()  # [256,]
-                loss_list.append((gamma, eta_k, y, self.use_new_algorithm))
+                loss_list.append((self.alpha_prime_k, gamma, eta_k, y, self.use_new_algorithm))
 
             return loss_list, stop_flag
         else:
@@ -210,7 +224,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(gamma, eta_k, pred_cdf, self.use_new_algorithm)  # [256,]
+                    pred = sample_qsqm(self.alpha_prime_k, gamma, eta_k, pred_cdf, self.use_new_algorithm)  # [256,]
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -250,7 +264,7 @@ class Model(nn.Module):
                     hidden_permute = self.get_hidden_permute(hidden)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
-                    pred = sample_qsqm(gamma, eta_k, None, self.use_new_algorithm)  # [256,]
+                    pred = sample_qsqm(self.alpha_prime_k, gamma, eta_k, None, self.use_new_algorithm)  # [256,]
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
@@ -265,7 +279,7 @@ class Model(nn.Module):
             return samples, samples_mu, samples_std, samples_high, samples_low
 
 
-def phase_gamma_and_eta_k(gamma, eta_k, use_new_algorithm):
+def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm):
     """
     Formula
     beta_k = (eta_k - gamma) / (2 * alpha_prime_k), k = 1
@@ -277,9 +291,6 @@ def phase_gamma_and_eta_k(gamma, eta_k, use_new_algorithm):
     let x_k = (eta_k - eta_{k-1} - gamma_k) / (2 * alpha_prime_k), and x_k = 0, eta_0 = 0
     beta_k = x_k - x_{k-1}, k > 1
     """
-    # use interval based on uniform distribution
-    alpha_prime_k = torch.full_like(eta_k, 1.0 / eta_k.shape[1])  # [256, 20]
-
     # get alpha_k ([0, k])
     alpha_0_k = pad(torch.cumsum(alpha_prime_k, dim=1), pad=(1, 0))[:, :-1]  # [256, 20]
 
@@ -295,7 +306,7 @@ def phase_gamma_and_eta_k(gamma, eta_k, use_new_algorithm):
     # get beta_k
     beta_k = x_k - pad(x_k, pad=(1, 0))[:, :-1]  # [256, 20]
 
-    return alpha_prime_k, alpha_0_k, beta_k
+    return alpha_0_k, beta_k
 
 
 # noinspection DuplicatedCode
@@ -343,7 +354,7 @@ def get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm):
 
 
 # noinspection DuplicatedCode
-def sample_qsqm(gamma, eta_k, alpha, use_new_algorithm):
+def sample_qsqm(alpha_prime_k, gamma, eta_k, alpha, use_new_algorithm):
     """
     Formula
     Q(alpha) = gamma * alpha + sum(beta_k * (alpha - alpha_k) ^ 2)
@@ -351,7 +362,7 @@ def sample_qsqm(gamma, eta_k, alpha, use_new_algorithm):
     use_new_algorithm:
     Q(alpha) = sum(beta_k * (alpha - alpha_k)) + sum(beta_k * (alpha - alpha_k) ^ 2)
     """
-    alpha_prime_k, alpha_0_k, beta_k = phase_gamma_and_eta_k(gamma, eta_k, use_new_algorithm)  # [256, 20], [256, 20], [256, 20]
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm)
 
     if alpha is not None:
         # get Q(alpha)
@@ -372,15 +383,15 @@ def sample_qsqm(gamma, eta_k, alpha, use_new_algorithm):
 
 
 def loss_fn(list_param):
-    gamma, eta_k, labels, use_new_algorithm = list_param  # [256, 1], [256, 20], [256,]
+    alpha_prime_k, gamma, eta_k, labels, use_new_algorithm = list_param  # [256, 1], [256, 20], [256,]
 
     # CRPS
     labels = labels.unsqueeze(1)  # [256, 1]
-    return get_crps(gamma, eta_k, labels, use_new_algorithm)
+    return get_crps(alpha_prime_k, gamma, eta_k, labels, use_new_algorithm)
 
 
-# def get_mse(gamma, eta_k, y, use_new_algorithm):
-#     alpha_prime_k, alpha_0_k, beta_k = phase_gamma_and_eta_k(gamma, eta_k, use_new_algorithm)  # [256, 20], [256, 20]
+# def get_mse(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):
+#     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm)
 #
 #     # get y_hat
 #     y_hat = get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm)  # [256,]
@@ -393,8 +404,8 @@ def loss_fn(list_param):
 
 
 # noinspection DuplicatedCode
-def get_crps(gamma, eta_k, y, use_new_algorithm):  # [256, 1], [256, 20], [256, 20], [256, 1]
-    alpha_prime_k, alpha_0_k, beta_k = phase_gamma_and_eta_k(gamma, eta_k, use_new_algorithm)  # [256, 20], [256, 20], [256, 20]
+def get_crps(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):  # [256, 1], [256, 20], [256, 20], [256, 1]
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm)
     alpha_1_k1 = pad(alpha_0_k, pad=(0, 1), value=1)[:, 1:]  # [256, 20]
 
     # calculate the maximum for each segment of the spline and get l
