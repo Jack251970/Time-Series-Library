@@ -10,18 +10,16 @@ from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_new_index=False, use_qrnn=False):
+    def __init__(self, params, use_cnn=True, use_qrnn=False):
         """
         We define a recurrent network that predicts the future values
         of a time-dependent variable based on past inputs and covariances.
 
         Use cun for feature extraction.
-        Use new index is deprecated, and this function has been moved to the data preprocessing part.
         Use qrnn for choosing the qrnn to replace lstm.
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
-        self.use_new_index = use_new_index
         self.use_qrnn = use_qrnn
         self.task_name = params.task_name
         input_size = params.enc_in + params.lag - 1  # take lag into account
@@ -77,10 +75,6 @@ class Model(nn.Module):
 
         # Reindex
         self.new_index = [0]
-        # self.lag_index = []
-        # for i in range(self.lag):
-        #     self.lag_index.append(i)
-        self.lag_index = 0
 
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
@@ -88,8 +82,6 @@ class Model(nn.Module):
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
             labels_batch = batch[:, :, -1]
-            if self.use_new_index:
-                train_batch = self.adjust_dimension(train_batch)
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
         return None
 
@@ -97,134 +89,9 @@ class Model(nn.Module):
         if self.task_name == 'probability_forecast':
             batch = torch.cat((x_enc, y_enc), dim=1).float()
             train_batch = batch[:, :, :-1]
-            if self.use_new_index:
-                train_batch = self.adjust_dimension(train_batch)
             if probability_range is None:
                 probability_range = [0.5]
             return self.probability_forecast(train_batch, probability_range=probability_range)
-        return None
-
-    def adjust_dimension(self, train_batch):  # [256, 112, 7]
-        if self.task_name == 'probability_forecast':
-            if self.new_index is not None:
-                train_batch = train_batch[:, :, self.new_index]
-                return train_batch
-
-            # convert to 2D tensor
-            corr_data = train_batch.view(-1, train_batch.shape[2])  # [256*112, 7]
-
-            # convert to pandas dataframe
-            corr_data = corr_data.cpu().detach().numpy()
-
-            # get correlation matrix
-            corr_data = pd.DataFrame(corr_data)
-            corr = corr_data.corr()
-
-            # traverse the upper triangle of the correlation matrix
-            # rank correlation coefficient
-            ranked_corr_data = []  # a list of tuples, like [((2,3), 0.95), ...], (2,3) is the index, 0.95 is the value
-            for i in range(corr.shape[0]):
-                for j in range(i + 1, corr.shape[0]):
-                    ranked_corr_data.append(((i, j), np.abs(corr.iloc[i, j])))
-            ranked_corr_data.sort(key=lambda x: x[1], reverse=True)
-
-            # group those features with high correlation
-            new_indexes = None
-            between_group = False
-            groups = []
-            grouped_num = 0
-            between_groups = []
-            between_grouped_num = 0
-            total_num = corr.shape[0]
-            for item in ranked_corr_data:
-                i = item[0][0]
-                j = item[0][1]
-                if not between_group:
-                    # start to group within groups
-                    if len(groups) == 0:
-                        groups.append({i, j})
-                        grouped_num += 2
-                    else:
-                        error_flag = False
-                        add_flag = True
-                        for group in groups:
-                            if i in group and j in group:
-                                error_flag = True
-                                break
-                            if i in group:
-                                group.add(j)
-                                grouped_num += 1
-                                add_flag = False
-                                break
-                            if j in group:
-                                group.add(i)
-                                grouped_num += 1
-                                add_flag = False
-                                break
-                        if not error_flag and add_flag:
-                            groups.append({i, j})
-                            grouped_num += 2
-                    if grouped_num >= total_num:
-                        between_group = True
-                else:
-                    # start to group between groups
-                    _ = []
-                    for k in range(len(groups)):
-                        group = groups[k]
-                        if i in group or j in group:
-                            _.append(k)
-                    if len(_) == 2:
-                        value_1 = _[0]
-                        value_2 = _[1]
-                        if value_1 > value_2:
-                            value_1, value_2 = value_2, value_1
-                        if (value_1, value_2) not in between_groups:
-                            between_groups.append((value_1, value_2))
-                            between_grouped_num += 1
-                    if between_grouped_num >= len(groups) - 1:
-                        # start to adjust the sequence of groups
-                        # traverse all possible combinations
-                        final_out = None
-                        numbers = list(range(len(groups)))
-                        permutations = itertools.permutations(numbers)
-                        for permutation in list(permutations):
-                            quit_this = False
-                            for t in range(len(permutation) - 1):
-                                a = permutation[t]
-                                b = permutation[t + 1]
-                                find = False
-                                for _ in between_groups:
-                                    if a in _ and b in _:
-                                        find = True
-                                        break
-                                if not find:
-                                    quit_this = True
-                                    break
-                            if quit_this:
-                                continue
-                            else:
-                                final_out = permutation
-                                break
-                        if final_out is not None:
-                            new_groups = []
-                            for i in final_out:
-                                new_groups.append(groups[i])
-                            new_indexes = []
-                            for group in new_groups:
-                                for index in group:
-                                    new_indexes.append(index)
-                        break
-
-            # adjust the dimension of train_batch
-            if new_indexes is not None:
-                self.new_index = new_indexes
-                train_batch = train_batch[:, :, new_indexes]
-                # self.lag_index.clear()
-                # for i in self.lag:
-                #     self.lag_index.append(new_indexes[i])
-                self.lag_index = new_indexes[0]
-
-            return train_batch
         return None
 
     def run_lstm(self, x, hidden, cell):
@@ -238,7 +105,8 @@ class Model(nn.Module):
 
         return hidden, cell
 
-    def run_after_lstm(self, hidden):
+    @staticmethod
+    def get_hidden_permute(hidden):
         # use h from all three layers to calculate mu and sigma
         hidden_permute = hidden.permute(1, 2, 0)  # [256, 2, 40]
         hidden_permute = hidden_permute.contiguous().view(hidden.shape[1], -1)  # [256, 80]
@@ -280,7 +148,7 @@ class Model(nn.Module):
                                           device=device)
             for t in range(self.train_window):
                 hidden, cell = self.run_lstm(train_batch[t].unsqueeze_(0).clone(), hidden, cell)
-                hidden_permute = self.run_after_lstm(hidden)
+                hidden_permute = self.get_hidden_permute(hidden)
                 hidden_permutes[:, t, :] = hidden_permute
 
                 # check if hidden contains NaN
@@ -330,7 +198,7 @@ class Model(nn.Module):
                 # prediction range
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
-                    hidden_permute = self.run_after_lstm(hidden)
+                    hidden_permute = self.get_hidden_permute(hidden)
                     beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
 
                     if j < probability_range_len:
@@ -381,7 +249,7 @@ class Model(nn.Module):
 
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
-                    hidden_permute = self.run_after_lstm(hidden)
+                    hidden_permute = self.get_hidden_permute(hidden)
                     beta_0, gamma = self.get_qsqm_parameter(hidden_permute)
 
                     pred = sample_qsqm(beta_0, gamma, None, min_cdf, max_cdf)
@@ -399,7 +267,9 @@ class Model(nn.Module):
             return samples, samples_mu, samples_std, samples_high, samples_low
 
 
-def phase_beta_0_and_gamma(sigma, beta_0, gamma):
+def phase_beta_0_and_gamma(beta_0, gamma):
+    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
+
     beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
     beta[:, 0] = beta_0[:, 0]
     beta = (gamma - beta) / (2 * sigma)
@@ -407,11 +277,11 @@ def phase_beta_0_and_gamma(sigma, beta_0, gamma):
     beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
     ksi = torch.cumsum(sigma, dim=1)  # [256, 20]
 
-    return beta, ksi
+    return sigma, beta, ksi
+
 
 def sample_qsqm(beta_0, gamma, pred_cdf, min_cdf, max_cdf):
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-    beta, ksi = phase_beta_0_and_gamma(sigma, beta_0, gamma)  # [256, 20], [256, 20]
+    sigma, beta, ksi = phase_beta_0_and_gamma(beta_0, gamma)  # [256, 20], [256, 20]
     ksi = pad(ksi, (1, 0))[:, :-1]  # [256, 20]
 
     if pred_cdf is not None:
@@ -462,8 +332,7 @@ def get_mse(beta_0, gamma, labels):
     min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
     max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
 
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-    beta, ksi = phase_beta_0_and_gamma(sigma, beta_0, gamma)  # [256, 20], [256, 20]
+    sigma, beta, ksi = phase_beta_0_and_gamma(beta_0, gamma)  # [256, 20], [256, 20]
     ksi = pad(ksi, (1, 0))[:, :-1]  # [256, 20]
 
     # calculate integral
@@ -480,9 +349,7 @@ def get_mse(beta_0, gamma, labels):
 
 
 def get_crps(beta_0, gamma, labels):
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
-
-    beta, ksi = phase_beta_0_and_gamma(sigma, beta_0, gamma)  # [256, 20], [256, 20]
+    sigma, beta, ksi = phase_beta_0_and_gamma(beta_0, gamma)  # [256, 20], [256, 20]
 
     # calculate the maximum for each segment of the spline
     df1 = ksi.expand(sigma.shape[1], sigma.shape[0], sigma.shape[1]).T.clone()
