@@ -338,7 +338,7 @@ def sample_qsqm(gamma, eta_k, alpha):
         return pred
     else:
         # get pred mean value
-        y_hat = get_y_hat(gamma, alpha_0_k, eta_k)  # [256,]
+        y_hat = get_y_hat(gamma, alpha_0_k, beta_k)  # [256,]
 
         return y_hat
 
