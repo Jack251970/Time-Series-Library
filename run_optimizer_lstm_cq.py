@@ -171,7 +171,9 @@ h = HyperOptimizer(False, ['LSTM-CQ'],
 # 2024-04-08 16-49-40: remove strange line
 # 2024-04-08 21-29-59
 # 2024-04-09 11-29-40
-h.config_optimizer_settings(custom_test_time="2024-04-08 16-49-40", scan_all_csv=True, try_model=False, force_exp=True,
+# 2024-04-09 20-20-21: 1+2 algorithm, 1e-4
+# 2024-04-09 21-05-56: 1+2 algorithm, 1e-6
+h.config_optimizer_settings(custom_test_time="2024-04-09 21-05-56", scan_all_csv=True, try_model=False, force_exp=True,
                             add_tags=["ori", "crps_loss", "cnn"])
 
 if __name__ == "__main__":

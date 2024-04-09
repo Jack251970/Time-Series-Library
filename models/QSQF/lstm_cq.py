@@ -7,7 +7,7 @@ from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_qrnn=False, algorithm_type="2", window_type='uniform'):
+    def __init__(self, params, use_cnn=True, use_qrnn=False, algorithm_type="1+2", window_type='uniform'):
         """
         LSTM-CQ: Auto-Regressive LSTM with Convolution and QSpline to Provide Probabilistic Forecasting.
 
@@ -473,7 +473,6 @@ def get_crps(alpha_prime_k, gamma, eta_k, y, algorithm_type):  # [256, 20], [256
 
     # calculate the maximum for each segment of the spline and get l
     df1 = alpha_1_k1.expand(alpha_prime_k.shape[1], alpha_prime_k.shape[0], alpha_prime_k.shape[1]).T.clone()  # [20, 256, 20]
-    alpha_0_k = pad(alpha_1_k1, (1, 0))[:, :-1]  # [256, 20]
     knots = df1 - alpha_0_k  # [20, 256, 20]
     knots[knots < 0] = 0  # [20, 256, 20]
     if algorithm_type == '2':

@@ -44,7 +44,7 @@ class Dataset_ETT_hour(Dataset):
             if scaler == 'StandardScaler':
                 self.scaler = StandardScaler()  # normalize mean to 0, variance to 1
             elif scaler == 'MinMaxScaler':
-                self.scaler = MinMaxScaler()  # normalize to [0, 1]
+                self.scaler = MinMaxScaler(feature_range=(1e-6, 1))  # normalize to [0, 1]
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
             else:
@@ -156,7 +156,7 @@ class Dataset_ETT_minute(Dataset):
             if scaler == 'StandardScaler':
                 self.scaler = StandardScaler()  # normalize mean to 0, variance to 1
             elif scaler == 'MinMaxScaler':
-                self.scaler = MinMaxScaler()  # normalize to [0, 1]
+                self.scaler = MinMaxScaler(feature_range=(1e-6, 1))  # normalize to [0, 1]
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
             else:
@@ -272,7 +272,7 @@ class Dataset_Custom(Dataset):
             if scaler == 'StandardScaler':
                 self.scaler = StandardScaler()  # normalize mean to 0, variance to 1
             elif scaler == 'MinMaxScaler':
-                self.scaler = MinMaxScaler()  # normalize to [0, 1]
+                self.scaler = MinMaxScaler(feature_range=(1e-6, 1))  # normalize to [0, 1]
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
             else:
