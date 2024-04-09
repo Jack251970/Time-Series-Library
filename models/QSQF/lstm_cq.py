@@ -7,20 +7,20 @@ from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False, window_type='uniform'):
+    def __init__(self, params, use_cnn=True, use_qrnn=False, algorithm_type="2", window_type='uniform'):
         """
         LSTM-CQ: Auto-Regressive LSTM with Convolution and QSpline to Provide Probabilistic Forecasting.
 
         params: parameters for the model.
         use_cnn: whether to use cnn for feature extraction.
         use_qrnn: whether to use qrnn to replace lstm.
-        use_new_algorithm: whether to use new algorithm.
+        algorithm_type: algorithm type, e.g. '1', '2', '1+2'
         window_type: window type for the spline function, e.g. 'uniform', 'gaussian', 'gaussian_div', 'triangle'
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
         self.use_qrnn = use_qrnn
-        self.use_new_algorithm = use_new_algorithm
+        self.algorithm_type = algorithm_type
         self.task_name = params.task_name
         input_size = params.enc_in + params.lag - 1  # take lag into account
         if use_cnn:
@@ -69,7 +69,10 @@ class Model(nn.Module):
                     bias.data[start:end].fill_(1.)
 
         # QSQM
-        self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline if self.use_new_algorithm else 1)
+        if self.algorithm_type == '2':
+            self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
+        elif self.algorithm_type == '1+2':
+            self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
         self.linear_eta_k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
         device = torch.device("cuda" if params.use_gpu else "cpu")
@@ -185,7 +188,7 @@ class Model(nn.Module):
                     break
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]
                 y = labels_batch[t].clone()  # [256,]
-                loss_list.append((self.alpha_prime_k, gamma, eta_k, y, self.use_new_algorithm))
+                loss_list.append((self.alpha_prime_k, gamma, eta_k, y, self.algorithm_type))
 
             return loss_list, stop_flag
         else:
@@ -231,7 +234,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_cdf = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(self.alpha_prime_k, gamma, eta_k, pred_cdf, self.use_new_algorithm)  # [256,]
+                    pred = sample_qsqm(self.alpha_prime_k, gamma, eta_k, pred_cdf, self.algorithm_type)  # [256,]
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -271,7 +274,7 @@ class Model(nn.Module):
                     hidden_permute = self.get_hidden_permute(hidden)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
-                    pred = sample_qsqm(self.alpha_prime_k, gamma, eta_k, None, self.use_new_algorithm)  # [256,]
+                    pred = sample_qsqm(self.alpha_prime_k, gamma, eta_k, None, self.algorithm_type)  # [256,]
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
@@ -286,14 +289,15 @@ class Model(nn.Module):
             return samples, samples_mu, samples_std, samples_high, samples_low
 
 
-def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm):
+def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type):
     """
     Formula
+    2:
     beta_k = (eta_k - gamma) / (2 * alpha_prime_k), k = 1
     let x_k = (eta_k - eta_{k-1}) / (2 * alpha_prime_k), and x_k = 0, eta_0 = gamma
     beta_k = x_k - x_{k-1}, k > 1
 
-    use_new_algorithm:
+    1+2:
     beta_k = (eta_k - gamma_1) / (2 * alpha_prime_k), k = 1
     let x_k = (eta_k - eta_{k-1} - gamma_k) / (2 * alpha_prime_k), and x_k = 0, eta_0 = 0
     beta_k = x_k - x_{k-1}, k > 1
@@ -302,13 +306,13 @@ def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm):
     alpha_0_k = pad(torch.cumsum(alpha_prime_k, dim=1), pad=(1, 0))[:, :-1]  # [256, 20]
 
     # get x_k
-    if use_new_algorithm:
+    if algorithm_type == '2':
+        eta_0_1k = pad(eta_k, pad=(1, 0))[:, :-1]  # [256, 20]
+        eta_0_1k[:, 0] = gamma[:, 0]  # eta_0 = gamma
+        x_k = (eta_k - eta_0_1k) / (2 * alpha_prime_k)
+    elif algorithm_type == '1+2':
         eta_0_1k = pad(eta_k, pad=(1, 0))[:, :-1]  # [256, 20]
         x_k = (eta_k - eta_0_1k - gamma) / (2 * alpha_prime_k)
-    else:
-        eta_0_1k = pad(eta_k, pad=(1, 0))[:, :-1]  # [256, 20]
-        eta_0_1k[:, 0] = gamma[:, 0]
-        x_k = (eta_k - eta_0_1k) / (2 * alpha_prime_k)
 
     # get beta_k
     beta_k = x_k - pad(x_k, pad=(1, 0))[:, :-1]  # [256, 20]
@@ -317,12 +321,13 @@ def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm):
 
 
 # noinspection DuplicatedCode
-def get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm):
+def get_y_hat(gamma, alpha_0_k, beta_k, algorithm_type):
     """
     Formula
+    2:
     int{Q(alpha)} = 1/2 * gamma * (max_alpha ^ 2 - min_alpha ^ 2) + sum(1/3 * beta_k * (max_alpha - alpha_0_k) ^ 3)
 
-    use_new_algorithm:
+    1+2:
     int{Q(alpha)} = sum(1/2 * gamma_k * (max_alpha - alpha_0_k) ^ 2) + sum(1/3 * beta_k * (max_alpha - alpha_0_k) ^ 3)
     y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
     """
@@ -333,26 +338,26 @@ def get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm):
 
     # get min pred and max pred
     # indices = alpha_0_k < min_alpha  # [256, 20]
-    # if use_new_algorithm:
-    #     min_pred1 = ((min_alpha - alpha_0_k).pow(2) * gamma * indices).sum(dim=1)  # [256,]
-    # else:
+    # if algorithm_type == '2':
     #     min_pred1 = (gamma * min_alpha).sum(dim=1)  # [256,]
+    # elif algorithm_type == '1+2':
+    #     min_pred1 = ((min_alpha - alpha_0_k).pow(2) * gamma * indices).sum(dim=1)  # [256,]
     # min_pred2 = ((min_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
     # min_pred = min_pred1 + min_pred2 # [256,]
     # indices = alpha_0_k < max_alpha  # [256, 20]
-    # if use_new_algorithm:
-    #     max_pred1 = ((max_alpha - alpha_0_k).pow(1) * gamma * indices).sum(dim=1)  # [256,]
-    # else:
+    # if algorithm_type == '2':
     #     max_pred1 = (gamma * max_alpha).sum(dim=1)  # [256,]
+    # elif algorithm_type == '1+2':
+    #     max_pred1 = ((max_alpha - alpha_0_k).pow(1) * gamma * indices).sum(dim=1)  # [256,]
     # max_pred2 = ((max_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
     # max_pred = max_pred1 + max_pred2  # [256,]
     # total_area = ((max_alpha - min_alpha) * (max_pred - min_pred))  # [256,]
 
     # get int{Q(alpha)}
-    if use_new_algorithm:
-        integral1 = 1 / 2 * ((max_alpha - alpha_0_k).pow(2) * beta_k).sum(dim=1)  # [256,]
-    else:
+    if algorithm_type == '2':
         integral1 = 1 / 2 * gamma.squeeze() * (max_alpha.pow(2) - min_alpha.pow(2))  # [256,]
+    elif algorithm_type == '1+2':
+        integral1 = 1 / 2 * ((max_alpha - alpha_0_k).pow(2) * beta_k).sum(dim=1)  # [256,]
     integral2 = 1 / 3 * ((max_alpha - alpha_0_k).pow(3) * beta_k).sum(dim=1)  # [256,]
     integral = integral1 + integral2  # [256,]
     y_hat = integral / (max_alpha - min_alpha)  # [256,]
@@ -361,47 +366,48 @@ def get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm):
 
 
 # noinspection DuplicatedCode
-def sample_qsqm(alpha_prime_k, gamma, eta_k, alpha, use_new_algorithm):
+def sample_qsqm(alpha_prime_k, gamma, eta_k, alpha, algorithm_type):
     """
     Formula
+    2:
     Q(alpha) = gamma * alpha + sum(beta_k * (alpha - alpha_k) ^ 2)
 
-    use_new_algorithm:
+    1+2:
     Q(alpha) = sum(beta_k * (alpha - alpha_k)) + sum(beta_k * (alpha - alpha_k) ^ 2)
     """
-    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm)
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
 
     if alpha is not None:
         # get Q(alpha)
         indices = alpha_0_k < alpha  # [256, 20]
-        if use_new_algorithm:
-            pred1 = (gamma * (alpha - alpha_0_k) * indices).sum(dim=1)  # [256,]
-        else:
+        if algorithm_type == '2':
             pred1 = (gamma * alpha).sum(dim=1)  # [256,]
+        elif algorithm_type == '1+2':
+            pred1 = (gamma * (alpha - alpha_0_k) * indices).sum(dim=1)  # [256,]
         pred2 = (beta_k * (alpha - alpha_0_k).pow(2) * indices).sum(dim=1)  # [256,]
         pred = pred1 + pred2  # [256,]
 
         return pred
     else:
         # get pred mean value
-        y_hat = get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm)  # [256,]
+        y_hat = get_y_hat(gamma, alpha_0_k, beta_k, algorithm_type)  # [256,]
 
         return y_hat
 
 
 def loss_fn(list_param):
-    alpha_prime_k, gamma, eta_k, labels, use_new_algorithm = list_param  # [256, 1], [256, 20], [256,]
+    alpha_prime_k, gamma, eta_k, labels, algorithm_type = list_param  # [256, 1], [256, 20], [256,]
 
     # CRPS
     labels = labels.unsqueeze(1)  # [256, 1]
-    return get_crps(alpha_prime_k, gamma, eta_k, labels, use_new_algorithm)
+    return get_crps(alpha_prime_k, gamma, eta_k, labels, algorithm_type)
 
 
-# def get_mse(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):
-#     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm)
+# def get_mse(alpha_prime_k, gamma, eta_k, y, algorithm_type):
+#     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
 #
 #     # get y_hat
-#     y_hat = get_y_hat(gamma, alpha_0_k, beta_k, use_new_algorithm)  # [256,]
+#     y_hat = get_y_hat(gamma, alpha_0_k, beta_k, algorithm_type)  # [256,]
 #
 #     # calculate loss
 #     loss = nn.MSELoss()
@@ -411,8 +417,8 @@ def loss_fn(list_param):
 
 
 # noinspection DuplicatedCode
-def get_crps(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):  # [256, 1], [256, 20], [256, 20], [256, 1]
-    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, use_new_algorithm)
+def get_crps(alpha_prime_k, gamma, eta_k, y, algorithm_type):  # [256, 20], [256, 20], [256, 20], [256, 1]
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
     alpha_1_k1 = pad(alpha_0_k, pad=(0, 1), value=1)[:, 1:]  # [256, 20]
 
     # calculate the maximum for each segment of the spline and get l
@@ -421,10 +427,10 @@ def get_crps(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):  # [256, 1], [2
     alpha_0_k = pad(alpha_1_k1, (1, 0))[:, :-1]  # [256, 20]
     knots = df1 - alpha_0_k  # [20, 256, 20]
     knots[knots < 0] = 0  # [20, 256, 20]
-    if use_new_algorithm:
+    if algorithm_type == '2':
+        knots = (df2 * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)  # [20, 256]
+    elif algorithm_type == '1+2':
         knots = (knots * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)  # [20, 256]
-    else:
-        knots = (df2 * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)
     knots = pad(knots.T, (1, 0))[:, :-1]  # F(alpha_{1~K})=0~max  # [256, 20]
     diff = y - knots  # [256, 20]
     alpha_l = diff > 0  # [256, 20]
@@ -432,12 +438,13 @@ def get_crps(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):  # [256, 1], [2
     # calculate the parameter for quadratic equation
     y = y.squeeze()  # [256,]
     A = torch.sum(alpha_l * beta_k, dim=1)  # [256,]
-    if use_new_algorithm:
-        B = torch.sum(alpha_l * gamma, dim=1) - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)  # [256,]
-        C = - y - torch.sum(alpha_l * gamma * alpha_0_k, dim=1) + torch.sum(alpha_l * beta_k * alpha_0_k * alpha_0_k, dim=1)  # [256,]
-    else:
+    if algorithm_type == '2':
         B = gamma[:, 0] - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)
         C = - y + torch.sum(alpha_l * beta_k * alpha_0_k * alpha_0_k, dim=1)
+    elif algorithm_type == '1+2':
+        B = torch.sum(alpha_l * gamma, dim=1) - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)  # [256,]
+        C = - y - torch.sum(alpha_l * gamma * alpha_0_k, dim=1) + torch.sum(alpha_l * beta_k * alpha_0_k * alpha_0_k,
+                                                                            dim=1)  # [256,]
 
     # solve the quadratic equation: since A may be zero, roots can be from different methods.
     not_zero = (A != 0)  # [256,]
@@ -456,18 +463,18 @@ def get_crps(alpha_prime_k, gamma, eta_k, y, use_new_algorithm):  # [256, 1], [2
     alpha_plus[not_zero] = (-B[not_zero] + torch.sqrt(delta)) / (2 * A[not_zero])  # [256,]
 
     # get CRPS
-    crps_1 = (- y) * (1 - 2 * alpha_plus)  # [256, 256]
-    if use_new_algorithm:
+    crps_1 = y * (2 * alpha_plus - 1)  # [256,]
+    if algorithm_type == '2':
+        crps_2 = gamma[:, 0] * (1 / 3 - alpha_plus.pow(2))
+        crps_3 = torch.sum(beta_k / 6 * (1 - alpha_0_k).pow(4), dim=1)
+        crps_4 = torch.sum(alpha_l * 2 / 3 * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)
+        crps = crps_1 + crps_2 + crps_3 - crps_4
+    elif algorithm_type == '1+2':
         crps_2 = torch.sum(1 / 3 * gamma * (1 - alpha_0_k).pow(3), dim=1)  # [256,]
         crps_3 = torch.sum(alpha_l * gamma * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(2), dim=1)  # [256,]
         crps_4 = torch.sum(1 / 6 * beta_k * (1 - alpha_0_k).pow(4), dim=1)  # [256,]
         crps_5 = torch.sum(2 / 3 * alpha_l * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)  # [256,]
         crps = crps_1 + crps_2 - crps_3 + crps_4 - crps_5  # [256, 256]
-    else:
-        crps_2 = gamma[:, 0] * (1 / 3 - alpha_plus.pow(2))
-        crps_3 = torch.sum(beta_k / 6 * (1 - alpha_0_k).pow(4), dim=1)
-        crps_4 = torch.sum(alpha_l * 2 / 3 * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)
-        crps = crps_1 + crps_2 + crps_3 - crps_4
 
     crps = torch.mean(crps)  # [256,]
     return crps
