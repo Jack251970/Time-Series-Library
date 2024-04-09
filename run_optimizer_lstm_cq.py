@@ -170,7 +170,7 @@ h = HyperOptimizer(False, ['LSTM-CQ'],
 # 2024-04-02 12-15-46: standard and best
 # 2024-04-08 16-49-40: remove strange line
 h.config_optimizer_settings(custom_test_time="2024-04-08 16-49-40", scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=["ori", "crps_loss", "cnn", "gaussian_window"])
+                            add_tags=["ori", "crps_loss", "cnn"])
 
 if __name__ == "__main__":
     h.start_search(0)

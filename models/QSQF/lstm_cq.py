@@ -7,7 +7,7 @@ from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False, window_type='gaussian'):
+    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False, window_type='uniform'):
         """
         LSTM-CQ: Auto-Regressive LSTM with Convolution and QSpline to Provide Probabilistic Forecasting.
 
@@ -15,7 +15,7 @@ class Model(nn.Module):
         use_cnn: whether to use cnn for feature extraction.
         use_qrnn: whether to use qrnn to replace lstm.
         use_new_algorithm: whether to use new algorithm.
-        window_type: window type for the spline function, e.g. 'uniform', 'gaussian', 'triangle'
+        window_type: window type for the spline function, e.g. 'uniform', 'gaussian', 'gaussian_div', 'triangle'
         """
         super(Model, self).__init__()
         self.use_cnn = use_cnn
@@ -77,6 +77,11 @@ class Model(nn.Module):
             y = torch.ones(self.num_spline) / self.num_spline
             self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)
         elif window_type == 'gaussian':
+            x = torch.linspace(-1, 1, self.num_spline)
+            y = 1 / (torch.sqrt(2 * torch.tensor(np.pi))) * torch.exp(-x ** 2 / 2)
+            y = y / torch.sum(y)  # [20]
+            self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)
+        elif window_type == 'gaussian_div':
             x = torch.linspace(-1, 1, self.num_spline)
             y = (torch.sqrt(2 * torch.tensor(np.pi))) * torch.exp(-x ** 2 / 2)
             y = y / torch.sum(y)  # [20]
