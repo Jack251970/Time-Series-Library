@@ -7,7 +7,7 @@ from models.QSQF.net_qspline_C import ConvLayer
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False, window_type='uniform'):
+    def __init__(self, params, use_cnn=True, use_qrnn=False, use_new_algorithm=False, window_type='gaussian'):
         """
         LSTM-CQ: Auto-Regressive LSTM with Convolution and QSpline to Provide Probabilistic Forecasting.
 
