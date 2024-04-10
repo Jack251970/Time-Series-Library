@@ -324,7 +324,8 @@ class Model(nn.Module):
             return pred_mu
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, train_batch, labels_batch=None, sample=False, probability_range=None):  # [256, 112, 7], [256, 112,]
+    def probability_forecast(self, train_batch, labels_batch=None, sample=False,
+                             probability_range=None):  # [256, 112, 7], [256, 112,]
         if probability_range is None:
             probability_range = [0.5]
 
@@ -468,47 +469,17 @@ class Model(nn.Module):
             return samples, samples_mu, samples_std, samples_high, samples_low
 
 
-def loss_fn(list_param, crps=True):
+def loss_fn(list_param):
     beta_0, gamma, labels = list_param  # [256, 1], [256, 20], [256,]
 
-    if not crps:
-        # MSE
-        mseLoss = get_mse(beta_0, gamma, labels)
+    # CRPS
+    labels = labels.unsqueeze(1)  # [256, 1]
+    crpsLoss = get_crps(beta_0, gamma, labels)
 
-        return mseLoss
-    else:
-        # CRPS
-        labels = labels.unsqueeze(1)  # [256, 1]
-        crpsLoss = get_crps(beta_0, gamma, labels)
-
-        return crpsLoss
+    return crpsLoss
 
 
-def get_mse(beta_0, gamma, labels):
-    device = beta_0.device
-    min_cdf = torch.Tensor([0]).to(device)  # [256, 1]
-    max_cdf = torch.Tensor([1]).to(device)  # [256, 1]
-
-    sigma = torch.full_like(gamma, 1.0 / gamma.shape[1])  # [256, 20]
-    beta = pad(gamma, (1, 0))[:, :-1]  # [256, 20]
-    beta[:, 0] = beta_0[:, 0]
-    beta = (gamma - beta) / (2 * sigma)
-    beta = beta - pad(beta, (1, 0))[:, :-1]
-    beta[:, -1] = gamma[:, -1] - beta[:, :-1].sum(dim=1)  # [256, 20]
-    ksi = pad(torch.cumsum(sigma, dim=1), (1, 0))[:, :-1]  # [256, 20]
-
-    # calculate integral
-    # itg Q(alpha) = 1/2 * beta_0 * (max_cdf ^ 2 - min_cdf ^ 2) + sum(1/3 * beta * (max_cdf - ksi) ^ 3)
-    integral1 = 0.5 * beta_0.squeeze() * (max_cdf.pow(2) - min_cdf.pow(2))  # [256,]
-    integral2 = 1 / 3 * ((max_cdf - ksi).pow(3) * beta).sum(dim=1)  # [256,]
-    integral = integral1 + integral2  # [256,]
-    pred = integral / (max_cdf - min_cdf)  # [256,]
-
-    loss = nn.MSELoss()
-    mseLoss = loss(pred, labels)
-
-    return mseLoss
-
+# noinspection DuplicatedCode
 def get_crps(beta_0, gamma, labels):
     sigma = torch.full_like(gamma, 1.0 / gamma.shape[1], requires_grad=False)  # [256, 1], [256, 20]
 
