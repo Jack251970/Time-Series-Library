@@ -27,10 +27,10 @@ def get_search_space(_model):
 
         # wind dataset
         'root_path': {'_type': 'single', '_value': './dataset/wind/'},
-        'data_path': {'_type': 'single', '_value': 'Zone1/Zone1.csv'},
-        # 'data_path': {'_type': 'choice', '_value': ['Zone2/Zone2.csv', 'Zone3/Zone3.csv', 'Zone4/Zone4.csv',
-        #                                             'Zone5/Zone5.csv', 'Zone6/Zone6.csv', 'Zone7/Zone7.csv',
-        #                                             'Zone8/Zone8.csv', 'Zone9/Zone9.csv', 'Zone10/Zone10.csv']},
+        # 'data_path': {'_type': 'single', '_value': 'Zone1/Zone1.csv'},
+        'data_path': {'_type': 'choice', '_value': ['Zone2/Zone2.csv', 'Zone3/Zone3.csv', 'Zone4/Zone4.csv',
+                                                    'Zone5/Zone5.csv', 'Zone6/Zone6.csv', 'Zone7/Zone7.csv',
+                                                    'Zone8/Zone8.csv', 'Zone9/Zone9.csv', 'Zone10/Zone10.csv']},
         'target': {'_type': 'single', '_value': 'wind'},
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
@@ -134,7 +134,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['LSTM-CQ', 'QSQF-C'],
+h = HyperOptimizer(False, ['LSTM-CQ', 'QSQF-C', 'RNN-SF'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=None)
 # 2024-04-02 12-15-46: standard and best

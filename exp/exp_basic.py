@@ -4,9 +4,9 @@ from torch import optim, nn
 
 from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
-                    Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE, FreTS,
-                    Transformer_QSQF, Autoformer_QSQF)
-from models.QSQF import net_qspline_AB, net_qspline_C, lstm_cq
+                    Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
+                    FreTS)
+from models.spline_function import qsqf_c, rnn_sf, lstm_cq
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 
@@ -53,10 +53,8 @@ class Exp_Basic(object):
             'Koopa': Koopa,
             'TiDE': TiDE,
             'FreTS': FreTS,
-            'QSQF-AB': net_qspline_AB,
-            'QSQF-C': net_qspline_C,
-            'Transformer-QSQF': Transformer_QSQF,
-            'Autoformer-QSQF': Autoformer_QSQF,
+            'QSQF-C': qsqf_c,
+            'RNN-SF': rnn_sf,
             'LSTM-CQ': lstm_cq
         }
         model = model_dict[self.args.model].Model(self.args).float()
@@ -99,10 +97,8 @@ class Exp_Basic(object):
 
     def _select_criterion(self):
         criterion_dict = {
-            'QSQF-AB': net_qspline_AB.loss_fn,
-            'QSQF-C': net_qspline_C.loss_fn,
-            'Transformer-QSQF': Transformer_QSQF.loss_fn,
-            'Autoformer-QSQF': Transformer_QSQF.loss_fn,
+            'QSQF-C': lstm_cq.loss_fn,
+            'RNN-SF': lstm_cq.loss_fn,
             'LSTM-CQ': lstm_cq.loss_fn
         }
 

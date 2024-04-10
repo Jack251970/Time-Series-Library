@@ -3,7 +3,28 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import pad
 
-from models.QSQF.net_qspline_C import ConvLayer
+
+class ConvLayer(nn.Module):
+    def __init__(self, c_in):
+        super(ConvLayer, self).__init__()
+        self.downConv = nn.Conv1d(in_channels=c_in,
+                                  out_channels=c_in,
+                                  kernel_size=3,
+                                  stride=1,
+                                  padding=2,
+                                  padding_mode='circular')
+        self.norm = nn.BatchNorm1d(c_in)
+        self.activation = nn.ELU()
+        self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
+
+    def forward(self, x):  # [1, 256, 7] (time, batch, features)
+        x = x.permute(1, 0, 2)  # [256, 1, 7]
+        x = self.downConv(x)  # [256, 1, 9]
+        x = self.norm(x)
+        x = self.activation(x)
+        x = self.maxPool(x)  # [256, 1, 5]
+        x = x.permute(1, 0, 2)  # [1, 256, 5]
+        return x  # [1, 256, 5]
 
 
 class Model(nn.Module):
