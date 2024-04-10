@@ -132,7 +132,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['LSTM-CQ'],
+h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    get_model_id_tags=get_model_id_tags, check_jump_experiment=None)
 # 2024-04-02 12-15-46: standard and best
@@ -141,7 +141,7 @@ h = HyperOptimizer(False, ['LSTM-CQ'],
 # 2024-04-09 21-05-56: 1+2 algorithm, 1e-6
 # 2024-04-09 21-59-59: 1 algorithm, 1e-6
 h.config_optimizer_settings(custom_test_time="2024-04-09 21-05-56", scan_all_csv=True, try_model=False, force_exp=True,
-                            add_tags=[])
+                            add_tags=['1+2'])
 
 if __name__ == "__main__":
     h.start_search(0)
