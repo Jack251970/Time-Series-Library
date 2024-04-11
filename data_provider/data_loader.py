@@ -1,5 +1,4 @@
 import glob
-import itertools
 import os
 import re
 import warnings
@@ -401,7 +400,7 @@ class Dataset_Custom(Dataset):
 
         plt.show()
 
-    def get_new_indexes(self, visual=False, tolerance=0.95):
+    def get_new_indexes(self, visual=False, tolerance=0.80):
         # get data except the last column
         data = self.data_x[:, :-1]
 
@@ -422,12 +421,13 @@ class Dataset_Custom(Dataset):
         ranked_corr_data.sort(key=lambda x: x[1], reverse=True)
 
         # group those features with high correlation
-        new_indexes = None
+        new_indexes = []
         between_group = False
         groups = []
+        groups_len = -1
         grouped_num = 0
-        between_groups = []
-        between_groups_in = []
+        between_groups_links = []
+        between_groups_link_num = 0
         total_num = corr.shape[0]
         for item_index in range(len(ranked_corr_data)):
             item = ranked_corr_data[item_index]
@@ -448,141 +448,115 @@ class Dataset_Custom(Dataset):
                                     find = True
                                     break
                             if not find:
-                                groups.append({k})
-                elif len(groups) == 0:
-                    groups.append({i, j})
-                    grouped_num += 2
+                                groups.append([k])
+                                grouped_num += 1
                 else:
-                    error_flag = False
-                    add_flag = True
-                    for group in groups:
-                        if i in group and j in group:
-                            error_flag = True
-                            break
+                    # scan
+                    i_group_index = []
+                    j_group_index = []
+                    for group_index in range(len(groups)):
+                        group = groups[group_index]
                         if i in group:
-                            group.add(j)
-                            grouped_num += 1
-                            add_flag = False
-                            break
+                            i_group_index.append(group_index)
                         if j in group:
-                            group.add(i)
-                            grouped_num += 1
-                            add_flag = False
-                            break
-                    if not error_flag and add_flag:
-                        groups.append({i, j})
+                            j_group_index.append(group_index)
+                    # add
+                    if len(i_group_index) == 0 and len(j_group_index) == 0:
+                        groups.append([i, j])
                         grouped_num += 2
+                    elif len(i_group_index) == 1 and len(j_group_index) == 0:
+                        groups[i_group_index[0]].append(j)
+                        grouped_num += 1
+                    elif len(i_group_index) == 0 and len(j_group_index) == 1:
+                        groups[j_group_index[0]].append(i)
+                        grouped_num += 1
                 if grouped_num >= total_num:
                     between_group = True
             if between_group:
+                if groups_len == -1:
+                    groups_len = len(groups)
+
                 # start to group between groups
-                _ = []
-                for k in range(len(groups)):
+                # find link
+                link = []
+                for k in range(groups_len):
                     group = groups[k]
                     if i in group or j in group:
-                        _.append(k)
-                if len(_) == 2:
-                    value_1 = _[0]
-                    value_2 = _[1]
-                    if value_1 > value_2:
-                        value_1, value_2 = value_2, value_1
+                        link.append(k)
 
-                    # init base edge
-                    if len(between_groups) == 0:
-                        between_groups.append([(value_1, value_2), True])
-                        between_groups_in.append(value_1)
-                        between_groups_in.append(value_2)
+                # link between groups
+                if len(link) == 2:
+                    link_1 = link[0]
+                    link_2 = link[1]
+
+                    # check if the link is inside the between_groups_link
+                    flag = False
+                    in_num = 0
+                    link_1_index = -1
+                    link_2_index = -1
+                    for between_groups_link_index in range(len(between_groups_links)):
+                        between_groups_link = between_groups_links[between_groups_link_index]
+                        if link_1 in between_groups_link and link_2 in between_groups_link:
+                            flag = True
+                        elif link_1 in between_groups_link:
+                            in_num += 1
+                            link_1_index = between_groups_link_index
+                        elif link_2 in between_groups_link:
+                            in_num += 1
+                            link_2_index = between_groups_link_index
+                    if flag:
                         continue
 
-                    # two connected, skip
-                    if value_1 in between_groups_in and value_2 in between_groups_in:
-                        continue
-
-                    # not connected, add
-                    if value_1 not in between_groups_in and value_2 not in between_groups_in:
-                        connect_num_1 = 0
-                        for edge in between_groups:
-                            if value_1 in edge[0]:
-                                connect_num_1 += 1
-                        connect_num_2 = 0
-                        for edge in between_groups:
-                            if value_2 in edge[0]:
-                                connect_num_2 += 1
-
-                        if connect_num_1 + connect_num_2 <= 1:
-                            between_groups.append([(value_1, value_2), False])
-                            # if connect_num_1 == 1 and connect_num_2 == 0:
-                            #     between_groups_in.append(value_1)
-                            # elif connect_num_1 == 0 and connect_num_2 == 1:
-                            #     between_groups_in.append(value_2)
-                    else:
-                        # just one connected, check
-                        if value_2 in between_groups_in:
-                            value_1, value_2 = value_2, value_1
-
-                        if value_1 in between_groups_in:
-                            connect_num = 0
-                            for edge in between_groups:
-                                if value_1 in edge[0]:
-                                    connect_num += 1
-
-                            if connect_num <= 1:
-                                # add edges to the base edge
-                                flag = True
-                                search_node = value_2
-                                while flag:
-                                    flag = False
-                                    edge_index = 0
-                                    for edge_index in range(len(between_groups)):
-                                        if between_groups[edge_index][1]:
-                                            continue
-                                        edge = between_groups[edge_index][0]
-                                        if edge[0] == search_node:
-                                            search_node = edge[1]
-                                            between_groups_in.append(search_node)
-                                            between_groups[edge_index][1] = True
-                                            flag = True
-                                        elif edge[1] == search_node:
-                                            search_node = edge[0]
-                                            between_groups_in.append(search_node)
-                                            between_groups[edge_index][1] = True
-                                            flag = True
-                                between_groups.append([(value_1, value_2), True])
-                                between_groups_in.append(value_2)
-                if len(between_groups_in) >= len(groups):
-                    # start to adjust the sequence of groups
-                    # traverse all possible combinations
-                    final_out = None
-                    numbers = list(range(len(groups)))
-                    permutations = itertools.permutations(numbers)
-                    for permutation in list(permutations):
-                        quit_this = False
-                        for t in range(len(permutation) - 1):
-                            a = permutation[t]
-                            b = permutation[t + 1]
-                            find = False
-                            for _ in between_groups:
-                                edge = _[0]
-                                if a in edge and b in edge:
-                                    find = True
-                                    break
-                            if not find:
-                                quit_this = True
-                                break
-                        if quit_this:
-                            continue
+                    if in_num == 1:
+                        # link to exist between_groups_link
+                        if link_1_index != -1:
+                            between_groups_link = between_groups_links[link_1_index]
+                            if link_1 in between_groups_link:
+                                if link_1 == between_groups_link[0]:
+                                    between_groups_link.insert(0, link_2)
+                                    between_groups_link_num += 1
+                                elif link_1 == between_groups_link[-1]:
+                                    between_groups_link.append(link_2)
+                                    between_groups_link_num += 1
                         else:
-                            final_out = permutation
-                            break
-                    if final_out is not None:
-                        new_groups = []
-                        for i in final_out:
-                            new_groups.append(groups[i])
-                        new_indexes = []
-                        for group in new_groups:
-                            for index in group:
-                                new_indexes.append(index)
-                        new_indexes.append(self.data_x.shape[1] - 1)
+                            between_groups_link = between_groups_links[link_2_index]
+                            if link_2 in between_groups_link:
+                                if link_2 == between_groups_link[0]:
+                                    between_groups_link.insert(0, link_1)
+                                    between_groups_link_num += 1
+                                elif link_2 == between_groups_link[-1]:
+                                    between_groups_link.append(link_1)
+                                    between_groups_link_num += 1
+                    elif in_num == 2:
+                        # link two between_groups_link
+                        between_groups_link_1 = between_groups_links[link_1_index]
+                        between_groups_link_2 = between_groups_links[link_2_index]
+                        if link_1 == between_groups_link_1[0] and link_2 == between_groups_link_2[0]:
+                            for element in between_groups_link_2:
+                                between_groups_link_1.insert(0, element)
+                            between_groups_links.remove(between_groups_link_2)
+                        elif link_1 == between_groups_link_1[0] and link_2 == between_groups_link_2[-1]:
+                            between_groups_link_2.extend(between_groups_link_1)
+                            between_groups_links.remove(between_groups_link_1)
+                        elif link_1 == between_groups_link_1[-1] and link_2 == between_groups_link_2[0]:
+                            between_groups_link_1.extend(between_groups_link_2)
+                            between_groups_links.remove(between_groups_link_2)
+                        elif link_1 == between_groups_link_1[-1] and link_2 == between_groups_link_2[-1]:
+                            between_groups_link_2.reverse()
+                            for element in between_groups_link_2:
+                                between_groups_link_1.append(element)
+                            between_groups_links.remove(between_groups_link_2)
+                    elif in_num == 0:
+                        # add new between_groups_link
+                        between_groups_links.append([link_1, link_2])
+                        between_groups_link_num += 2
+
+                if between_groups_link_num >= groups_len and len(between_groups_links) == 1:
+                    # start to adjust the sequence of groups
+                    new_indexes = []
+                    for i in between_groups_links[0]:
+                        new_indexes.extend(groups[i])
+                    new_indexes.append(self.data_x.shape[1] - 1)
                     break
 
         # visual if needed
