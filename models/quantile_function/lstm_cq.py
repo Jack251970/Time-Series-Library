@@ -286,19 +286,14 @@ class Model(nn.Module):
 
             # use integral to calculate the mean
             if not sample:
-                # hidden and cell are initialized to zero
-                hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_size, device=device)
-                cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_size, device=device)
-
-                # condition range
-                test_batch = train_batch.clone()
-                for t in range(self.pred_start):
-                    hidden, cell = self.run_lstm(test_batch[t].unsqueeze(0), hidden, cell)
-
-                # prediction range
                 # sample
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
+                # initialize hidden and cell
+                hidden, cell = hidden_init, cell_init
+
+                # prediction range
+                test_batch = train_batch
                 for t in range(self.pred_steps):
                     hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.get_hidden_permute(hidden)
