@@ -542,10 +542,27 @@ class HyperOptimizer(object):
     def _build_config_dict(self, _args):
         config_dict = self.build_config_dict_ori(_args)
         config_dict['seed'] = self.seed
-        if self.get_tags is not None:
-            config_dict['model_id'] = config_dict['model_id'] + self.get_tags(_args, self.add_tags)
+        config_dict['model_id'] = config_dict['model_id'] + self._get_tags(_args, self.add_tags)
 
         return config_dict
+
+    def _get_tags(self, _args, _add_tags):
+        tags = []
+
+        if self.get_tags is not None:
+            tags = self.get_tags(_args)
+
+        for add_tag in _add_tags:
+            tags.append(add_tag)
+
+        if len(tags) == 0:
+            return ''
+        else:
+            tags_text = ''
+            for label in tags:
+                tags_text = tags_text + label + ', '
+            tags_text = tags_text[:-2]
+            return f'({tags_text})'
 
     def _init_header(self, file_path):
         # check the folder path

@@ -8,7 +8,7 @@ def check_jump_experiment(_parameter):
 
 
 # noinspection DuplicatedCode
-def get_model_id_tags(_args, _add_tags):
+def get_model_id_tags(_args):
     tags = []
     if _args.learning_rate == 0.001:
         tags.append('extra_large_lr')
@@ -18,18 +18,7 @@ def get_model_id_tags(_args, _add_tags):
         tags.append('medium_lr')
     elif _args.learning_rate == 0.00001:
         tags.append('small_lr')
-
-    for add_tag in _add_tags:
-        tags.append(add_tag)
-
-    if len(tags) == 0:
-        return ''
-    else:
-        tags_text = ''
-        for label in tags:
-            tags_text = tags_text + label + ', '
-        tags_text = tags_text[:-2]
-        return f'({tags_text})'
+    return tags
 
 
 # noinspection DuplicatedCode
