@@ -89,7 +89,7 @@ class Model(nn.Module):
                     bias.data[start:end].fill_(1.)
 
         # QSQM
-        self._lambda = -1e-6  # make sure all data is not on the left point
+        self._lambda = -1e-3  # make sure all data is not on the left point
         if self.algorithm_type == '2':
             self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
         elif self.algorithm_type == '1+2':
@@ -213,6 +213,7 @@ class Model(nn.Module):
             for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
                 if torch.isnan(hidden_permute).sum() > 0:
+                    loss_list.clear()
                     stop_flag = True
                     break
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]

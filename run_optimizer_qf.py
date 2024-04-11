@@ -3,31 +3,6 @@ from hyper_optimizer.optimizer import HyperOptimizer
 
 
 # noinspection DuplicatedCode
-def get_model_id_tags(_args, _add_tags):
-    tags = []
-    if _args.learning_rate == 0.001:
-        tags.append('extra_large_lr')
-    elif _args.learning_rate == 0.0001:
-        tags.append('large_lr')
-    elif _args.learning_rate == 0.00005:
-        tags.append('medium_lr')
-    elif _args.learning_rate == 0.00001:
-        tags.append('small_lr')
-
-    for add_tag in _add_tags:
-        tags.append(add_tag)
-
-    if len(tags) == 0:
-        return ''
-    else:
-        tags_text = ''
-        for label in tags:
-            tags_text = tags_text + label + ', '
-        tags_text = tags_text[:-2]
-        return f'({tags_text})'
-
-
-# noinspection DuplicatedCode
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
@@ -160,8 +135,7 @@ def get_search_space(_model):
 
 
 h = HyperOptimizer(False, ['LSTM-CQ', 'QSQF-C', 'RNN-SF'],
-                   prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
-                   get_model_id_tags=get_model_id_tags, check_jump_experiment=None)
+                   prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space)
 # 2024-04-02 12-15-46: standard and best
 # 2024-04-08 16-49-40, 2024-04-08 21-29-59, 2024-04-09 11-29-40: remove strange lines
 # 2024-04-09 20-20-21: 1+2 algorithm, 1e-4
