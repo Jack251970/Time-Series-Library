@@ -5,18 +5,24 @@ from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
 
 class Model(nn.Module):
-    def __init__(self, params, algorithm_type="1+2"):
+    def __init__(self, params, use_cnn=True, algorithm_type="1+2"):
         """
         LSTM-ED-CQ: Auto-Regressive LSTM based on encoder-decoder architecture with convolution and spline to provide
         probabilistic forecasting.
 
         params: parameters for the model.
+        use_cnn: whether to use cnn for feature extraction.
         algorithm_type: algorithm type, e.g. '1', '2', '1+2'
         """
         super(Model, self).__init__()
+        self.use_cnn = use_cnn
         self.algorithm_type = algorithm_type
         self.task_name = params.task_name
-        self.encoder_lstm_input_size = params.enc_in - 1
+        input_size = params.enc_in - 1
+        if use_cnn:
+            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
+            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
+        self.encoder_lstm_input_size = input_size
         self.decoder_lstm_input_size = params.enc_in + params.lag - 1  # TODO: Check params.enc_in + params.lag - 1!!
         self.lstm_hidden_size = params.lstm_hidden_size
         self.encoder_lstm_layers = params.lstm_layers
@@ -28,6 +34,9 @@ class Model(nn.Module):
         self.pred_steps = params.pred_len
         self.lag = params.lag
         self.train_window = self.pred_steps + self.pred_start
+
+        # CNN
+        self.cnn = ConvLayer(1) if self.use_cnn else None
 
         # LSTM
         self.lstm_encoder = nn.LSTM(input_size=self.encoder_lstm_input_size,
@@ -103,6 +112,9 @@ class Model(nn.Module):
 
     # noinspection DuplicatedCode
     def run_lstm_encoder(self, x, hidden, cell):
+        if self.use_cnn:
+            x = self.cnn(x)  # [96, 256, 5]
+
         _, (hidden, cell) = self.lstm_encoder(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell

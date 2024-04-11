@@ -59,7 +59,7 @@ class Model(nn.Module):
         self.train_window = self.pred_steps + self.pred_start
 
         # CNN
-        self.cnn = ConvLayer(1)
+        self.cnn = ConvLayer(1) if self.use_cnn else None
 
         # LSTM
         if self.use_qrnn:
