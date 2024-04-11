@@ -11,7 +11,7 @@ from tqdm import tqdm
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
 from utils.pf_utils import init_metrics, update_metrics, final_metrics
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
+from utils.tools import EarlyStopping, adjust_learning_rate
 
 warnings.filterwarnings('ignore')
 
@@ -175,16 +175,16 @@ class Exp_Probability_Forecast(Exp_Basic):
             vali_losses.append(vali_loss)
             test_losses.append(test_loss)
 
+            if stop_flag:
+                self.print_content("Raise error and stop")
+                break
+
             _ = early_stopping(vali_loss, self.model, path)
             if _ is not None:
                 self.print_content(_)
 
             if early_stopping.early_stop:
                 self.print_content("Early stopping")
-                break
-
-            if stop_flag:
-                self.print_content("Raise error and stop")
                 break
 
             if adjust_lr:
@@ -203,7 +203,8 @@ class Exp_Probability_Forecast(Exp_Basic):
         self.print_content("", True)
 
         best_model_path = path + '/' + self.checkpoints_file_path
-        self.model.load_state_dict(torch.load(best_model_path))
+        if os.path.exists(best_model_path):
+            self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
 
@@ -382,15 +383,6 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 preds.append(pred)
                 trues.append(true)
-
-                # if i % 20 == 0:
-                #     _input = batch_x.detach().cpu().numpy()
-                #     if test_data.scale and self.args.inverse:
-                #         shape = _input.shape
-                #         _input = test_data.inverse_transform(_input.squeeze(0)).reshape(shape)
-                #     gt = np.concatenate((_input[0, :, -1], true[0, :, -1]), axis=0)
-                #     pd = np.concatenate((_input[0, :, -1], pred[0, :, -1]), axis=0)
-                #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
 
             summary = final_metrics(metrics)
 

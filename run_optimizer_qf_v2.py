@@ -93,21 +93,22 @@ def get_search_space(_model):
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+        'reindex': {'_type': 'single', '_value': 1},
+        # 'reindex': {'_type': 'choice', '_value': [0, 1]},
+
         'learning_rate': {'_type': 'single', '_value': 0.001},
         # 'train_epochs': {'_type': 'single', '_value': 20},
         'train_epochs': {'_type': 'single', '_value': 50},
         # 'train_epochs': {'_type': 'choice', '_value': [20, 50]},
 
-        'lstm_hidden_size': {'_type': 'single', '_value': 512},
-        'lstm_layers': {'_type': 'single', '_value': 1},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 512},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [80, 120, 160]},
+        # 'lstm_layers': {'_type': 'single', '_value': 1},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
-
-        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
-
-        'reindex': {'_type': 'single', '_value': 1},
-        # 'reindex': {'_type': 'choice', '_value': [0, 1]},
     }
 
     model_configs = {
