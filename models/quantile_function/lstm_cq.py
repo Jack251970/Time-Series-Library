@@ -48,8 +48,8 @@ class Model(nn.Module):
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
         self.lstm_input_size = input_size
-        self.lstm_hidden_dim = 40
-        self.lstm_layers = 2
+        self.lstm_hidden_size = params.lstm_hidden_size
+        self.lstm_layers = params.lstm_layers
         self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline
@@ -65,13 +65,13 @@ class Model(nn.Module):
         if self.use_qrnn:
             from layers.pytorch_qrnn.torchqrnn import QRNN
             self.lstm = QRNN(input_size=self.lstm_input_size,
-                             hidden_size=self.lstm_hidden_dim,
+                             hidden_size=self.lstm_hidden_size,
                              num_layers=self.lstm_layers,
                              dropout=self.lstm_dropout,
                              use_cuda=params.use_gpu)
         else:
             self.lstm = nn.LSTM(input_size=self.lstm_input_size,
-                                hidden_size=self.lstm_hidden_dim,
+                                hidden_size=self.lstm_hidden_size,
                                 num_layers=self.lstm_layers,
                                 bias=True,
                                 batch_first=False,
@@ -91,14 +91,14 @@ class Model(nn.Module):
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
         if self.algorithm_type == '2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, 1)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.lstm_layers, 1)
         elif self.algorithm_type == '1+2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.lstm_layers, self.num_spline)
         elif self.algorithm_type == '1':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.lstm_layers, self.num_spline)
         else:
             raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-        self.linear_eta_k = nn.Linear(self.lstm_hidden_dim * self.lstm_layers, self.num_spline)
+        self.linear_eta_k = nn.Linear(self.lstm_hidden_size * self.lstm_layers, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
         device = torch.device("cuda" if params.use_gpu else "cpu")
         if window_type == 'uniform':
@@ -191,12 +191,12 @@ class Model(nn.Module):
             labels_batch = labels_batch.permute(1, 0)  # [112, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)  # [2, 256, 40]
+        hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         if labels_batch is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(batch_size, self.train_window, self.lstm_hidden_dim * self.lstm_layers,
+            hidden_permutes = torch.zeros(batch_size, self.train_window, self.lstm_hidden_size * self.lstm_layers,
                                           device=device)
             for t in range(self.train_window):
                 hidden, cell = self.run_lstm(train_batch[t].unsqueeze_(0).clone(), hidden, cell)
@@ -287,8 +287,8 @@ class Model(nn.Module):
             # use integral to calculate the mean
             if not sample:
                 # hidden and cell are initialized to zero
-                hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)
-                cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_dim, device=device)
+                hidden = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+                cell = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden_size, device=device)
 
                 # condition range
                 test_batch = train_batch.clone()

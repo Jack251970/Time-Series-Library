@@ -79,7 +79,7 @@ class Exp_Basic(object):
         return device
 
     def _get_data(self, flag):
-        data_set, data_loader, info, new_index = data_provider(self.args, flag, self.args.reindex, self.new_index)
+        data_set, data_loader, info, new_index = data_provider(self.args, flag, self.new_index)
         if new_index is not None and self.new_index is None:
             self.new_index = new_index
             try:

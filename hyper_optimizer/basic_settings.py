@@ -41,6 +41,7 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--scaler', type=str, default='StandardScaler', help='feature scaling method')
     parser.add_argument('--reindex', type=int, default=0, help='reindex feature dimensions data, 1: enable 0: disable')
+    parser.add_argument('--reindex_tolerance', type=float, default=0.9, help='reindex tolerance for feature dimensions data')
 
     # forecasting task
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
@@ -104,7 +105,11 @@ def parse_launch_parameters(_script_mode):
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
-    # QSQF
+    # lstm params
+    parser.add_argument('--lstm_hidden_size', type=int, default=512, help='hidden size of lstm')
+    parser.add_argument('--lstm_layers', type=int, default=1, help='number of lstm layers')
+
+    # spline functions params
     parser.add_argument('--num_spline', type=int, default=20, help='number of spline')
     parser.add_argument('--sample_times', type=int, default=99, help='sample times')
 
@@ -131,6 +136,7 @@ def build_config_dict(_args):
         'checkpoints': _args.checkpoints,
         'scaler': _args.scaler,
         'reindex': _args.reindex,
+        'reindex_tolerance': _args.reindex_tolerance,
 
         # forecasting task
         'seq_len': _args.seq_len,
@@ -187,7 +193,11 @@ def build_config_dict(_args):
         'p_hidden_dims': _args.p_hidden_dims,
         'p_hidden_layers': _args.p_hidden_layers,
 
-        # QSQF
+        # LSTM params
+        'lstm_hidden_size': _args.lstm_hidden_size,
+        'lstm_layers': _args.lstm_layers,
+
+        # spline functions params
         'num_spline': _args.num_spline,
         'sample_times': _args.sample_times
     }
@@ -212,6 +222,7 @@ def set_args(_args, _config):
     _args.checkpoints = _config['checkpoints']
     _args.scaler = _config['scaler']
     _args.reindex = _config['reindex']
+    _args.reindex_tolerance = _config['reindex_tolerance']
 
     # forecasting task
     _args.seq_len = _config['seq_len']
@@ -268,7 +279,11 @@ def set_args(_args, _config):
     _args.p_hidden_dims = _config['p_hidden_dims']
     _args.p_hidden_layers = _config['p_hidden_layers']
 
-    # QSQF
+    # LSTM params
+    _args.lstm_hidden_size = _config['lstm_hidden_size']
+    _args.lstm_layers = _config['lstm_layers']
+
+    # spline functions params
     _args.num_spline = _config['num_spline']
     _args.sample_times = _config['sample_times']
 
@@ -326,6 +341,8 @@ def prepare_config(_params, _script_mode=False):
             _args.scaler = _params['scaler']
         if 'reindex' in _params:
             _args.reindex = _params['reindex']
+        if 'reindex_tolerance' in _params:
+            _args.reindex_tolerance = _params['reindex_tolerance']
 
         # forecasting task
         if 'seq_len' in _params:
@@ -423,7 +440,13 @@ def prepare_config(_params, _script_mode=False):
         if 'p_hidden_layers' in _params:
             _args.p_hidden_layers = _params['p_hidden_layers']
 
-        # QSQF
+        # LSTM params
+        if 'lstm_hidden_size' in _params:
+            _args.lstm_hidden_size = _params['lstm_hidden_size']
+        if 'lstm_layers' in _params:
+            _args.lstm_layers = _params['lstm_layers']
+
+        # spline functions params
         if 'num_spline' in _params:
             _args.num_spline = _params['num_spline']
         if 'sample_times' in _params:
@@ -498,13 +521,14 @@ def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed',
                       'task_name', 'is_training', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
-                      'checkpoints', 'scaler', 'reindex', 'seq_len', 'label_len', 'pred_len', 'seasonal_patterns',
-                      'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out',
-                      'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg', 'series_decomp_mode',
-                      'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention', 'channel_independence',
-                      'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj',
-                      'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time', 'p_hidden_dims',
-                      'p_hidden_layers', 'num_spline', 'sample_times']
+                      'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'seq_len', 'label_len', 'pred_len',
+                      'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in',
+                      'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
+                      'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention',
+                      'channel_independence', 'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate',
+                      'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time',
+                      'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers', 'num_spline',
+                      'sample_times']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',

@@ -19,7 +19,7 @@ data_dict = {
 }
 
 
-def data_provider(args, flag, reindex, new_indexes=None):
+def data_provider(args, flag, new_indexes=None):
     # get data class
     Data = data_dict[args.data]
 
@@ -49,16 +49,16 @@ def data_provider(args, flag, reindex, new_indexes=None):
             flag=flag,
         )
         # reindex if needed
-        if reindex:
+        if args.reindex:
             if new_indexes is None:
                 if flag == 'train':
-                    new_indexes = data_set.get_new_indexes()
+                    new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                 else:
                     new_indexes = Data(
                         root_path=args.root_path,
                         win_size=args.seq_len,
                         flag='train',
-                    ).get_new_indexes()
+                    ).get_new_indexes(tolerance=args.reindex_tolerance)
             data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
@@ -74,15 +74,15 @@ def data_provider(args, flag, reindex, new_indexes=None):
             flag=flag,
         )
         # reindex if needed
-        if reindex:
+        if args.reindex:
             if new_indexes is None:
                 if flag == 'train':
-                    new_indexes = data_set.get_new_indexes()
+                    new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                 else:
                     new_indexes = Data(
                         root_path=args.root_path,
                         flag='train',
-                    ).get_new_indexes()
+                    ).get_new_indexes(tolerance=args.reindex_tolerance)
             data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
@@ -111,10 +111,10 @@ def data_provider(args, flag, reindex, new_indexes=None):
             seasonal_patterns=args.seasonal_patterns
         )
         # reindex if needed
-        if reindex:
+        if args.reindex:
             if new_indexes is None:
                 if flag == 'train':
-                    new_indexes = data_set.get_new_indexes()
+                    new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                 else:
                     new_indexes = Data(
                         root_path=args.root_path,
@@ -129,7 +129,7 @@ def data_provider(args, flag, reindex, new_indexes=None):
                         freq=freq,
                         lag=args.lag,
                         seasonal_patterns=args.seasonal_patterns
-                    ).get_new_indexes()
+                    ).get_new_indexes(tolerance=args.reindex_tolerance)
             data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,

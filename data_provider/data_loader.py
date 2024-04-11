@@ -400,7 +400,7 @@ class Dataset_Custom(Dataset):
 
         plt.show()
 
-    def get_new_indexes(self, visual=False, tolerance=0.80):
+    def get_new_indexes(self, tolerance, visual=False):
         # get data except the last column
         data = self.data_x[:, :-1]
 
@@ -565,8 +565,14 @@ class Dataset_Custom(Dataset):
             data = data[:, :-1]
             corr_data = pd.DataFrame(data)
             corr = corr_data.corr()
-            self._visual(corr, 'corr2')
-
+            self._visual(corr, 'corr2(1)')
+            new_indexes.reverse()
+            data = self.data_x[:, new_indexes]
+            data = data[:, :-1]
+            corr_data = pd.DataFrame(data)
+            corr = corr_data.corr()
+            self._visual(corr, 'corr2(2)')
+            new_indexes.reverse()
         return new_indexes
 
     def set_new_indexes(self, new_indexes):
