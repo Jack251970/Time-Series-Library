@@ -6,7 +6,7 @@ from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
                     Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
                     FreTS)
-from models.spline_function import qsqf_c, rnn_sf, lstm_cq
+from models.quantile_function import qsqf_c, rnn_sf, lstm_cq
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 

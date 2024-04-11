@@ -3,10 +3,10 @@ import os
 import numpy as np
 
 from data_provider.data_loader import Dataset_Custom
-from run_optimizer import h
+from run_optimizer_transformer import h
 from utils.metrics import metric
 
-root_path = 'results/power_96_96_Autoformer_custom_ftM_sl96_ll96_pl96_dm512_nh12_el1_dl1_df2048_fc2_ebtimeF_dtTrue_Exp_0'
+settings = 'power_96_96_Autoformer_custom_ftM_sl96_ll96_pl96_dm512_nh12_el1_dl1_df2048_fc2_ebtimeF_dtTrue_Exp_0'
 
 files = ['metrics.npy', 'pred.npy', 'true.npy']
 
@@ -14,13 +14,15 @@ pred_data = None
 true_data = None
 
 for file in files:
-    path = os.path.join(root_path, file)
+    root = './../results/'
+
+    path = os.path.join(root, settings, file)
     data = np.load(path)
     if file == 'pred.npy':
         pred_data = data
     elif file == 'true.npy':
         true_data = data
-    # print(data.shape)
+    print(data.shape)
 
 
 def output_metrix(preds, trues):

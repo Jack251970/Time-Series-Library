@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.spline_function.lstm_cq import sample_qsqm
+from models.quantile_function.lstm_cq import sample_qsqm
 
 
 class Model(nn.Module):
