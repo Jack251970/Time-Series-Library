@@ -82,13 +82,14 @@ class Exp_Basic(object):
                     self.print_content('Use CPU')
         return device
 
-    def _get_data(self, flag):
+    def _get_data(self, flag, _try_model):
         data_set, data_loader, info, new_index = data_provider(self.args, flag, self.new_index)
         if new_index is not None and self.new_index is None:
             self.new_index = new_index
             try:
                 self.model.new_index = new_index
-                self.print_content('New index has been set for the model: {}'.format(new_index))
+                if not _try_model:
+                    self.print_content('New index has been set for the model: {}'.format(new_index))
             except:
                 pass
         if not self.try_model:

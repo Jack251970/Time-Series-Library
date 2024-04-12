@@ -37,9 +37,9 @@ class Exp_Probability_Forecast(Exp_Basic):
         if only_init:
             return
 
-        train_data, train_loader = self._get_data(flag='train')
-        vali_data, vali_loader = self._get_data(flag='val')
-        test_data, test_loader = self._get_data(flag='test')
+        train_data, train_loader = self._get_data(flag='train', _try_model=self.try_model)
+        vali_data, vali_loader = self._get_data(flag='val', _try_model=self.try_model)
+        test_data, test_loader = self._get_data(flag='test', _try_model=self.try_model)
 
         time_now = time.time()
 
@@ -276,7 +276,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         return total_loss
 
     def test(self, setting, test=False, check_folder=False):
-        test_data, test_loader = self._get_data(flag='test')
+        test_data, test_loader = self._get_data(flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)

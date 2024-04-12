@@ -18,16 +18,7 @@ class Model(nn.Module):
         self.use_cnn = use_cnn
         self.algorithm_type = algorithm_type
         self.task_name = params.task_name
-        input_size = params.enc_in + params.lag - 1  # TODO: Check params.enc_in + params.lag - 1!!
-        if use_cnn:
-            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
-            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
-        self.enc_lstm_input_size = input_size
-        input_size = params.enc_in + params.lag - 1  # TODO: Check params.lag - 1!!
-        if use_cnn:
-            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
-            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
-        self.dec_lstm_input_size = input_size
+
         self.lstm_hidden_size = params.lstm_hidden_size
         self.enc_lstm_layers = params.lstm_layers
         self.dec_lstm_layers = 1  # TODO: Check self.enc_lstm_layers!!
@@ -38,6 +29,22 @@ class Model(nn.Module):
         self.pred_steps = params.pred_len
         self.lag = params.lag
         self.train_window = self.pred_steps + self.pred_start
+
+        custom_params = params.custom_params
+        assert isinstance(custom_params, str)
+        self.enc_feature = custom_params[0]
+        self.dec_feature = custom_params[1]
+        self.enc_in = params.enc_in
+        input_size = self.get_input_size(self.enc_feature, True)
+        if use_cnn:
+            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
+            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
+        self.enc_lstm_input_size = input_size
+        input_size = self.get_input_size(self.dec_feature, False)
+        if use_cnn:
+            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
+            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
+        self.dec_lstm_input_size = input_size
 
         # CNN
         if self.use_cnn:
@@ -81,7 +88,17 @@ class Model(nn.Module):
         # Reindex
         self.new_index = [0]
         self.lag_index = None
-        self.index_except_lag = None
+        self.cov_index = None
+
+    def get_input_size(self, feature, enc):
+        if feature == 'A':
+            return self.enc_in + self.lag if enc else self.enc_in + self.lag - 1
+        elif feature == 'C':
+            return self.enc_in - 1
+        elif feature == 'L':
+            return self.lag
+        else:
+            raise ValueError("feature must be 'A', 'C', or 'L'")
 
     @staticmethod
     def init_lstm(lstm):
@@ -96,15 +113,33 @@ class Model(nn.Module):
                 bias.data[start:end].fill_(1.)
 
     # noinspection DuplicatedCode
-    def get_enc_dec_data(self, x_enc, y_enc):
+    def get_input_data(self, x_enc, y_enc):
         if self.lag_index is None:
             self.lag_index = []
             for i in range(self.lag):
                 self.lag_index.append(self.new_index[i])
-            self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
+            self.cov_index = [i for i in self.new_index if i not in self.lag_index or i != self.new_index[-1]]
+
         batch = torch.cat((x_enc, y_enc), dim=1)
-        enc_in = batch[:, :self.pred_start, :-1]
-        dec_in = batch[:, self.pred_start:, :-1]
+
+        if self.enc_feature == 'A':
+            enc_in = batch[:, :self.pred_start, :]
+        elif self.enc_feature == 'C':
+            enc_in = batch[:, :self.pred_start, self.cov_index]
+        elif self.enc_feature == 'L':
+            enc_in = batch[:, :self.pred_start, self.lag_index]
+        else:
+            raise ValueError("enc_feature must be 'A', 'C', or 'L'")
+
+        if self.dec_feature == 'A':
+            dec_in = batch[:, self.pred_start:, :-1]
+        elif self.dec_feature == 'C':
+            dec_in = batch[:, self.pred_start:, self.cov_index]
+        elif self.dec_feature == 'L':
+            dec_in = batch[:, self.pred_start:, self.lag_index]
+        else:
+            raise ValueError("dec_feature must be 'A', 'C', or 'L'")
+
         labels = batch[:, self.pred_start:, -1]
 
         return enc_in, dec_in, labels
@@ -113,14 +148,14 @@ class Model(nn.Module):
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            enc_in, dec_in, labels = self.get_enc_dec_data(x_enc, y_enc)
+            enc_in, dec_in, labels = self.get_input_data(x_enc, y_enc)
             return self.probability_forecast(enc_in, dec_in, labels)  # return loss list
         return None
 
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
-            enc_in, dec_in, _ = self.get_enc_dec_data(x_enc, y_enc)
+            enc_in, dec_in, _ = self.get_input_data(x_enc, y_enc)
             return self.probability_forecast(enc_in, dec_in, probability_range=probability_range)
         return None
 
@@ -138,7 +173,7 @@ class Model(nn.Module):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
-        _, (hidden, cell) = self.lstm_enc(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+        _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell
 

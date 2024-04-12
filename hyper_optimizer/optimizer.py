@@ -476,7 +476,7 @@ class HyperOptimizer(object):
         _run_time = time.strftime(_format, _time)
 
         # build the setting of the experiment
-        _setting = self.build_setting(_args, _time, _format, self.custom_test_time)
+        _setting = self.build_setting(_args, _time, _format, self.custom_test_time, _try_model)
 
         # get the experiment type
         self._init_experiment(_args.task_name)

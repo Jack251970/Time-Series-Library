@@ -44,8 +44,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         if only_init:
             return
 
-        train_data, train_loader = self._get_data(flag='train')
-        vali_data, vali_loader = self._get_data(flag='val')
+        train_data, train_loader = self._get_data(flag='train', _try_model=self.try_model)
+        vali_data, vali_loader = self._get_data(flag='val', _try_model=self.try_model)
 
         time_now = time.time()
 
@@ -182,8 +182,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         return loss
 
     def test(self, setting, test=False, check_folder=False):
-        _, train_loader = self._get_data(flag='train')
-        _, test_loader = self._get_data(flag='test')
+        _, train_loader = self._get_data(flag='train', _try_model=self.try_model)
+        _, test_loader = self._get_data(flag='test', _try_model=self.try_model)
         x, _ = train_loader.dataset.last_insample_window()
         y = test_loader.dataset.timeseries
         x = torch.tensor(x, dtype=torch.float32).to(self.device)

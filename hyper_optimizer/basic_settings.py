@@ -482,7 +482,7 @@ def prepare_config(_params, _script_mode=False):
 
 
 # noinspection DuplicatedCode
-def build_setting(_args, _time, _format, _custom_time):
+def build_setting(_args, _time, _format, _custom_time, _try_model):
     prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
         _args.task_name,
         _args.model_id,
@@ -517,17 +517,21 @@ def build_setting(_args, _time, _format, _custom_time):
                 if latest_time is None or checkpoint_time > latest_time:
                     latest_time = checkpoint_time
                 if latest_time.strftime(_format) == _custom_time:
-                    print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                    if not _try_model:
+                        print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
                     return '{}_{}'.format(prefix, latest_time.strftime(_format))
 
         if latest_time is not None:
-            print(f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
+            if not _try_model:
+                print(f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
             return '{}_{}'.format(prefix, latest_time.strftime(_format))
 
-        print(f'Generate a new model to test in the time: {time.strftime(_format, _time)}!')
+        if not _try_model:
+            print(f'Generate a new model to test in the time: {time.strftime(_format, _time)}!')
         return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
-    print(f'Generate a new model to train in the time: {time.strftime(_format, _time)}!')
+    if not _try_model:
+        print(f'Generate a new model to train in the time: {time.strftime(_format, _time)}!')
     return '{}_{}'.format(prefix, time.strftime(_format, _time))
 
 
