@@ -2,9 +2,15 @@ from hyper_optimizer.basic_settings import prepare_config, build_setting, build_
 from hyper_optimizer.optimizer import HyperOptimizer
 
 
-# noinspection DuplicatedCode
-def check_jump_experiment(_parameter):
-    return False
+def link_fieldnames_data(_config):
+    _data_path = _config['data_path']
+    if _data_path == 'electricity/electricity.csv':
+        _config['reindex_tolerance'] = 0.80
+        _config['enc_in'] = 321
+        _config['dec_in'] = 321
+        _config['c_out'] = 321
+
+    return _config
 
 
 # noinspection DuplicatedCode
@@ -25,10 +31,6 @@ def get_search_space(_model):
     dataset_config = {
         # electricity dataset
         'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        'reindex_tolerance': {'_type': 'single', '_value': 0.80},
-        'enc_in': {'_type': 'single', '_value': 321},
-        'dec_in': {'_type': 'single', '_value': 321},
-        'c_out': {'_type': 'single', '_value': 321},
     }
 
     learning_config = {
@@ -154,7 +156,8 @@ def get_search_space(_model):
 
 
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
-                   prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space)
+                   prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
+                   link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=True, force_exp=False, add_tags=[])
 
 

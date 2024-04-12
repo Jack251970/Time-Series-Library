@@ -19,16 +19,16 @@ from utils.print_args import print_args
 
 class HyperOptimizer(object):
     def __init__(self, script_mode, models, prepare_config, build_setting, build_config_dict, set_args, get_fieldnames,
-                 get_search_space, get_model_id_tags=None, check_jump_experiment=None):
+                 get_search_space, get_model_id_tags=None, check_jump_experiment=None, link_fieldnames_data=None):
         # core settings
         self.script_mode = script_mode  # script mode
 
         # core functions
-        self.prepare_config = prepare_config  # function to prepare config
-        self.build_setting = build_setting  # function to build setting, which is the unique identifier of the model
-        self.build_config_dict_ori = build_config_dict  # function to build config dict - the data to be stored in files
-        self.set_args = set_args  # function to set args
-        self.get_tags = get_model_id_tags  # function to get tags
+        self.prepare_config = prepare_config  # prepare config
+        self.build_setting = build_setting  # build setting, which is the unique identifier of the model
+        self.build_config_dict_ori = build_config_dict  # build config dict - the data to be stored in files
+        self.set_args = set_args  # set args
+        self.get_tags = get_model_id_tags  # get tags
 
         # all mode settings
         self.seed = 2021  # random seed
@@ -63,6 +63,7 @@ class HyperOptimizer(object):
 
             # non script mode functions
             self.check_jump_experiment = check_jump_experiment  # check if we need to jump the experiment
+            self.link_fieldnames_data = link_fieldnames_data  # link data of fieldnames with other fieldnames
 
     def _check_required_fieldnames(self, fieldnames):
         for model in self.models:
@@ -307,6 +308,13 @@ class HyperOptimizer(object):
             # create a dict to store the configuration values
             config = self._build_config_dict(args)
 
+            # link data of fieldnames with other fieldnames
+            if self.link_fieldnames_data is not None:
+                config = self.link_fieldnames_data(config)
+
+            # set args for later
+            args = self.set_args(args, config)
+
             # start experiment
             eva_config, run_time, setting = self._start_experiment(args, parameter, config, False,
                                                                    (_process_index == 0 and _time == 1))
@@ -418,7 +426,11 @@ class HyperOptimizer(object):
             # create a dict to store the configuration values
             config = self._build_config_dict(args)
 
-            # set args and will print args later
+            # link data of fieldnames with other fieldnames
+            if self.link_fieldnames_data is not None:
+                config = self.link_fieldnames_data(config)
+
+            # set args for later
             args = self.set_args(args, config)
 
             # check if the parameters of this experiment need to be jumped

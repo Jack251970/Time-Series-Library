@@ -116,7 +116,7 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--sample_times', type=int, default=99, help='sample times')
 
     # custom params
-    parser.add_argument('--custom_params', type=str, default='', help='custom parameters')
+    parser.add_argument('--custom_params', type=str, default=None, help='custom parameters')
 
     return parser.parse_args()
 
