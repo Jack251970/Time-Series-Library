@@ -252,21 +252,28 @@ class Model(nn.Module):
         cell = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         # run encoder
-        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
-        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+                                 device=device)  # [96, 1, 256, 40]
+        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+                               device=device)  # [96, 1, 256, 40]
         for t in range(self.pred_start):
             hidden, cell = self.run_lstm_enc(x_enc[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
             enc_hidden[t] = hidden
             enc_cell[t] = cell
 
         # only select the last hidden state
-        hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
-        cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+        dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+        dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
 
         if labels is not None:
             # train mode or validate mode
             hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_size * self.dec_lstm_layers,
                                           device=device)
+
+            # initialize hidden and cell
+            hidden, cell = dec_hidden.clone(), dec_cell.clone()
+
+            # decoder
             for t in range(self.pred_steps):
                 hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell)
                 hidden_permute = self.get_hidden_permute(hidden)
@@ -305,15 +312,12 @@ class Model(nn.Module):
             samples_high = samples_low.clone()  # [3, 256, 16]
             samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
 
-            hidden_init = hidden.clone()
-            cell_init = cell.clone()
-
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
                 x_dec_clone = x_dec.clone()  # [16, 256, 7]
 
                 # initialize hidden and cell
-                hidden, cell = hidden_init.clone(), cell_init.clone()
+                hidden, cell = dec_hidden.clone(), dec_cell.clone()
 
                 # decoder
                 for t in range(self.pred_steps):
@@ -356,7 +360,7 @@ class Model(nn.Module):
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
                 # initialize hidden and cell
-                hidden, cell = hidden_init, cell_init
+                hidden, cell = dec_hidden.clone(), dec_cell.clone()
 
                 # decoder
                 for t in range(self.pred_steps):
