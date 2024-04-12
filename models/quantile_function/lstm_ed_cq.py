@@ -29,14 +29,14 @@ class Model(nn.Module):
         self.train_window = self.pred_steps + self.pred_start
 
         custom_params = params.custom_params
-        assert isinstance(custom_params, str)
-        if custom_params.startswith('cnn'):
+        custom_params = custom_params.split('_')
+        if custom_params[0] == 'cnn':
+            custom_params = custom_params.pop(0)
             self.use_cnn = True
-            custom_params = custom_params[3:]
         else:
             self.use_cnn = False
-        self.enc_feature = custom_params[0]
-        self.dec_feature = custom_params[1]
+        self.enc_feature = custom_params[0][0]
+        self.dec_feature = custom_params[0][1]
         self.enc_in = params.enc_in
         input_size = self.get_input_size(self.enc_feature, True)
         if self.use_cnn:
@@ -94,14 +94,26 @@ class Model(nn.Module):
         self.cov_index = None
 
     def get_input_size(self, feature, enc):
-        if feature == 'A':
-            return self.enc_in + self.lag if enc else self.enc_in + self.lag - 1
-        elif feature == 'C':
-            return self.enc_in - 1
-        elif feature == 'L':
-            return self.lag
+        if enc:
+            if feature == 'A':
+                return self.enc_in + self.lag
+            elif feature == 'C':
+                return self.enc_in - 1
+            elif feature == 'L':
+                return self.lag
+            elif feature == 'H':
+                return self.lag + 1
+            else:
+                raise ValueError("enc_feature must be 'A', 'C', 'L', or 'H'")
         else:
-            raise ValueError("feature must be 'A', 'C', or 'L'")
+            if feature == 'A':
+                return self.enc_in + self.lag - 1
+            elif feature == 'C':
+                return self.enc_in - 1
+            elif feature == 'L':
+                return self.lag
+            else:
+                raise ValueError("dec_feature must be 'A', 'C', or 'L'")
 
     @staticmethod
     def init_lstm(lstm):
@@ -141,6 +153,10 @@ class Model(nn.Module):
             enc_in = batch[:, :self.pred_start, self.cov_index]
         elif self.enc_feature == 'L':
             enc_in = batch[:, :self.pred_start, self.lag_index]
+        elif self.enc_feature == 'H':
+            _index = self.lag_index.copy()
+            _index.append(-1)
+            enc_in = batch[:, :self.pred_start, _index]
         else:
             raise ValueError("enc_feature must be 'A', 'C', or 'L'")
 

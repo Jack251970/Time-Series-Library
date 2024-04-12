@@ -131,7 +131,9 @@ def get_search_space(_model):
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'custom_params': {'_type': 'choice', '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL']},
+        # 1. Feature Test
+        'custom_params': {'_type': 'choice', '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']},
+        # 'custom_params': {'_type': 'choice', '_value': ['LA', 'AA']},
     }
 
     model_configs = {
