@@ -135,7 +135,9 @@ def get_search_space(_model):
         # 'custom_params': {'_type': 'choice',
         #                   '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']},
         # 'custom_params': {'_type': 'choice', '_value': ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']},
-        'custom_params': {'_type': 'choice', '_value': ['AA', 'LA']},
+        # 'custom_params': {'_type': 'choice', '_value': ['AA', 'LA']},
+
+        # 2. Attention Test
     }
 
     model_configs = {

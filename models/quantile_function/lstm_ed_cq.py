@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
 
@@ -28,31 +29,45 @@ class Model(nn.Module):
         self.lag = params.lag
         self.train_window = self.pred_steps + self.pred_start
 
+        # phase custom_params
         custom_params = params.custom_params
         custom_params = custom_params.split('_')
-        if custom_params[0] == 'cnn':
-            custom_params = custom_params.pop(0)
+        if len(custom_params) > 0 and custom_params[0] == 'cnn':
+            custom_params.pop(0)
             self.use_cnn = True
         else:
             self.use_cnn = False
-        self.enc_feature = custom_params[0][0]
-        self.dec_feature = custom_params[0][1]
-        self.enc_in = params.enc_in
-        input_size = self.get_input_size(self.enc_feature, True)
-        if self.use_cnn:
-            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
-            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
-        self.enc_lstm_input_size = input_size
-        input_size = self.get_input_size(self.dec_feature, False)
-        if self.use_cnn:
-            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
-            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
-        self.dec_lstm_input_size = input_size
-        custom_params.pop(0)
+        if len(custom_params) > 0 and all([len(custom_params[0]) == 2, all([i in 'ACLH' for i in custom_params[0]])]):
+            features = custom_params.pop(0)
+            self.enc_feature = features[0]
+            self.dec_feature = features[1]
+            self.enc_in = params.enc_in
+            input_size = self.get_input_size(self.enc_feature, True)
+            if self.use_cnn:
+                input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
+                input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
+            self.enc_lstm_input_size = input_size
+            input_size = self.get_input_size(self.dec_feature, False)
+            if self.use_cnn:
+                input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
+                input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
+            self.dec_lstm_input_size = input_size
         if len(custom_params) > 0 and custom_params[0] == 'attn':
-            self.attn = True
+            custom_params.pop(0)
+            self.use_attn = True
+            self.n_heads = params.n_heads
         else:
-            self.attn = False
+            self.use_attn = False
+        if len(custom_params) > 0 and custom_params[0] == 'dhz':
+            custom_params.pop(0)
+            self.dec_hidden_zero = True
+        else:
+            self.dec_hidden_zero = False
+        if len(custom_params) > 0 and custom_params[0] == 'dhs':
+            custom_params.pop(0)
+            self.dec_hidden_separate = True
+        else:
+            self.dec_hidden_separate = False
 
         # CNN
         if self.use_cnn:
@@ -76,6 +91,9 @@ class Model(nn.Module):
                                     dropout=self.lstm_dropout)
         self.init_lstm(self.lstm_enc)
         self.init_lstm(self.lstm_dec)
+
+        # Attention
+        self.attn = FullAttention(mask_flag=False, output_attention=True)
 
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
@@ -203,13 +221,25 @@ class Model(nn.Module):
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_dec(self, x, hidden, cell):
+    def run_lstm_dec(self, x, hidden, cell, enc_hidden_attn, enc_cell_attn):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
-        return hidden, cell
+        if self.use_attn:
+            B = -1
+            L = self.pred_start
+            H = self.n_heads
+            E = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+            hidden_attn = hidden.clone().view(B, L, H, E)
+            y, attn = self.attn(hidden_attn, enc_hidden_attn, enc_cell_attn, None)
+            if self.dec_hidden_separate:
+                return y, hidden, cell
+            else:
+                return y, y, cell
+        else:
+            return hidden, hidden, cell
 
     @staticmethod
     def get_hidden_permute(hidden):
@@ -262,8 +292,26 @@ class Model(nn.Module):
             enc_cell[t] = cell
 
         # only select the last hidden state
-        dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
-        dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+        if self.use_attn:
+            B = batch_size
+            L = self.pred_start
+            H = self.n_heads
+            E = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+            enc_hidden_attn = enc_hidden.view(B, L, H, E)  # [256, 96, 8, 5]
+            enc_cell_attn = enc_cell.view(B, L, H, E)  # [256, 96, 8, 5]
+
+            if self.dec_hidden_zero:
+                dec_hidden = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+                dec_cell = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+            else:
+                dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+                dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+        else:
+            enc_hidden_attn = None
+            enc_cell_attn = None
+
+            dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+            dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
 
         if labels is not None:
             # train mode or validate mode
@@ -275,12 +323,13 @@ class Model(nn.Module):
 
             # decoder
             for t in range(self.pred_steps):
-                hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell)
-                hidden_permute = self.get_hidden_permute(hidden)
+                hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
+                                                              enc_hidden_attn, enc_cell_attn)
+                hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
                 # check if hidden contains NaN
-                if torch.isnan(hidden).sum() > 0:
+                if torch.isnan(hidden).sum() > 0 or torch.isnan(hidden_qsqm).sum() > 0:
                     break
 
             # get loss list
@@ -321,8 +370,9 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm_dec(x_dec_clone[t].unsqueeze(0), hidden, cell)
-                    hidden_permute = self.get_hidden_permute(hidden)
+                    hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
+                                                                  enc_hidden_attn, enc_cell_attn)
+                    hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
                     if j < probability_range_len:
@@ -364,8 +414,9 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm_dec(x_dec_clone[t].unsqueeze(0), hidden, cell)
-                    hidden_permute = self.get_hidden_permute(hidden)
+                    hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
+                                                                  enc_hidden_attn, enc_cell_attn)
+                    hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
                     pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
