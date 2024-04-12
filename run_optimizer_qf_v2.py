@@ -5,10 +5,23 @@ from hyper_optimizer.optimizer import HyperOptimizer
 def link_fieldnames_data(_config):
     _data_path = _config['data_path']
     if _data_path == 'electricity/electricity.csv':
+        # electricity dataset
         _config['reindex_tolerance'] = 0.80
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+    elif _data_path == 'pvod/station00.csv':
+        # solar dataset
+        _config['target'] = 'power'
+        _config['enc_in'] = 14
+        _config['dec_in'] = 14
+        _config['c_out'] = 14
+    elif _data_path == 'wind/Zone1/Zone1.csv':
+        # wind power dataset
+        _config['target'] = 'wind'
+        _config['enc_in'] = 5
+        _config['dec_in'] = 5
+        _config['c_out'] = 5
 
     return _config
 
@@ -29,8 +42,9 @@ def get_search_space(_model):
     }
 
     dataset_config = {
-        # electricity dataset
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'data_path': {'_type': 'choice',
+                      '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
     }
 
     learning_config = {
@@ -132,8 +146,9 @@ def get_search_space(_model):
         'sample_times': {'_type': 'single', '_value': 99},
 
         # 1. Feature Test
-        'custom_params': {'_type': 'choice', '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']},
-        # 'custom_params': {'_type': 'choice', '_value': ['LA', 'AA']},
+        # 'custom_params': {'_type': 'choice',
+        #                   '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']},
+        'custom_params': {'_type': 'choice', '_value': ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']},
     }
 
     model_configs = {
@@ -160,8 +175,7 @@ def get_search_space(_model):
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=True, force_exp=False, add_tags=[])
-
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0)
