@@ -98,10 +98,11 @@ class Model(nn.Module):
                 for i in range(self.lag):
                     self.lag_index.append(self.new_index[i])
                 self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
-            x_enc = x_enc[:, :, :-1]
-            x_dec = x_dec[:, :, :-1]
-            labels = x_dec[:, :, -1]
-            return self.probability_forecast(x_enc, x_dec, labels)  # return loss list
+            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            enc_in = batch[:, :self.pred_start, :-1]
+            dec_in = batch[:, self.pred_start:, :-1]
+            labels = batch[:, self.pred_start:, -1]
+            return self.probability_forecast(enc_in, dec_in, labels)  # return loss list
         return None
 
     # noinspection PyUnusedLocal
@@ -112,9 +113,10 @@ class Model(nn.Module):
                 for i in range(self.lag):
                     self.lag_index.append(self.new_index[i])
                 self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
-            x_enc = x_enc[:, :, :-1]
-            x_dec = x_dec[:, :, :-1]
-            return self.probability_forecast(x_enc, x_dec, probability_range=probability_range)
+            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            enc_in = batch[:, :self.pred_start, :-1]
+            dec_in = batch[:, self.pred_start:, :-1]
+            return self.probability_forecast(enc_in, dec_in, probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
