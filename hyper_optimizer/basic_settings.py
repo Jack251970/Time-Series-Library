@@ -539,16 +539,16 @@ def build_setting(_args, _time, _format, _custom_time, _try_model):
 # noinspection DuplicatedCode
 def get_fieldnames(mode='all'):
     # init the all fieldnames
-    all_fieldnames = ['model', 'data_path', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
-                      'seed', 'task_name', 'is_training', 'model_id', 'data', 'features', 'target', 'freq', 'lag',
-                      'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'seq_len', 'label_len', 'pred_len',
-                      'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in',
-                      'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
+    all_fieldnames = ['model', 'data_path', 'custom_params', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre',
+                      'pinaw', 'setting', 'seed', 'task_name', 'is_training', 'model_id', 'data', 'features', 'target',
+                      'freq', 'lag', 'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'seq_len', 'label_len',
+                      'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels',
+                      'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
                       'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention',
                       'channel_independence', 'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate',
                       'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time',
                       'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers', 'num_spline',
-                      'sample_times', 'custom_params']
+                      'sample_times']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',

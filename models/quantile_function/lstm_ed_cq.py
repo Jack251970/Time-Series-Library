@@ -48,6 +48,11 @@ class Model(nn.Module):
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
         self.dec_lstm_input_size = input_size
+        custom_params.pop(0)
+        if len(custom_params) > 0 and custom_params[0] == 'attn':
+            self.attn = True
+        else:
+            self.attn = False
 
         # CNN
         if self.use_cnn:
