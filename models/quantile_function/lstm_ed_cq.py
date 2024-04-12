@@ -22,11 +22,15 @@ class Model(nn.Module):
         if use_cnn:
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
-        self.encoder_lstm_input_size = input_size
-        self.decoder_lstm_input_size = params.enc_in + params.lag - 1  # TODO: Check params.lag - 1!!
+        self.enc_lstm_input_size = input_size
+        input_size = params.enc_in + params.lag - 1  # TODO: Check params.lag - 1!!
+        if use_cnn:
+            input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
+            input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
+        self.dec_lstm_input_size = input_size
         self.lstm_hidden_size = params.lstm_hidden_size
-        self.encoder_lstm_layers = params.lstm_layers
-        self.decoder_lstm_layers = 1  # TODO: Check self.encoder_lstm_layers!!
+        self.enc_lstm_layers = params.lstm_layers
+        self.dec_lstm_layers = 1  # TODO: Check self.enc_lstm_layers!!
         self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline
@@ -36,37 +40,39 @@ class Model(nn.Module):
         self.train_window = self.pred_steps + self.pred_start
 
         # CNN
-        self.cnn = ConvLayer(1) if self.use_cnn else None
+        if self.use_cnn:
+            self.cnn_enc = ConvLayer(1)
+            self.cnn_dec = ConvLayer(1)
 
-        # LSTM
-        self.lstm_encoder = nn.LSTM(input_size=self.encoder_lstm_input_size,
+        # LSTM: Encoder and Decoder
+        self.lstm_enc = nn.LSTM(input_size=self.enc_lstm_input_size,
                                     hidden_size=self.lstm_hidden_size,
-                                    num_layers=self.encoder_lstm_layers,
+                                    num_layers=self.enc_lstm_layers,
                                     bias=True,
                                     batch_first=False,
                                     bidirectional=False,
                                     dropout=self.lstm_dropout)
-        self.lstm_decoder = nn.LSTM(input_size=self.decoder_lstm_input_size,
+        self.lstm_dec = nn.LSTM(input_size=self.dec_lstm_input_size,
                                     hidden_size=self.lstm_hidden_size,
-                                    num_layers=self.decoder_lstm_layers,
+                                    num_layers=self.dec_lstm_layers,
                                     bias=True,
                                     batch_first=False,
                                     bidirectional=False,
                                     dropout=self.lstm_dropout)
-        self.init_lstm(self.lstm_encoder)
-        self.init_lstm(self.lstm_decoder)
+        self.init_lstm(self.lstm_enc)
+        self.init_lstm(self.lstm_dec)
 
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
         if self.algorithm_type == '2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, 1)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, 1)
         elif self.algorithm_type == '1+2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, self.num_spline)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, self.num_spline)
         elif self.algorithm_type == '1':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, self.num_spline)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, self.num_spline)
         else:
             raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-        self.linear_eta_k = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, self.num_spline)
+        self.linear_eta_k = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
         device = torch.device("cuda" if params.use_gpu else "cpu")
         y = torch.ones(self.num_spline) / self.num_spline
@@ -89,48 +95,50 @@ class Model(nn.Module):
                 start, end = n // 4, n // 2
                 bias.data[start:end].fill_(1.)
 
+    # noinspection DuplicatedCode
+    def get_enc_dec_data(self, x_enc, y_enc):
+        if self.lag_index is None:
+            self.lag_index = []
+            for i in range(self.lag):
+                self.lag_index.append(self.new_index[i])
+            self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
+        batch = torch.cat((x_enc, y_enc), dim=1)
+        enc_in = batch[:, :self.pred_start, :-1]
+        dec_in = batch[:, self.pred_start:, :-1]
+        labels = batch[:, self.pred_start:, -1]
+
+        return enc_in, dec_in, labels
+
     # noinspection DuplicatedCode,PyUnusedLocal
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            if self.lag_index is None:
-                self.lag_index = []
-                for i in range(self.lag):
-                    self.lag_index.append(self.new_index[i])
-                self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
-            batch = torch.cat((x_enc, y_enc), dim=1).float()
-            enc_in = batch[:, :self.pred_start, :-1]
-            dec_in = batch[:, self.pred_start:, :-1]
-            labels = batch[:, self.pred_start:, -1]
+            enc_in, dec_in, labels = self.get_enc_dec_data(x_enc, y_enc)
             return self.probability_forecast(enc_in, dec_in, labels)  # return loss list
         return None
 
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
-            if self.lag_index is None:
-                self.lag_index = []
-                for i in range(self.lag):
-                    self.lag_index.append(self.new_index[i])
-                self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
-            batch = torch.cat((x_enc, y_enc), dim=1).float()
-            enc_in = batch[:, :self.pred_start, :-1]
-            dec_in = batch[:, self.pred_start:, :-1]
+            enc_in, dec_in, _ = self.get_enc_dec_data(x_enc, y_enc)
             return self.probability_forecast(enc_in, dec_in, probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
-    def run_lstm_encoder(self, x, hidden, cell):
+    def run_lstm_enc(self, x, hidden, cell):
         if self.use_cnn:
-            x = self.cnn(x)  # [96, 256, 5]
+            x = self.cnn_enc(x)  # [96, 256, 5]
 
-        _, (hidden, cell) = self.lstm_encoder(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+        _, (hidden, cell) = self.lstm_enc(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_decoder(self, x, hidden, cell):
-        _, (hidden, cell) = self.lstm_encoder(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+    def run_lstm_dec(self, x, hidden, cell):
+        if self.use_cnn:
+            x = self.cnn_dec(x)  # [96, 256, 5]
+
+        _, (hidden, cell) = self.lstm_enc(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell
 
@@ -171,22 +179,27 @@ class Model(nn.Module):
             labels = labels.permute(1, 0)  # [12, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.encoder_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.encoder_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        cell = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         # run encoder
-        hidden, cell = self.run_lstm_encoder(x_enc, hidden, cell)  # [2, 256, 40], [2, 256, 40]
+        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+        for t in range(self.pred_start):
+            hidden, cell = self.run_lstm_enc(x_enc[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
+            enc_hidden[t] = hidden
+            enc_cell[t] = cell
 
         # only select the last hidden state
-        hidden = hidden[-1, :, :].unsqueeze(0)  # [1, 256, 40]
-        cell = cell[-1, :, :].unsqueeze(0)  # [1, 256, 40]
+        hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+        cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_size * self.decoder_lstm_layers,
+            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_size * self.dec_lstm_layers,
                                           device=device)
             for t in range(self.pred_steps):
-                hidden, cell = self.run_lstm_decoder(x_dec[t].unsqueeze_(0).clone(), hidden, cell)
+                hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell)
                 hidden_permute = self.get_hidden_permute(hidden)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -235,7 +248,7 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm_decoder(x_dec_clone[t].unsqueeze(0), hidden, cell)
+                    hidden, cell = self.run_lstm_dec(x_dec_clone[t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.get_hidden_permute(hidden)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -267,6 +280,9 @@ class Model(nn.Module):
 
             # use integral to calculate the mean
             if not sample:
+                # clone test batch
+                x_dec_clone = x_dec.clone()  # [16, 256, 7]
+
                 # sample
                 samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
@@ -275,7 +291,7 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm_decoder(x_dec[t].unsqueeze(0), hidden, cell)
+                    hidden, cell = self.run_lstm_dec(x_dec_clone[t].unsqueeze(0), hidden, cell)
                     hidden_permute = self.get_hidden_permute(hidden)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -284,6 +300,6 @@ class Model(nn.Module):
 
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            x_dec[t + 1, :, self.lag_index[0]] = pred
+                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
 
             return samples, samples_mu, samples_std, samples_high, samples_low

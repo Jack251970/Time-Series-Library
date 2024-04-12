@@ -11,7 +11,7 @@ def check_jump_experiment(_parameter):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -154,6 +154,8 @@ def get_search_space(_model):
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space)
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=True, add_tags=[])
+# 2024-04-12 10-37-18: non-cnn
+# 2024-04-12 10-52-10: cnn
 
 if __name__ == "__main__":
     h.start_search(0)
