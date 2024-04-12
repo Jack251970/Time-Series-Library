@@ -59,6 +59,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         test_losses = []
 
         stop_flag = False
+        stop_epochs = 0
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -178,6 +179,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             if stop_flag:
                 self.print_content("Raise error and stop")
+                stop_epochs = epoch + 1
                 break
 
             _ = early_stopping(vali_loss, self.model, path)
@@ -186,6 +188,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             if early_stopping.early_stop:
                 self.print_content("Early stopping")
+                stop_epochs = epoch + 1
                 break
 
             if adjust_lr:
@@ -207,7 +210,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         if os.path.exists(best_model_path):
             self.model.load_state_dict(torch.load(best_model_path))
 
-        return self.model
+        return stop_epochs
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []

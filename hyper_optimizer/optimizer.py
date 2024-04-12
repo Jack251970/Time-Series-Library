@@ -247,12 +247,46 @@ class HyperOptimizer(object):
             config = self._build_config_dict(args)
 
             # start experiment
-            self._start_experiment(args, None, config, _try_model=False, _check_folder=False)
+            eva_config, run_time, setting, stop_epochs = self._start_experiment(args, None, config,
+                                                                                _try_model=False, _check_folder=False)
+
+            # phase criteria and save data
+            if eva_config is not None:
+                # phase criteria data from eva_config
+                mse = eva_config.get('mse', None)
+                mae = eva_config.get('mae', None)
+                acc = eva_config.get('acc', None)
+                smape = eva_config.get('smape', None)
+                f_score = eva_config.get('f_score', None)
+                crps = eva_config.get('crps', None)
+                mre = eva_config.get('mre', None)
+                pinaw = eva_config.get('pinaw', None)
+
+                # load criteria data
+                config['mse'] = mse
+                config['mae'] = mae
+                config['acc'] = acc
+                config['smape'] = smape
+                config['f_score'] = f_score
+                config['crps'] = crps
+                config['mre'] = mre
+                config['pinaw'] = pinaw
+
+                # load setting and run time
+                config['setting'] = setting
+                config['run_time'] = run_time
+                config['stop_epochs'] = stop_epochs
+
+                _csv_file_path = self.get_csv_file_path(config['task_name'])
+                self._save_config_dict(_csv_file_path, config)
+
+            return
 
         # check the index of the process
         if _process_index > self.max_process_index or _process_index < 0:
             raise ValueError(f'The index of the process {_process_index} is out of range!')
 
+        # init the config list
         config_list = []
         for task_name in self.get_all_task_names():
             # data files are under './data/{task_name}'
@@ -316,8 +350,8 @@ class HyperOptimizer(object):
             args = self.set_args(args, config)
 
             # start experiment
-            eva_config, run_time, setting = self._start_experiment(args, parameter, config, False,
-                                                                   (_process_index == 0 and _time == 1))
+            eva_config, run_time, setting, stop_epochs = self._start_experiment(args, parameter, config, False,
+                                                                                (_process_index == 0 and _time == 1))
 
             # phase criteria and save data
             if eva_config is not None:
@@ -344,6 +378,7 @@ class HyperOptimizer(object):
                 # load setting and run time
                 config['setting'] = setting
                 config['run_time'] = run_time
+                config['stop_epochs'] = stop_epochs
 
                 _csv_file_path = self.get_csv_file_path(config['task_name'], _process_index=_process_index)
                 self._save_config_dict(_csv_file_path, config)
@@ -517,7 +552,7 @@ class HyperOptimizer(object):
 
             # start training
             exp.print_content('>>>>>>>({}) start training: {}<<<<<<<'.format(_run_time, _setting))
-            exp.train(_setting, check_folder=_check_folder)
+            stop_epochs = exp.train(_setting, check_folder=_check_folder)
 
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
@@ -538,13 +573,13 @@ class HyperOptimizer(object):
 
             # start testing
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
-            exp.train(_setting, check_folder=_check_folder, only_init=True)
+            stop_epochs = exp.train(_setting, check_folder=_check_folder, only_init=True)
             _eva_config = exp.test(_setting, test=True, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()
 
-        return _eva_config, _run_time, _setting
+        return _eva_config, _run_time, _setting, stop_epochs
 
     def _fix_random_seed(self):
         random.seed(self.seed)

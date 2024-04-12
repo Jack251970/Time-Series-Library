@@ -55,6 +55,7 @@ class Exp_Classification(Exp_Basic):
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
 
+        stop_epochs = 0
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -130,6 +131,7 @@ class Exp_Classification(Exp_Basic):
 
             if early_stopping.early_stop:
                 self.print_content("Early stopping")
+                stop_epochs = epoch + 1
                 break
 
             if (epoch + 1) % 5 == 0:
@@ -138,11 +140,12 @@ class Exp_Classification(Exp_Basic):
                     self.print_content(_)
 
         best_model_path = path + '/' + self.checkpoints_file_path
-        self.model.load_state_dict(torch.load(best_model_path))
+        if os.path.exists(best_model_path):
+            self.model.load_state_dict(torch.load(best_model_path))
 
         self.print_content("", True)
 
-        return self.model
+        return stop_epochs
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []

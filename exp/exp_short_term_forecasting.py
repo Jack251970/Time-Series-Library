@@ -55,6 +55,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
 
+        stop_epochs = 0
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -137,6 +138,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
             if early_stopping.early_stop:
                 self.print_content("Early stopping")
+                stop_epochs = epoch + 1
                 break
 
             _ = adjust_learning_rate(model_optim, epoch + 1, self.args)
@@ -146,7 +148,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         self.print_content("", True)
 
         best_model_path = path + '/' + self.checkpoints_file_path
-        self.model.load_state_dict(torch.load(best_model_path))
+        if os.path.exists(best_model_path):
+            self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
 

@@ -545,15 +545,15 @@ def get_fieldnames(mode='all'):
                       'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels',
                       'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
                       'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention',
-                      'channel_independence', 'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate',
-                      'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time',
+                      'channel_independence', 'num_workers', 'train_epochs', 'stop_epochs', 'batch_size', 'patience',
+                      'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices',
                       'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers', 'num_spline',
-                      'sample_times']
+                      'sample_times', 'run_time']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
-                           'is_training', 'root_path', 'checkpoints', 'output_attention', 'num_workers', 'use_gpu',
-                           'gpu', 'use_multi_gpu', 'devices', 'run_time']
+                           'is_training', 'root_path', 'checkpoints', 'output_attention', 'num_workers', 'stop_epochs',
+                           'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
     # init the required fieldnames

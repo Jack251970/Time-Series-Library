@@ -66,26 +66,11 @@ def get_search_space(_model):
     }
 
     period_config = {
-        # mode 1: short period 1
-        # 'seq_len': {'_type': 'single', '_value': 16},
-        # 'label_len': {'_type': 'single', '_value': 16},
-        # 'pred_len': {'_type': 'single', '_value': 16},
-        # 'e_layers': {'_type': 'single', '_value': 1},
-        # 'd_layers': {'_type': 'single', '_value': 1},
-
-        # mode 2: short period 2
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
         'pred_len': {'_type': 'single', '_value': 16},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
-
-        # mode 3: medium period
-        # 'seq_len': {'_type': 'single', '_value': 96},
-        # 'label_len': {'_type': 'single', '_value': 96},
-        # 'pred_len': {'_type': 'single', '_value': 96},
-        # 'e_layers': {'_type': 'single', '_value': 1},
-        # 'd_layers': {'_type': 'single', '_value': 1},
     }
 
     qsqf_config = {
@@ -140,7 +125,8 @@ def get_search_space(_model):
         'train_epochs': {'_type': 'single', '_value': 50},
 
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 1},
+        # 'lstm_layers': {'_type': 'single', '_value': 1},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
@@ -148,7 +134,8 @@ def get_search_space(_model):
         # 1. Feature Test
         # 'custom_params': {'_type': 'choice',
         #                   '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']},
-        'custom_params': {'_type': 'choice', '_value': ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']},
+        # 'custom_params': {'_type': 'choice', '_value': ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']},
+        'custom_params': {'_type': 'choice', '_value': ['AA', 'LA']},
     }
 
     model_configs = {
