@@ -534,8 +534,8 @@ def build_setting(_args, _time, _format, _custom_time):
 # noinspection DuplicatedCode
 def get_fieldnames(mode='all'):
     # init the all fieldnames
-    all_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed',
-                      'task_name', 'is_training', 'model', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
+    all_fieldnames = ['model', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting', 'seed',
+                      'task_name', 'is_training', 'model_id', 'data', 'data_path', 'features', 'target', 'freq', 'lag',
                       'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'seq_len', 'label_len', 'pred_len',
                       'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels', 'enc_in',
                       'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
