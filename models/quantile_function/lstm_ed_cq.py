@@ -17,7 +17,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.algorithm_type = algorithm_type
         self.task_name = params.task_name
-
+        self.batch_size = params.batch_size
         self.lstm_hidden_size = params.lstm_hidden_size
         self.enc_lstm_layers = params.lstm_layers
         self.dec_lstm_layers = 1  # TODO: Check self.enc_lstm_layers!!
@@ -63,11 +63,26 @@ class Model(nn.Module):
             self.dec_hidden_zero = True
         else:
             self.dec_hidden_zero = False
+        if len(custom_params) > 0 and custom_params[0] == 'dhd1':
+            custom_params.pop(0)
+            self.dec_hidden_difference1 = True
+        else:
+            self.dec_hidden_difference1 = False
+        if len(custom_params) > 0 and custom_params[0] == 'dhd2':
+            custom_params.pop(0)
+            self.dec_hidden_difference2 = True
+        else:
+            self.dec_hidden_difference2 = False
         if len(custom_params) > 0 and custom_params[0] == 'dhs':
             custom_params.pop(0)
             self.dec_hidden_separate = True
         else:
             self.dec_hidden_separate = False
+        if len(custom_params) > 0 and custom_params[0] == 'norm':
+            custom_params.pop(0)
+            self.use_norm = True
+        else:
+            self.use_norm = False
 
         # CNN
         if self.use_cnn:
@@ -93,7 +108,17 @@ class Model(nn.Module):
         self.init_lstm(self.lstm_dec)
 
         # Attention
-        self.attn = FullAttention(mask_flag=False, output_attention=True)
+        if self.use_attn:
+            self.attention = FullAttention(mask_flag=False, output_attention=True)
+            if self.use_norm:
+                L = self.pred_start
+                H = self.n_heads
+                E = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+                self.enc_norm = nn.LayerNorm([L, H, E])
+                L = 1
+                H = self.n_heads
+                E = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
+                self.dec_norm = nn.LayerNorm([L, H, E])
 
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
@@ -109,7 +134,7 @@ class Model(nn.Module):
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
         device = torch.device("cuda" if params.use_gpu else "cpu")
         y = torch.ones(self.num_spline) / self.num_spline
-        self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)  # [256, 20]
+        self.alpha_prime_k = y.repeat(self.batch_size, 1).to(device)  # [256, 20]
 
         # Reindex
         self.new_index = None
@@ -221,19 +246,33 @@ class Model(nn.Module):
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_dec(self, x, hidden, cell, enc_hidden_attn, enc_cell_attn):
+    def run_lstm_dec(self, x, hidden, cell, enc_hidden_attn, dec_hidden):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         if self.use_attn:
-            B = -1
-            L = self.pred_start
+            B = self.batch_size
+            L = 1
             H = self.n_heads
-            E = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+            E = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
             hidden_attn = hidden.clone().view(B, L, H, E)
-            y, attn = self.attn(hidden_attn, enc_hidden_attn, enc_cell_attn, None)
+
+            if self.use_norm:
+                enc_hidden_attn = self.enc_norm(enc_hidden_attn)
+                hidden_attn = self.dec_norm(hidden_attn)
+
+            y, attn = self.attention(hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
+
+            if self.use_norm:
+                y = self.dec_norm(y)
+
+            y = y.view(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size)
+
+            if self.dec_hidden_difference2:
+                y = y - dec_hidden
+
             if self.dec_hidden_separate:
                 return y, hidden, cell
             else:
@@ -265,7 +304,6 @@ class Model(nn.Module):
         if probability_range is None:
             probability_range = [0.5]
 
-        batch_size = x_enc.shape[0]  # 256
         device = x_enc.device
 
         assert isinstance(probability_range, list)
@@ -278,13 +316,13 @@ class Model(nn.Module):
             labels = labels.permute(1, 0)  # [12, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        hidden = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        cell = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         # run encoder
-        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size,
                                  device=device)  # [96, 1, 256, 40]
-        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size,
                                device=device)  # [96, 1, 256, 40]
         for t in range(self.pred_start):
             hidden, cell = self.run_lstm_enc(x_enc[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
@@ -293,29 +331,37 @@ class Model(nn.Module):
 
         # only select the last hidden state
         if self.use_attn:
-            B = batch_size
+            if self.dec_hidden_difference1:
+                enc_hidden_1_n = enc_hidden  # [96, 1, 256, 40]
+                enc_hidden_0_1n = torch.concat((torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
+                                                 enc_hidden[:-1]), dim=0)
+                enc_hidden = enc_hidden_1_n - enc_hidden_0_1n  # [96, 1, 256, 40]
+                cell_hidden_1_n = enc_cell  # [96, 1, 256, 40]
+                cell_hidden_0_1n = torch.concat((torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
+                                                    enc_cell[:-1]), dim=0)
+                enc_cell = cell_hidden_1_n - cell_hidden_0_1n  # [96, 1, 256, 40]
+
+            B = self.batch_size
             L = self.pred_start
             H = self.n_heads
             E = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
             enc_hidden_attn = enc_hidden.view(B, L, H, E)  # [256, 96, 8, 5]
-            enc_cell_attn = enc_cell.view(B, L, H, E)  # [256, 96, 8, 5]
 
             if self.dec_hidden_zero:
-                dec_hidden = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
-                dec_cell = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+                dec_hidden = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
+                dec_cell = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
             else:
                 dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
                 dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
         else:
             enc_hidden_attn = None
-            enc_cell_attn = None
 
             dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
             dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_size * self.dec_lstm_layers,
+            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps, self.lstm_hidden_size * self.dec_lstm_layers,
                                           device=device)
 
             # initialize hidden and cell
@@ -324,7 +370,7 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                              enc_hidden_attn, enc_cell_attn)
+                                                              enc_hidden_attn, dec_hidden)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -353,13 +399,13 @@ class Model(nn.Module):
             # initialize alpha range
             alpha_low = (1 - probability_range) / 2  # [3]
             alpha_high = 1 - (1 - probability_range) / 2  # [3]
-            low_alpha = alpha_low.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
-            high_alpha = alpha_high.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
+            low_alpha = alpha_low.unsqueeze(0).expand(self.batch_size, -1)  # [256, 3]
+            high_alpha = alpha_high.unsqueeze(0).expand(self.batch_size, -1)  # [256, 3]
 
             # initialize samples
-            samples_low = torch.zeros(probability_range_len, batch_size, self.pred_steps, device=device)  # [3, 256, 16]
+            samples_low = torch.zeros(probability_range_len, self.batch_size, self.pred_steps, device=device)  # [3, 256, 16]
             samples_high = samples_low.clone()  # [3, 256, 16]
-            samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
+            samples = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, device=device)  # [99, 256, 12]
 
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
@@ -371,7 +417,7 @@ class Model(nn.Module):
                 # decoder
                 for t in range(self.pred_steps):
                     hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                  enc_hidden_attn, enc_cell_attn)
+                                                                  enc_hidden_attn, dec_hidden)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -384,7 +430,7 @@ class Model(nn.Module):
                         uniform = torch.distributions.uniform.Uniform(
                             torch.tensor([0.0], device=device),
                             torch.tensor([1.0], device=device))
-                        pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
+                        pred_alpha = uniform.sample(torch.Size([self.batch_size]))  # [256, 1]
 
                     pred = sample_qsqm(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
                     if j < probability_range_len:
@@ -407,7 +453,7 @@ class Model(nn.Module):
                 x_dec_clone = x_dec.clone()  # [16, 256, 7]
 
                 # sample
-                samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
+                samples_mu = torch.zeros(self.batch_size, self.pred_steps, 1, device=device)
 
                 # initialize hidden and cell
                 hidden, cell = dec_hidden.clone(), dec_cell.clone()
@@ -415,7 +461,7 @@ class Model(nn.Module):
                 # decoder
                 for t in range(self.pred_steps):
                     hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                  enc_hidden_attn, enc_cell_attn)
+                                                                  enc_hidden_attn, dec_hidden)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
