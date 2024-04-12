@@ -171,3 +171,7 @@ data_loader_all.py
 /*.png
 /*.jpg
 /*.jpeg
+
+/analyze/*.png
+/analyze/*.jpg
+/analyze/*.jpeg

@@ -6,7 +6,7 @@ from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
                     Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
                     FreTS)
-from models.quantile_function import qsqf_c, rnn_sf, lstm_cq
+from models.quantile_function import qsqf_c, rnn_sf, lstm_cq, lstm_ed_cq
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 
@@ -55,7 +55,8 @@ class Exp_Basic(object):
             'FreTS': FreTS,
             'QSQF-C': qsqf_c,
             'RNN-SF': rnn_sf,
-            'LSTM-CQ': lstm_cq
+            'LSTM-CQ': lstm_cq,
+            'LSTM-ED-CQ': lstm_ed_cq
         }
         model = model_dict[self.args.model].Model(self.args).float()
         # use multi gpus if enabled
@@ -68,9 +69,12 @@ class Exp_Basic(object):
             os.environ["CUDA_VISIBLE_DEVICES"] = str(
                 self.args.gpu) if not self.args.use_multi_gpu else self.args.devices
             device = torch.device('cuda:{}'.format(self.args.gpu))
+            torch.backends.cudnn.benchmark = True
             if not try_model:
                 if self.save_process:
                     self.print_content('Use GPU: cuda:{}'.format(self.args.gpu))
+                    if torch.backends.cudnn.benchmark:
+                        self.print_content('Use cudnn.benchmark')
         else:
             device = torch.device('cpu')
             if not try_model:
@@ -99,7 +103,8 @@ class Exp_Basic(object):
         criterion_dict = {
             'QSQF-C': lstm_cq.loss_fn,
             'RNN-SF': lstm_cq.loss_fn,
-            'LSTM-CQ': lstm_cq.loss_fn
+            'LSTM-CQ': lstm_cq.loss_fn,
+            'LSTM-ED-CQ': lstm_cq.loss_fn,
         }
 
         loss = self.args.loss

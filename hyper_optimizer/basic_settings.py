@@ -5,6 +5,7 @@ import time
 
 import torch
 
+
 # noinspection DuplicatedCode
 def parse_launch_parameters(_script_mode):
     parser = argparse.ArgumentParser(description='Time Series Library')
@@ -21,7 +22,7 @@ def parse_launch_parameters(_script_mode):
                         help="model name, options: ['TimesNet', 'Autoformer', 'Transformer', "
                              "'Nonstationary_Transformer', 'DLinear', 'FEDformer', 'Informer', 'LightTS', 'Reformer', "
                              "'ETSformer', 'PatchTST', 'Pyraformer', 'MICN', 'Crossformer', 'FiLM', 'iTransformer', "
-                             "'Koopa', 'QSQF-C', 'RNN-SF', 'LSTM-CQ']")
+                             "'Koopa', 'QSQF-C', 'RNN-SF', 'LSTM-CQ', 'LSTM-ED-CQ']")
 
     # data loader
     parser.add_argument('--data', type=str, required=_script_mode, default='ETTm1',
@@ -41,7 +42,8 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--scaler', type=str, default='StandardScaler', help='feature scaling method')
     parser.add_argument('--reindex', type=int, default=0, help='reindex feature dimensions data, 1: enable 0: disable')
-    parser.add_argument('--reindex_tolerance', type=float, default=0.9, help='reindex tolerance for feature dimensions data')
+    parser.add_argument('--reindex_tolerance', type=float, default=0.9,
+                        help='reindex tolerance for feature dimensions data')
 
     # forecasting task
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
@@ -83,7 +85,7 @@ def parse_launch_parameters(_script_mode):
                                                                             'independence for FreTS model')
 
     # optimization
-    parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
+    parser.add_argument('--num_workers', type=int, default=16, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='deprecated')
     parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
@@ -112,6 +114,9 @@ def parse_launch_parameters(_script_mode):
     # spline functions params
     parser.add_argument('--num_spline', type=int, default=20, help='number of spline')
     parser.add_argument('--sample_times', type=int, default=99, help='sample times')
+
+    # custom params
+    parser.add_argument('--custom_params', type=str, default='', help='custom parameters')
 
     return parser.parse_args()
 
@@ -199,7 +204,10 @@ def build_config_dict(_args):
 
         # spline functions params
         'num_spline': _args.num_spline,
-        'sample_times': _args.sample_times
+        'sample_times': _args.sample_times,
+
+        # custom params
+        'custom_params': _args.custom_params,
     }
 
 
@@ -286,6 +294,9 @@ def set_args(_args, _config):
     # spline functions params
     _args.num_spline = _config['num_spline']
     _args.sample_times = _config['sample_times']
+
+    # custom params
+    _args.custom_params = _config['custom_params']
 
     return _args
 
@@ -452,6 +463,10 @@ def prepare_config(_params, _script_mode=False):
         if 'sample_times' in _params:
             _args.sample_times = _params['sample_times']
 
+        # custom params
+        if 'custom_params' in _params:
+            _args.custom_params = _params['custom_params']
+
         # build new model_id for interface
         _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
@@ -528,7 +543,7 @@ def get_fieldnames(mode='all'):
                       'channel_independence', 'num_workers', 'train_epochs', 'batch_size', 'patience', 'learning_rate',
                       'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time',
                       'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers', 'num_spline',
-                      'sample_times']
+                      'sample_times', 'custom_params']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',

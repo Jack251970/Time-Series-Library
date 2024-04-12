@@ -61,3 +61,18 @@ plt.plot(test_loss_1.squeeze(), color='blue', label='Test Loss without FDR')
 plt.plot(test_loss_2.squeeze(), color='red', label='Test Loss with FDR')
 plt.legend()
 plt.savefig('test_loss.png')
+
+settings = 'probability_forecast_OT_96_16_LSTM-ED-CQ_custom_ftMS_sl96_ll0_pl16_dm512_nh8_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-12 08-27-51'
+
+train_loss, vali_loss, test_loss = get_loss(settings)
+
+print(f'train_loss: {train_loss}')
+print(f'vali_loss: {vali_loss}')
+print(f'test_loss: {test_loss}')
+
+plt.clf()
+plt.plot(train_loss.squeeze(), color='blue', label='Train Loss')
+plt.plot(vali_loss.squeeze(), color='red', label='Validation Loss')
+plt.plot(test_loss.squeeze(), color='green', label='Test Loss')
+plt.legend()
+plt.savefig('loss.png')

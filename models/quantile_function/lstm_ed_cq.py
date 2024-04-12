@@ -5,7 +5,7 @@ from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=True, algorithm_type="1+2"):
+    def __init__(self, params, use_cnn=False, algorithm_type="1+2"):
         """
         LSTM-ED-CQ: Auto-Regressive LSTM based on encoder-decoder architecture with convolution and spline to provide
         probabilistic forecasting.
@@ -18,12 +18,12 @@ class Model(nn.Module):
         self.use_cnn = use_cnn
         self.algorithm_type = algorithm_type
         self.task_name = params.task_name
-        input_size = params.enc_in - 1
+        input_size = params.enc_in + params.lag - 1  # TODO: Check params.enc_in + params.lag - 1!!
         if use_cnn:
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
         self.encoder_lstm_input_size = input_size
-        self.decoder_lstm_input_size = params.enc_in + params.lag - 1  # TODO: Check params.enc_in + params.lag - 1!!
+        self.decoder_lstm_input_size = params.enc_in + params.lag - 1  # TODO: Check params.lag - 1!!
         self.lstm_hidden_size = params.lstm_hidden_size
         self.encoder_lstm_layers = params.lstm_layers
         self.decoder_lstm_layers = 1  # TODO: Check self.encoder_lstm_layers!!
@@ -59,14 +59,14 @@ class Model(nn.Module):
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
         if self.algorithm_type == '2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_input_size, 1)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, 1)
         elif self.algorithm_type == '1+2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_input_size, self.num_spline)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, self.num_spline)
         elif self.algorithm_type == '1':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_input_size, self.num_spline)
+            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, self.num_spline)
         else:
             raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-        self.linear_eta_k = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_input_size, self.num_spline)
+        self.linear_eta_k = nn.Linear(self.lstm_hidden_size * self.decoder_lstm_layers, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
         device = torch.device("cuda" if params.use_gpu else "cpu")
         y = torch.ones(self.num_spline) / self.num_spline
@@ -74,9 +74,8 @@ class Model(nn.Module):
 
         # Reindex
         self.new_index = [0]
-        self.lag_index = []
-        for i in self.lag:
-            self.lag_index.append(self.new_index[i])
+        self.lag_index = None
+        self.index_except_lag = None
 
     @staticmethod
     def init_lstm(lstm):
@@ -94,8 +93,12 @@ class Model(nn.Module):
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            selected_indices = [i for i in self.new_index if i not in self.lag_index]
-            x_enc = x_enc[:, :, selected_indices]
+            if self.lag_index is None:
+                self.lag_index = []
+                for i in range(self.lag):
+                    self.lag_index.append(self.new_index[i])
+                self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
+            x_enc = x_enc[:, :, :-1]
             x_dec = x_dec[:, :, :-1]
             labels = x_dec[:, :, -1]
             return self.probability_forecast(x_enc, x_dec, labels)  # return loss list
@@ -104,8 +107,12 @@ class Model(nn.Module):
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
-            selected_indices = [i for i in self.new_index if i not in self.lag_index]
-            x_enc = x_enc[:, :, selected_indices]
+            if self.lag_index is None:
+                self.lag_index = []
+                for i in range(self.lag):
+                    self.lag_index.append(self.new_index[i])
+                self.index_except_lag = [i for i in self.new_index if i not in self.lag_index]
+            x_enc = x_enc[:, :, :-1]
             x_dec = x_dec[:, :, :-1]
             return self.probability_forecast(x_enc, x_dec, probability_range=probability_range)
         return None
@@ -174,7 +181,7 @@ class Model(nn.Module):
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_size * self.encoder_lstm_layers,
+            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.lstm_hidden_size * self.decoder_lstm_layers,
                                           device=device)
             for t in range(self.pred_steps):
                 hidden, cell = self.run_lstm_decoder(x_dec[t].unsqueeze_(0).clone(), hidden, cell)
@@ -249,14 +256,9 @@ class Model(nn.Module):
                     else:
                         samples[j - probability_range_len * 2, :, t] = pred
 
-                    # predict value at t-1 is as a covars for t,t+1,...,t+lag
-                    # for lag in range(self.lag):
-                    #     z = self.lag - lag
-                    #     if self.pred_start + t + z < self.train_window:
-                    #         test_batch[self.pred_start + t + z, :, self.lag_index[lag]] = pred
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            x_dec_clone[self.pred_start + t + 1, :, self.new_index[0]] = pred
+                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
 
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
@@ -278,13 +280,8 @@ class Model(nn.Module):
                     pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
                     samples_mu[:, t, 0] = pred
 
-                    # predict value at t-1 is as a covars for t,t+1,...,t+lag
-                    # for lag in range(self.lag):
-                    #     z = self.lag - lag
-                    #     if self.pred_start + t + z < self.train_window:
-                    #         test_batch[self.pred_start + t + z, :, self.lag_index[lag]] = pred
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            x_dec[self.pred_start + t + 1, :, self.new_index[0]] = pred
+                            x_dec[t + 1, :, self.lag_index[0]] = pred
 
             return samples, samples_mu, samples_std, samples_high, samples_low

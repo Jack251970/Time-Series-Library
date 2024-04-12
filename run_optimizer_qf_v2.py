@@ -11,7 +11,7 @@ def check_jump_experiment(_parameter):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 1},
+        'is_training': {'_type': 'single', '_value': 0},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -111,10 +111,30 @@ def get_search_space(_model):
         'sample_times': {'_type': 'single', '_value': 99},
     }
 
+    lstm_ed_cq_config = {
+        # model
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+        'reindex': {'_type': 'single', '_value': 1},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        'train_epochs': {'_type': 'single', '_value': 50},
+
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 1},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99},
+    }
+
     model_configs = {
         'LSTM-CQ': lstm_cq_config,
         'QSQF-C': qsqf_config,
         'RNN-SF': qsqf_config,
+        'LSTM-ED-CQ': lstm_ed_cq_config,
     }
 
     # get config for specific model
@@ -131,7 +151,7 @@ def get_search_space(_model):
     return _config
 
 
-h = HyperOptimizer(False, ['LSTM-CQ'],
+h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space)
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
