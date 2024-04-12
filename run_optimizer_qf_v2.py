@@ -118,7 +118,7 @@ def get_search_space(_model):
         'dropout': {'_type': 'single', '_value': 0},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
-        'reindex': {'_type': 'single', '_value': 1},
+        'reindex': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
@@ -129,7 +129,7 @@ def get_search_space(_model):
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'custom_params': {'_type': 'choice', '_value': ['AA', 'CL']},
+        'custom_params': {'_type': 'choice', '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL']},
     }
 
     model_configs = {
@@ -155,7 +155,7 @@ def get_search_space(_model):
 
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=True, force_exp=True, add_tags=[])
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=True, add_tags=[])
 
 
 if __name__ == "__main__":

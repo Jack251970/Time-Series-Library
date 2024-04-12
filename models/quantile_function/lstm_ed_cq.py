@@ -5,17 +5,15 @@ from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
 
 class Model(nn.Module):
-    def __init__(self, params, use_cnn=False, algorithm_type="1+2"):
+    def __init__(self, params, algorithm_type="1+2"):
         """
         LSTM-ED-CQ: Auto-Regressive LSTM based on encoder-decoder architecture with convolution and spline to provide
         probabilistic forecasting.
 
         params: parameters for the model.
-        use_cnn: whether to use cnn for feature extraction.
         algorithm_type: algorithm type, e.g. '1', '2', '1+2'
         """
         super(Model, self).__init__()
-        self.use_cnn = use_cnn
         self.algorithm_type = algorithm_type
         self.task_name = params.task_name
 
@@ -32,16 +30,21 @@ class Model(nn.Module):
 
         custom_params = params.custom_params
         assert isinstance(custom_params, str)
+        if custom_params.startswith('cnn'):
+            self.use_cnn = True
+            custom_params = custom_params[3:]
+        else:
+            self.use_cnn = False
         self.enc_feature = custom_params[0]
         self.dec_feature = custom_params[1]
         self.enc_in = params.enc_in
         input_size = self.get_input_size(self.enc_feature, True)
-        if use_cnn:
+        if self.use_cnn:
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
         self.enc_lstm_input_size = input_size
         input_size = self.get_input_size(self.dec_feature, False)
-        if use_cnn:
+        if self.use_cnn:
             input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
             input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
         self.dec_lstm_input_size = input_size
@@ -86,7 +89,7 @@ class Model(nn.Module):
         self.alpha_prime_k = y.repeat(params.batch_size, 1).to(device)  # [256, 20]
 
         # Reindex
-        self.new_index = [0]
+        self.new_index = None
         self.lag_index = None
         self.cov_index = None
 
@@ -116,9 +119,19 @@ class Model(nn.Module):
     def get_input_data(self, x_enc, y_enc):
         if self.lag_index is None:
             self.lag_index = []
+            self.cov_index = []
+            if self.new_index is None:
+                self.new_index = list(range(self.enc_in + self.lag))
             for i in range(self.lag):
                 self.lag_index.append(self.new_index[i])
-            self.cov_index = [i for i in self.new_index if i not in self.lag_index or i != self.new_index[-1]]
+            for i in range(self.enc_in + self.lag - 1):
+                lag = False
+                for j in self.lag_index:
+                    if i == j:
+                        lag = True
+                        break
+                if not lag:
+                    self.cov_index.append(i)
 
         batch = torch.cat((x_enc, y_enc), dim=1)
 
