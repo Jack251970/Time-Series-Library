@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from layers.AutoCorrelation import AutoCorrelation
 from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
@@ -33,8 +34,8 @@ class Model(nn.Module):
         custom_params = params.custom_params
         custom_params = custom_params.split('_')
         if len(custom_params) > 0 and custom_params[0] == 'cnn':
-            custom_params.pop(0)
             self.use_cnn = True
+            custom_params.pop(0)
         else:
             self.use_cnn = False
         if len(custom_params) > 0 and all([len(custom_params[0]) == 2, all([i in 'ACLH' for i in custom_params[0]])]):
@@ -52,42 +53,47 @@ class Model(nn.Module):
                 input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
                 input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
             self.dec_lstm_input_size = input_size
-        if len(custom_params) > 0 and custom_params[0] == 'attn':
-            custom_params.pop(0)
-            self.use_attn = True
+        if len(custom_params) > 0 and custom_params[0] == 'attn' or custom_params[0] == 'corr':
+            if custom_params[0] == 'attn':
+                self.use_attn = 'attn'
+            else:
+                self.use_attn = 'corr'
             self.n_heads = params.n_heads
-        else:
-            self.use_attn = False
-        if len(custom_params) > 0 and custom_params[0] == 'dhz':
             custom_params.pop(0)
+        else:
+            self.use_attn = None
+        if len(custom_params) > 0 and custom_params[0] == 'dhz':
             self.dec_hidden_zero = True
+            custom_params.pop(0)
         else:
             self.dec_hidden_zero = False
         if len(custom_params) > 0 and custom_params[0] == 'dhd1':
-            custom_params.pop(0)
             self.dec_hidden_difference1 = True
+            custom_params.pop(0)
         else:
             self.dec_hidden_difference1 = False
         if len(custom_params) > 0 and custom_params[0] == 'ap':
-            custom_params.pop(0)
             self.attention_projection = True
+            custom_params.pop(0)
         else:
             self.attention_projection = False
         if len(custom_params) > 0 and custom_params[0] == 'dhd2':
-            custom_params.pop(0)
             self.dec_hidden_difference2 = True
+            custom_params.pop(0)
         else:
             self.dec_hidden_difference2 = False
         if len(custom_params) > 0 and custom_params[0] == 'dhs':
-            custom_params.pop(0)
             self.dec_hidden_separate = True
+            custom_params.pop(0)
         else:
             self.dec_hidden_separate = False
         if len(custom_params) > 0 and custom_params[0] == 'norm':
-            custom_params.pop(0)
             self.use_norm = True
+            custom_params.pop(0)
         else:
             self.use_norm = False
+        if len(custom_params) > 0:
+            raise ValueError(f"Cannot parse these custom_params: {custom_params}")
 
         # CNN
         if self.use_cnn:
@@ -113,8 +119,12 @@ class Model(nn.Module):
         self.init_lstm(self.lstm_dec)
 
         # Attention
-        if self.use_attn:
-            self.attention = FullAttention(mask_flag=False, output_attention=True)
+        if self.use_attn is not None:
+            if self.use_attn == 'attn':
+                self.attention = FullAttention(mask_flag=False, output_attention=True)
+            else:
+                self.attention = AutoCorrelation(mask_flag=False, output_attention=True, agg_mode='full',
+                                                 attention_dropout=0)
             L_enc = self.pred_start
             L_dec = 1
             H = self.n_heads
@@ -268,7 +278,7 @@ class Model(nn.Module):
 
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
-        if self.use_attn:
+        if self.use_attn is not None:
             B = self.batch_size
             L = 1
             H = self.n_heads
