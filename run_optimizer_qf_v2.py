@@ -71,8 +71,8 @@ def get_search_space(_model):
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
 
         # 3
-        # 'data_path': {'_type': 'choice',
-        #               '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
+        'data_path': {'_type': 'choice',
+                      '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
 
         # 6
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
@@ -80,8 +80,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-                                                    'traffic/traffic.csv', 'weather/weather.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+        #                                             'weather/weather.csv']},
     }
 
     learning_config = {
