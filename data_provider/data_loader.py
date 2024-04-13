@@ -289,6 +289,10 @@ class Dataset_Custom(Dataset):
         # read raw data
         df_raw = pd.read_csv(self.path)
 
+        # check if exist nan
+        if df_raw.isnull().values.any():
+            df_raw = interpolate_missing(df_raw)
+
         # df_raw.columns: ['date', ...(other features), target feature]
         cols = list(df_raw.columns)
         if 'date' in cols:
