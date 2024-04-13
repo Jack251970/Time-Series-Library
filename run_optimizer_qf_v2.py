@@ -42,9 +42,9 @@ def get_search_space(_model):
     }
 
     dataset_config = {
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        'data_path': {'_type': 'choice',
-                      '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'choice',
+        #               '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
     }
 
     learning_config = {
@@ -125,19 +125,18 @@ def get_search_space(_model):
         'train_epochs': {'_type': 'single', '_value': 50},
 
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 1},
-        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'single', '_value': 1},
+        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        # 1. Feature Test
-        # 'custom_params': {'_type': 'choice',
-        #                   '_value': ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']},
-        # 'custom_params': {'_type': 'choice', '_value': ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']},
-        # 'custom_params': {'_type': 'choice', '_value': ['AA', 'LA']},
+        # 'n_heads': {'_type': 'single', '_value': 1},
+        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
 
-        # 2. Attention Test
+        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_dhs_norm'},  # easy to explain
+        'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
     model_configs = {
@@ -159,6 +158,31 @@ def get_search_space(_model):
         _config[key] = value
 
     return _config
+
+
+def build_custom_parameters():
+    # 1. Feature
+    # features = ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']
+    # features = ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']
+    # features = ['AA', 'LA']
+    features = ['AA']
+
+    # 2. Attention
+    attentions1 = ['attn']
+    attentions2 = [None, 'dhz']
+    attentions3 = [None, 'dhd1']
+    # attentions4 = [None, 'dhd2']
+    attentions5 = [None, 'dhs']
+    attentions6 = [None, 'norm']
+
+    return combine_lists([features, attentions1, attentions2, attentions3, attentions5, attentions6])
+
+
+def combine_lists(lists, separator='_'):
+    import itertools
+
+    combinations = itertools.product(*lists)
+    return [separator.join(filter(None, combo)) for combo in combinations]
 
 
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
