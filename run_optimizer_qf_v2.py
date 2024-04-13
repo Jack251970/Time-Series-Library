@@ -72,7 +72,7 @@ def get_search_space(_model):
 
         # 3
         'data_path': {'_type': 'choice',
-                      '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
+                      '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv', 'pvod/station00.csv']},
 
         # 6
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
