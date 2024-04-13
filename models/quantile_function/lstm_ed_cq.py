@@ -68,6 +68,11 @@ class Model(nn.Module):
             self.dec_hidden_difference1 = True
         else:
             self.dec_hidden_difference1 = False
+        if len(custom_params) > 0 and custom_params[0] == 'ap':
+            custom_params.pop(0)
+            self.attention_projection = True
+        else:
+            self.attention_projection = False
         if len(custom_params) > 0 and custom_params[0] == 'dhd2':
             custom_params.pop(0)
             self.dec_hidden_difference2 = True
@@ -110,15 +115,26 @@ class Model(nn.Module):
         # Attention
         if self.use_attn:
             self.attention = FullAttention(mask_flag=False, output_attention=True)
+            L_enc = self.pred_start
+            L_dec = 1
+            H = self.n_heads
+
+            # check if the hidden size is divisible by the number of heads
+            if self.enc_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
+                raise ValueError("enc_lstm_layers * lstm_hidden_size must be divisible by n_heads")
+            if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
+                raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
+
+            E_enc = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+            E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
             if self.use_norm:
-                L = self.pred_start
-                H = self.n_heads
-                E = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
-                self.enc_norm = nn.LayerNorm([L, H, E])
-                L = 1
-                H = self.n_heads
-                E = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
-                self.dec_norm = nn.LayerNorm([L, H, E])
+                self.enc_norm = nn.LayerNorm([L_enc, H, E_enc])
+                self.dec_norm = nn.LayerNorm([L_dec, H, E_dec])
+            if self.attention_projection:
+                self.d_model = params.d_model
+                self.dec_hidden_projection = nn.Linear(E_enc, self.d_model)
+                self.enc_hidden_projection = nn.Linear(E_dec, self.d_model)
+                self.out_projection = nn.Linear(self.d_model, self.lstm_hidden_size * self.dec_lstm_layers)
 
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
@@ -263,7 +279,14 @@ class Model(nn.Module):
                 enc_hidden_attn = self.enc_norm(enc_hidden_attn)
                 hidden_attn = self.dec_norm(hidden_attn)
 
+            if self.attention_projection:
+                hidden_attn = self.dec_hidden_projection(hidden_attn)
+                enc_hidden_attn = self.enc_hidden_projection(enc_hidden_attn)
+
             y, attn = self.attention(hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
+
+            if self.attention_projection:
+                y = self.out_projection(y)
 
             if self.use_norm:
                 y = self.dec_norm(y)

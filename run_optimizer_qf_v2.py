@@ -10,6 +10,32 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+    elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
+          _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
+        # ETT dataset
+        _config['enc_in'] = 7
+        _config['dec_in'] = 7
+        _config['c_out'] = 7
+    elif _data_path == 'exchange_rate/exchange_rate.csv':
+        # exchange rate dataset
+        _config['enc_in'] = 8
+        _config['dec_in'] = 8
+        _config['c_out'] = 8
+    elif _data_path == 'illness/national_illness.csv':
+        # illness dataset
+        _config['enc_in'] = 7
+        _config['dec_in'] = 7
+        _config['c_out'] = 7
+    elif _data_path == 'traffic/traffic.csv':
+        # traffic dataset
+        _config['enc_in'] = 862
+        _config['dec_in'] = 862
+        _config['c_out'] = 862
+    elif _data_path == 'weather/weather.csv':
+        # weather dataset
+        _config['enc_in'] = 21
+        _config['dec_in'] = 21
+        _config['c_out'] = 21
     elif _data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
@@ -22,7 +48,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 5
         _config['dec_in'] = 5
         _config['c_out'] = 5
-
     return _config
 
 
@@ -42,9 +67,13 @@ def get_search_space(_model):
     }
 
     dataset_config = {
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'choice',
         #               '_value': ['electricity/electricity.csv', 'pvod/station00.csv', 'wind/Zone1/Zone1.csv']},
+        # 'data_path': {'_type': 'single', '_value': 'ETT-small/ETTm2.csv'},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
+                                                    'exchange_rate/exchange_rate.csv', 'illness/national_illness.csv',
+                                                    'traffic/traffic.csv', 'weather/weather.csv']},
     }
 
     learning_config = {
@@ -132,10 +161,11 @@ def get_search_space(_model):
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        # 'n_heads': {'_type': 'single', '_value': 1},
-        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        'n_heads': {'_type': 'single', '_value': 1},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        'd_model': {'_type': 'single', '_value': 40},
 
-        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_dhs_norm'},  # easy to explain
+        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_ap_dhs_norm'},  # easy to explain
         'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
@@ -172,10 +202,11 @@ def build_custom_parameters():
     attentions2 = [None, 'dhz']
     attentions3 = [None, 'dhd1']
     # attentions4 = [None, 'dhd2']
-    attentions5 = [None, 'dhs']
-    attentions6 = [None, 'norm']
+    attentions5 = [None, 'ap']
+    attentions6 = [None, 'dhs']
+    attentions7 = [None, 'norm']
 
-    return combine_lists([features, attentions1, attentions2, attentions3, attentions5, attentions6])
+    return combine_lists([features, attentions1, attentions2, attentions3, attentions5, attentions6, attentions7])
 
 
 def combine_lists(lists, separator='_'):
