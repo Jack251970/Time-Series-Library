@@ -54,7 +54,7 @@ def get_cached_dataloader(argument, flag):
     return cached_data_set_data_loader_new_indexes
 
 
-def data_provider(args, flag, new_indexes=None, cache_data=True):
+def data_provider(args, flag, new_indexes=None, cache_data=False):
     if cache_data:
         # build argument
         argument = build_argument(args)
