@@ -70,9 +70,17 @@ def get_search_space(_model):
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
 
+        # 2
+        # 'data_path': {'_type': 'choice',
+        #               '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv']},
+
         # 3
-        'data_path': {'_type': 'choice',
-                      '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv', 'pvod/station00.csv']},
+        # 'data_path': {'_type': 'choice',
+        #               '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv', 'pvod/station00.csv']},
+
+        # 4
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'wind/Zone1/Zone1.csv', 'weather/weather.csv']},
 
         # 6
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
@@ -206,6 +214,7 @@ def build_custom_parameters():
     features = ['AA']
 
     # 2. Attention
+    # attentions1 = ['attn', 'corr']
     attentions1 = ['attn']
     attentions2 = [None, 'dhz']
     attentions3 = [None, 'dhd1']
