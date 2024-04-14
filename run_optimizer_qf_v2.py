@@ -181,8 +181,8 @@ def get_search_space(_model):
         # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
         'd_model': {'_type': 'single', '_value': 40},
 
-        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_ap_dhs_norm'},  # easy to explain
-        'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap_norm'},
+        # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
     model_configs = {
@@ -216,14 +216,26 @@ def build_custom_parameters():
     # 2. Attention
     # attentions1 = ['attn', 'corr']
     attentions1 = ['attn']
-    attentions2 = [None, 'dhz']
-    attentions3 = [None, 'dhd1']
-    # attentions4 = [None, 'dhd2']
-    attentions5 = [None, 'ap']
-    attentions6 = [None, 'dhs']
-    attentions7 = [None, 'norm']
 
-    return combine_lists([features, attentions1, attentions2, attentions3, attentions5, attentions6, attentions7])
+    # attentions2 = [None, 'dhz']
+    attentions2 = ['dhz']
+
+    attentions3 = [None, 'dhd1']
+
+    # attentions4 = [None, 'dhd2']
+    attentions4 = [None]
+
+    # attentions5 = [None, 'ap']
+    attentions5 = ['ap']
+
+    # attentions6 = [None, 'dhs']
+    attentions6 = [None]
+
+    # attentions7 = [None, 'norm']
+    attentions7 = ['norm']
+
+    return combine_lists([features, attentions1, attentions2, attentions3, attentions4, attentions5, attentions6,
+                          attentions7])
 
 
 def combine_lists(lists, separator='_'):
