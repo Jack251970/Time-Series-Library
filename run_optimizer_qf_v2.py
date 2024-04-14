@@ -79,8 +79,8 @@ def get_search_space(_model):
         #               '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv', 'pvod/station00.csv']},
 
         # 4
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-                                                    'wind/Zone1/Zone1.csv', 'weather/weather.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+        #                                             'wind/Zone1/Zone1.csv', 'weather/weather.csv']},
 
         # 6
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
@@ -88,8 +88,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'weather/weather.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'weather/weather.csv']},
     }
 
     learning_config = {
@@ -177,9 +177,10 @@ def get_search_space(_model):
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'n_heads': {'_type': 'single', '_value': 1},
-        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        'd_model': {'_type': 'single', '_value': 40},
+        # 'n_heads': {'_type': 'single', '_value': 1},
+        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        # 'd_model': {'_type': 'single', '_value': 40},
+        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap_norm'},
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
