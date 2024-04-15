@@ -164,7 +164,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         best_model_path = path + '/' + self.checkpoints_file_path
         if os.path.exists(best_model_path):
-            self.model.load_state_dict(torch.load(best_model_path))
+            if self.device == torch.device('cpu'):
+                self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
+            else:
+                self.model.load_state_dict(torch.load(best_model_path))
 
         return stop_epochs
 
@@ -215,7 +218,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             path = os.path.join(self.args.checkpoints, setting)
             best_model_path = path + '/' + self.checkpoints_file_path
             if os.path.exists(best_model_path):
-                self.model.load_state_dict(torch.load(best_model_path))
+                if self.device == torch.device('cpu'):
+                    self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
+                else:
+                    self.model.load_state_dict(torch.load(best_model_path))
             else:
                 raise FileNotFoundError('You need to train this model before testing it!')
 
@@ -228,6 +234,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         folder_path = self.root_test_results_path + f'/{setting}/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
+
+        length = len(test_data)
+        pred_value = torch.zeros(length).to(self.device)
+        true_value = torch.zeros(length).to(self.device)
 
         self.model.eval()
         with torch.no_grad():
@@ -264,7 +274,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     shape = outputs.shape
                     outputs = test_data.inverse_transform(outputs.squeeze(0)).reshape(shape)
                     batch_y = test_data.inverse_transform(batch_y.squeeze(0)).reshape(shape)
-        
+
                 outputs = outputs[:, :, f_dim:]
                 batch_y = batch_y[:, :, f_dim:]
 
@@ -285,8 +295,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds = np.array(preds)
         trues = np.array(trues)
         self.print_content(f'test shape: {preds.shape} {trues.shape}')
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
+        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])  # (5684, 96, 14)
+        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])  # (5684, 96, 14)
         self.print_content(f'test shape: {preds.shape} {trues.shape}')
 
         # result save

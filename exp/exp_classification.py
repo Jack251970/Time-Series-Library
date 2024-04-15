@@ -141,7 +141,10 @@ class Exp_Classification(Exp_Basic):
 
         best_model_path = path + '/' + self.checkpoints_file_path
         if os.path.exists(best_model_path):
-            self.model.load_state_dict(torch.load(best_model_path))
+            if self.device == torch.device('cpu'):
+                self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
+            else:
+                self.model.load_state_dict(torch.load(best_model_path))
 
         self.print_content("", True)
 
@@ -186,7 +189,10 @@ class Exp_Classification(Exp_Basic):
             path = os.path.join(self.args.checkpoints, setting)
             best_model_path = path + '/' + self.checkpoints_file_path
             if os.path.exists(best_model_path):
-                self.model.load_state_dict(torch.load(best_model_path))
+                if self.device == torch.device('cpu'):
+                    self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
+                else:
+                    self.model.load_state_dict(torch.load(best_model_path))
             else:
                 raise FileNotFoundError('You need to train this model before testing it!')
 
