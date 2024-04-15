@@ -102,6 +102,21 @@ def visual(true, preds=None, name='./pic/test.pdf'):
     plt.savefig(name, bbox_inches='tight')
 
 
+def draw_figure(x, pred, true, high, low, pred_range, path):
+    plt.clf()
+    plt.plot(pred.squeeze(), label='Predicted Value', color='red')
+    plt.plot(true.squeeze(), label='True Value', color='blue')
+    if pred_range is not None:
+        for j in range(len(pred_range)):
+            # plt.plot(high[j, :].squeeze(), label='High Value', color='green')
+            # plt.plot(low[j, :].squeeze(), label='Low Value', color='green')
+            plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
+                             alpha=1-pred_range[j])
+    plt.title('Prediction')
+    plt.legend()
+    plt.savefig(path)
+
+
 def adjustment(gt, pred):
     anomaly_state = False
     for i in range(len(gt)):

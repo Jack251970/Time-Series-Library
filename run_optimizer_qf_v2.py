@@ -2,6 +2,7 @@ from hyper_optimizer.basic_settings import prepare_config, build_setting, build_
 from hyper_optimizer.optimizer import HyperOptimizer
 
 
+# noinspection DuplicatedCode
 def link_fieldnames_data(_config):
     _data_path = _config['data_path']
     if _data_path == 'electricity/electricity.csv':

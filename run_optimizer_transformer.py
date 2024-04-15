@@ -35,7 +35,7 @@ def get_search_space(_model):
 
     dataset_config = {
         # solar dataset
-        'root_path': {'_type': 'single', '_value': './dataset/power/pvod/'},
+        'root_path': {'_type': 'single', '_value': './dataset/pvod/'},
         'data_path': {'_type': 'single', '_value': 'station00.csv'},
         'target': {'_type': 'single', '_value': 'power'},
         'data': {'_type': 'single', '_value': 'custom'},
