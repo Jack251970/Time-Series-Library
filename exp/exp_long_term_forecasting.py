@@ -1,13 +1,15 @@
+import math
 import os
 import time
 import warnings
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
+from utils.tools import EarlyStopping, adjust_learning_rate, visual, draw_figure
 
 warnings.filterwarnings('ignore')
 
@@ -175,7 +177,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         total_loss = []
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(vali_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
 
@@ -235,13 +237,17 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+        probability_step = 0
+        select_position = -test_data.pred_len + probability_step
+
         length = len(test_data)
+        batch_size = test_loader.batch_size
         pred_value = torch.zeros(length).to(self.device)
         true_value = torch.zeros(length).to(self.device)
 
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
@@ -268,6 +274,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, -self.args.pred_len:, :]
                 batch_y = batch_y[:, -self.args.pred_len:, :].to(self.device)
+
+                pred_value[i * batch_size: (i + 1) * batch_size] = outputs[:, select_position, -1].squeeze()
+                true_value[i * batch_size: (i + 1) * batch_size] = batch_y[:, select_position, -1].squeeze()
+
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()
                 if test_data.scale and self.args.inverse:
@@ -278,8 +288,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 outputs = outputs[:, :, f_dim:]
                 batch_y = batch_y[:, :, f_dim:]
 
-                pred = outputs
-                true = batch_y
+                pred = outputs  # [256, 96, 1]
+                true = batch_y  # [256, 96, 1]
 
                 preds.append(pred)
                 trues.append(true)
@@ -320,6 +330,45 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         np.save(folder_path + 'true.npy', trues)
 
         self.print_content("", True)
+
+        folder_path = self.root_prob_results_path + f'/{setting}/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        # move to cpu and covert to numpy for plotting
+        pred_value = pred_value.detach().cpu().numpy()  # [15616]
+        true_value = true_value.detach().cpu().numpy()  # [15616]
+
+        # convert to shape: (sample, feature) for inverse transform
+        new_shape = (length, self.args.enc_in)
+        _ = np.zeros(new_shape)
+        _[:, -1] = pred_value
+        pred_value = _
+        _ = np.zeros(new_shape)
+        _[:, -1] = true_value
+        true_value = _
+
+        # perform inverse transform
+        dataset = test_data
+        pred_value = dataset.inverse_transform(pred_value)
+        true_value = dataset.inverse_transform(true_value)
+
+        # get the original data
+        pred_value = pred_value[:, -1].squeeze()  # [15616]
+        true_value = true_value[:, -1].squeeze()  # [15616]
+
+        # draw figures
+        draw_figure(range(length), pred_value, true_value, None, None, None,
+                    os.path.join(folder_path, 'prediction all.png'))
+
+        interval = 128
+        num = math.floor(length / interval)
+        for i in range(num):
+            if (i + 1) * interval >= length:
+                continue
+            draw_figure(range(interval), pred_value[i * interval: (i + 1) * interval],
+                        true_value[i * interval: (i + 1) * interval],
+                        None, None, None, os.path.join(folder_path, f'prediction {i}.png'))
 
         return {
             'mse': mse,

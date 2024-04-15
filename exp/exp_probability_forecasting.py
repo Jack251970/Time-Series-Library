@@ -5,7 +5,6 @@ import warnings
 
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from exp.exp_basic import Exp_Basic
