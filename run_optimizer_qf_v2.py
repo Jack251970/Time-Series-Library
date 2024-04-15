@@ -68,7 +68,7 @@ def get_search_space(_model):
 
     dataset_config = {
         # 1
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
 
         # 2
         # 'data_path': {'_type': 'choice',
@@ -88,8 +88,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-                                                    'weather/weather.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+        #                                             'weather/weather.csv']},
     }
 
     learning_config = {
@@ -169,18 +169,30 @@ def get_search_space(_model):
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
 
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        'lstm_layers': {'_type': 'single', '_value': 1},
-        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'lstm_layers': {'_type': 'single', '_value': 1},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
+        # electricity dataset
+        'n_heads': {'_type': 'choice', '_value': [2, 4]},
+        'd_model': {'_type': 'choice', '_value': [64]},
+
+        # exchange dataset
+        # 'n_heads': {'_type': 'choice', '_value': [1, 4]},
+        # 'd_model': {'_type': 'choice', '_value': [64]},
+
+        # weather dataset
+        # 'n_heads': {'_type': 'choice', '_value': [2, 8]},
+        # 'd_model': {'_type': 'choice', '_value': [40]},
+
         # 'n_heads': {'_type': 'single', '_value': 1},
-        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
         # 'd_model': {'_type': 'single', '_value': 40},
-        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap_norm'},
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},

@@ -140,8 +140,8 @@ class Model(nn.Module):
             self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
 
             if self.attention_projection:
-                self.dec_hidden_projection = nn.Linear(self.E_enc, self.d_model)
-                self.enc_hidden_projection = nn.Linear(self.E_dec, self.d_model)
+                self.enc_hidden_projection = nn.Linear(self.E_enc, self.d_model)
+                self.dec_hidden_projection = nn.Linear(self.E_dec, self.d_model)
                 self.out_projection = nn.Linear(self.d_model, self.E_dec)
             if self.use_norm:
                 if self.attention_projection:
