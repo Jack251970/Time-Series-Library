@@ -59,6 +59,7 @@ class Model(nn.Module):
             else:
                 self.use_attn = 'corr'
             self.n_heads = params.n_heads
+            self.d_model = params.d_model
             custom_params.pop(0)
         else:
             self.use_attn = None
@@ -137,14 +138,19 @@ class Model(nn.Module):
 
             E_enc = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
             E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
-            if self.use_norm:
-                self.enc_norm = nn.LayerNorm([L_enc, H, E_enc])
-                self.dec_norm = nn.LayerNorm([L_dec, H, E_dec])
+
             if self.attention_projection:
-                self.d_model = params.d_model
                 self.dec_hidden_projection = nn.Linear(E_enc, self.d_model)
                 self.enc_hidden_projection = nn.Linear(E_dec, self.d_model)
-                self.out_projection = nn.Linear(self.d_model, self.lstm_hidden_size * self.dec_lstm_layers)
+                self.out_projection = nn.Linear(self.d_model, E_dec)
+            if self.use_norm:
+                if self.attention_projection:
+                    self.enc_norm = nn.LayerNorm([L_enc, H, self.d_model])
+                    self.dec_norm = nn.LayerNorm([L_dec, H, self.d_model])
+                else:
+                    self.enc_norm = nn.LayerNorm([L_enc, H, E_enc])
+                    self.dec_norm = nn.LayerNorm([L_dec, H, E_dec])
+                self.out_norm = nn.LayerNorm([L_dec, H, E_dec])
 
         # QSQM
         self._lambda = -1e-3  # make sure all data is not on the left point
@@ -285,13 +291,13 @@ class Model(nn.Module):
             E = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
             hidden_attn = hidden.clone().view(B, L, H, E)
 
-            if self.use_norm:
-                enc_hidden_attn = self.enc_norm(enc_hidden_attn)
-                hidden_attn = self.dec_norm(hidden_attn)
-
             if self.attention_projection:
                 hidden_attn = self.dec_hidden_projection(hidden_attn)
                 enc_hidden_attn = self.enc_hidden_projection(enc_hidden_attn)
+
+            if self.use_norm:
+                enc_hidden_attn = self.enc_norm(enc_hidden_attn)
+                hidden_attn = self.dec_norm(hidden_attn)
 
             y, attn = self.attention(hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
 
@@ -299,7 +305,7 @@ class Model(nn.Module):
                 y = self.out_projection(y)
 
             if self.use_norm:
-                y = self.dec_norm(y)
+                y = self.out_norm(y)
 
             y = y.view(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size)
 
