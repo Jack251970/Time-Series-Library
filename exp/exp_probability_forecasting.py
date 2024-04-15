@@ -11,7 +11,7 @@ from tqdm import tqdm
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
 from utils.pf_utils import init_metrics, update_metrics, final_metrics
-from utils.tools import EarlyStopping, adjust_learning_rate
+from utils.tools import EarlyStopping, adjust_learning_rate, draw_figure
 
 warnings.filterwarnings('ignore')
 
@@ -528,17 +528,3 @@ class Exp_Probability_Forecast(Exp_Basic):
             'mre': mre,
             'pinaw': pinaw
         }
-
-
-def draw_figure(x, pred, true, high, low, pred_range, path):
-    plt.clf()
-    plt.plot(pred.squeeze(), label='Predicted Value', color='red')
-    plt.plot(true.squeeze(), label='True Value', color='blue')
-    for j in range(len(pred_range)):
-        # plt.plot(high[j, :].squeeze(), label='High Value', color='green')
-        # plt.plot(low[j, :].squeeze(), label='Low Value', color='green')
-        plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
-                         alpha=1-pred_range[j])
-    plt.title('Prediction')
-    plt.legend()
-    plt.savefig(path)
