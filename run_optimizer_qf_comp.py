@@ -79,7 +79,7 @@ def get_search_space(_model):
 
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
-        'label_len': {'_type': 'single', '_value': 0},
+        'label_len': {'_type': 'single', '_value': 16},
         'pred_len': {'_type': 'single', '_value': 16},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
