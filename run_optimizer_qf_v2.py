@@ -70,8 +70,8 @@ def get_search_space(_model):
     dataset_config = {
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
+        'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
         # 2
         # 'data_path': {'_type': 'choice',
@@ -185,12 +185,12 @@ def get_search_space(_model):
         # 'd_model': {'_type': 'choice', '_value': [64]},
 
         # exchange dataset
-        'n_heads': {'_type': 'choice', '_value': [1, 4]},
-        'd_model': {'_type': 'choice', '_value': [64]},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 4]},
+        # 'd_model': {'_type': 'choice', '_value': [64]},
 
         # weather dataset
-        # 'n_heads': {'_type': 'choice', '_value': [2, 8]},
-        # 'd_model': {'_type': 'choice', '_value': [40]},
+        'n_heads': {'_type': 'choice', '_value': [2, 8]},
+        'd_model': {'_type': 'choice', '_value': [40]},
 
         # 'n_heads': {'_type': 'single', '_value': 1},
         # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
