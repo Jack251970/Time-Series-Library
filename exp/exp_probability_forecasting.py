@@ -358,7 +358,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
                 high_value[:, :, i * batch_size: (i + 1) * batch_size] = high
                 low = samples_low.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
-                low_value[:, i * batch_size: (i + 1) * batch_size] = low
+                low_value[:, :, i * batch_size: (i + 1) * batch_size] = low
 
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
@@ -444,6 +444,12 @@ class Exp_Probability_Forecast(Exp_Basic):
         true_value = true_value.detach().cpu().numpy()  # [16, 15616]
         high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
         low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
+
+        # save results in npy
+        np.save(folder_path + 'pred_value.npy', pred_value)
+        np.save(folder_path + 'true_value.npy', true_value)
+        np.save(folder_path + 'high_value.npy', high_value)
+        np.save(folder_path + 'low_value.npy', low_value)
 
         # integrate different probability range data
         pred_value = pred_value.reshape(-1)  # [16 * 15616]

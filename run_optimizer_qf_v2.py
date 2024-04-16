@@ -11,6 +11,11 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+
+        _config['lstm_hidden_size'] = 64
+        _config['lstm_layers'] = 2
+        _config['n_heads'] = 4
+        _config['d_model'] = 64
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
           _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -22,6 +27,11 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+
+        _config['lstm_hidden_size'] = 64
+        _config['lstm_layers'] = 1
+        _config['n_heads'] = 1
+        _config['d_model'] = 64
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -37,6 +47,11 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 21
         _config['dec_in'] = 21
         _config['c_out'] = 21
+
+        _config['lstm_hidden_size'] = 64
+        _config['lstm_layers'] = 2
+        _config['n_heads'] = 2
+        _config['d_model'] = 40
     elif _data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
@@ -71,7 +86,7 @@ def get_search_space(_model):
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
         # 2
         # 'data_path': {'_type': 'choice',
@@ -91,8 +106,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'weather/weather.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'weather/weather.csv']},
     }
 
     learning_config = {
@@ -172,29 +187,17 @@ def get_search_space(_model):
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
 
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        # 'lstm_layers': {'_type': 'single', '_value': 1},
-        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'single', '_value': 2},
+        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        # electricity dataset
-        # 'n_heads': {'_type': 'choice', '_value': [2, 4]},
-        # 'd_model': {'_type': 'choice', '_value': [64]},
-
-        # exchange dataset
-        # 'n_heads': {'_type': 'choice', '_value': [1, 4]},
-        # 'd_model': {'_type': 'choice', '_value': [64]},
-
-        # weather dataset
-        'n_heads': {'_type': 'choice', '_value': [2, 8]},
-        'd_model': {'_type': 'choice', '_value': [40]},
-
-        # 'n_heads': {'_type': 'single', '_value': 1},
+        'n_heads': {'_type': 'single', '_value': 2},
         # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        # 'd_model': {'_type': 'single', '_value': 40},
+        'd_model': {'_type': 'single', '_value': 64},
         # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap_norm'},
@@ -261,10 +264,10 @@ def combine_lists(lists, separator='_'):
     return [separator.join(filter(None, combo)) for combo in combinations]
 
 
-h = HyperOptimizer(False, ['LSTM-ED-CQ'],
+h = HyperOptimizer(False, ['LSTM-ED-CQ', 'QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=False, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0)
