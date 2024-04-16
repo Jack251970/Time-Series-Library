@@ -309,14 +309,15 @@ class Exp_Probability_Forecast(Exp_Basic):
         probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         probability_range_len = len(probability_range)
 
+        pred_length = test_data.pred_len
         length = len(test_data)
-        pred_value = torch.zeros(length).to(self.device)
-        true_value = torch.zeros(length).to(self.device)
-        high_value = torch.zeros(probability_range_len, length).to(self.device)
-        low_value = torch.zeros(probability_range_len, length).to(self.device)
+        pred_value = torch.zeros(pred_length, length).to(self.device)
+        true_value = torch.zeros(pred_length, length).to(self.device)
+        high_value = torch.zeros(pred_length, probability_range_len, length).to(self.device)
+        low_value = torch.zeros(pred_length, probability_range_len, length).to(self.device)
 
         self.model.eval()
-        with torch.no_grad():
+        with (torch.no_grad()):
             metrics = init_metrics(self.args.pred_len, self.device)
             batch_size = test_loader.batch_size
 
@@ -350,16 +351,14 @@ class Exp_Probability_Forecast(Exp_Basic):
                                                      probability_range=probability_range)
 
                 samples, sample_mu, sample_std, samples_high, samples_low = outputs
-                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 26], [3, 256, 16]
+                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16]
 
-                pred_value[i * batch_size: (i + 1) * batch_size] = sample_mu[:, select_position, -1].squeeze()
-                high_value[:, i * batch_size: (i + 1) * batch_size] = samples_high[:, :, select_position].squeeze()
-                low_value[:, i * batch_size: (i + 1) * batch_size] = samples_low[:, :, select_position].squeeze()
-                # for j in range(batch_size):
-                #     pred_value[i * batch_size + j] = sample_mu[0, :, 0]
-                #     high_value[i] = samples_high[0, 0, 0]
-                #     low_value[i] = samples_low[0, 0, 0]
-                # [99, 256, 16], [256, 16, 1], [256, 16, 1], [1, 256, 16], [1, 256, 16]
+                pred = sample_mu[:, :, -1].transpose(0, 1).squeeze()
+                pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
+                high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
+                high_value[:, :, i * batch_size: (i + 1) * batch_size] = high
+                low = samples_low.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
+                low_value[:, i * batch_size: (i + 1) * batch_size] = low
 
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
@@ -370,7 +369,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                 metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
                 labels = labels.unsqueeze(-1)  # [256, 112, 1]
 
-                true_value[i * batch_size: (i + 1) * batch_size] = batch_y[:, select_position, -1].squeeze()
+                true = batch_y[:, :, -1].transpose(0, 1).squeeze()
+                true_value[:, i * batch_size: (i + 1) * batch_size] = true
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = sample_mu[:, -self.args.pred_len:, :]  # [256, 16, 1]
@@ -440,25 +440,26 @@ class Exp_Probability_Forecast(Exp_Basic):
             os.makedirs(folder_path)
 
         # move to cpu and covert to numpy for plotting
-        pred_value = pred_value.detach().cpu().numpy()  # [15616]
-        true_value = true_value.detach().cpu().numpy()  # [15616]
-        high_value = high_value.detach().cpu().numpy()  # [3, 15616]
-        low_value = low_value.detach().cpu().numpy()  # [3, 15616]
+        pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
+        true_value = true_value.detach().cpu().numpy()  # [16, 15616]
+        high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
+        low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
 
         # integrate different probability range data
-        high_value = high_value.reshape(-1)  # [46848]
-        low_value = low_value.reshape(-1)  # [46848]
+        pred_value = pred_value.reshape(-1)  # [16 * 15616]
+        true_value = true_value.reshape(-1)  # [16 * 15616]
+        high_value = high_value.reshape(-1)  # [16 * 46848]
+        low_value = low_value.reshape(-1)  # [16 * 46848]
 
         # convert to shape: (sample, feature) for inverse transform
-        new_shape = (length, self.args.enc_in)
+        new_shape = (pred_length * length, self.args.enc_in)
         _ = np.zeros(new_shape)
         _[:, -1] = pred_value
         pred_value = _
         _ = np.zeros(new_shape)
         _[:, -1] = true_value
         true_value = _
-
-        new_shape = (probability_range_len * length, self.args.enc_in)
+        new_shape = (pred_length * probability_range_len * length, self.args.enc_in)
         _ = np.zeros(new_shape)
         _[:, -1] = high_value
         high_value = _
@@ -474,37 +475,49 @@ class Exp_Probability_Forecast(Exp_Basic):
         low_value = dataset.inverse_transform(low_value)
 
         # get the original data
-        pred_value = pred_value[:, -1].squeeze()  # [15616]
-        true_value = true_value[:, -1].squeeze()  # [15616]
-        high_value = high_value[:, -1].squeeze()  # [46848]
-        low_value = low_value[:, -1].squeeze()  # [46848]
+        pred_value = pred_value[:, -1].squeeze()  # [16 * 15616]
+        true_value = true_value[:, -1].squeeze()  # [16 * 15616]
+        high_value = high_value[:, -1].squeeze()  # [16 * 46848]
+        low_value = low_value[:, -1].squeeze()  # [16 * 46848]
 
         # restore different probability range data
-        high_value = high_value.reshape(probability_range_len, length)  # [3, 15616]
-        low_value = low_value.reshape(probability_range_len, length)  # [3, 15616]
+        pred_value = pred_value.reshape(pred_length, length)  # [16, 15616]
+        true_value = true_value.reshape(pred_length, length)  # [16, 15616]
+        high_value = high_value.reshape(pred_length, probability_range_len, length)  # [16, 3, 15616]
+        low_value = low_value.reshape(pred_length, probability_range_len, length)  # [16, 3, 15616]
 
         # draw figures
-        draw_figure(range(length), pred_value, true_value, high_value, low_value, probability_range,
-                    os.path.join(folder_path, 'prediction all.png'))
+        for i in range(pred_length):
+            _path = os.path.join(folder_path, f'{i}_step')
+            if not os.path.exists(_path):
+                os.makedirs(_path)
 
-        interval = 128
-        num = math.floor(length / interval)
-        for i in range(num):
-            if (i + 1) * interval >= length:
-                continue
-            draw_figure(range(interval), pred_value[i * interval: (i + 1) * interval], true_value[i * interval: (i + 1) * interval],
-                        high_value[:, i * interval: (i + 1) * interval], low_value[:, i * interval: (i + 1) * interval],
-                        probability_range, os.path.join(folder_path, f'prediction {i}.png'))
+            interval = 128
+            num = math.floor(length / interval)
+            for j in range(num):
+                if j * interval >= length:
+                    continue
+                draw_figure(range(interval),
+                            pred_value[i, j * interval: (j + 1) * interval],
+                            true_value[i, j * interval: (j + 1) * interval],
+                            high_value[i, :, j * interval: (j + 1) * interval],
+                            low_value[i, :, j * interval: (j + 1) * interval],
+                            probability_range,
+                            os.path.join(_path, f'prediction {j}.png'))
 
         # draw demo data for overall structure
-        # i = 19
+        # from matplotlib import pyplot as plt
+        #
+        # i = 0
+        # j = 19
+        # interval = 128
         # pred_data_prop = 1 / 3
         # demo_pred_len = int(interval * pred_data_prop)
-        # demo_true_data = true_value[i * interval: (i + 1) * interval - demo_pred_len]
-        # demo_true_data_1 = true_value[i * interval + interval - demo_pred_len: (i + 1) * interval]
-        # demo_pred_data = pred_value[i * interval + interval - demo_pred_len: (i + 1) * interval]
-        # demo_high_data = high_value[:, i * interval + interval - demo_pred_len: (i + 1) * interval]
-        # demo_low_data = low_value[:, i * interval + interval - demo_pred_len: (i + 1) * interval]
+        # demo_true_data = true_value[i, j * interval: (j + 1) * interval - demo_pred_len]
+        # demo_true_data_1 = true_value[i, j * interval + interval - demo_pred_len: (j + 1) * interval]
+        # demo_pred_data = pred_value[i, j * interval + interval - demo_pred_len: (j + 1) * interval]
+        # demo_high_data = high_value[i, :, j * interval + interval - demo_pred_len: (j + 1) * interval]
+        # demo_low_data = low_value[i, :, j * interval + interval - demo_pred_len: (j + 1) * interval]
         # plt.clf()
         # plt.plot(demo_true_data.squeeze(), color='black')
         # plt.legend()
