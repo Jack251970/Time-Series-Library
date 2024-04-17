@@ -285,7 +285,7 @@ class Model(nn.Module):
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         if self.use_attn is not None:
-            hidden_attn = hidden.clone().view(self.batch_size, self.L_dec, self.H, self.E_dec)
+            hidden_attn = hidden.clone().view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 2, 20]
 
             if self.attention_projection:
                 hidden_attn = self.dec_hidden_projection(hidden_attn)

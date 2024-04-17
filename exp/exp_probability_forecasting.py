@@ -304,8 +304,6 @@ class Exp_Probability_Forecast(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        probability_step = 0
-        select_position = -test_data.pred_len + probability_step
         probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         probability_range_len = len(probability_range)
 
