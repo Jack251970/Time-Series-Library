@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from layers.AutoCorrelation import AutoCorrelation
+from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
@@ -73,11 +74,19 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.dec_hidden_difference1 = False
-        if len(custom_params) > 0 and custom_params[0] == 'ap':
-            self.attention_projection = True
+        if len(custom_params) > 0 and custom_params[0] == 'ap' or custom_params[0] == 'ap1':
+            if custom_params[0] == 'ap':
+                self.attention_projection = "ap"
+            else:
+                self.attention_projection = "ap1"
             custom_params.pop(0)
         else:
-            self.attention_projection = False
+            self.attention_projection = None
+        if len(custom_params) > 0 and custom_params[0] == 'embed':
+            self.use_embed = True
+            custom_params.pop(0)
+        else:
+            self.use_embed = False
         if len(custom_params) > 0 and custom_params[0] == 'dhd2':
             self.dec_hidden_difference2 = True
             custom_params.pop(0)
@@ -139,12 +148,15 @@ class Model(nn.Module):
             self.E_enc = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
             self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
 
-            if self.attention_projection:
+            if self.attention_projection is not None:
                 self.enc_hidden_projection = nn.Linear(self.E_enc, self.d_model)
-                self.dec_hidden_projection = nn.Linear(self.E_dec, self.d_model)
+                if self.attention_projection == 'ap':
+                    self.dec_hidden_projection = nn.Linear(self.E_dec, self.d_model)
+                else:
+                    self.dec_hidden_projection = DataEmbedding(self.E_dec, self.d_model, params.embed, params.freq, 0)
                 self.out_projection = nn.Linear(self.d_model, self.E_dec)
             if self.use_norm:
-                if self.attention_projection:
+                if self.attention_projection is not None:
                     self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.d_model])
                     self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.d_model])
                 else:
@@ -258,14 +270,14 @@ class Model(nn.Module):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
             enc_in, dec_in, labels = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, labels)  # return loss list
+            return self.probability_forecast(enc_in, dec_in, x_mark_dec, labels)  # return loss list
         return None
 
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
             enc_in, dec_in, _ = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, probability_range=probability_range)
+            return self.probability_forecast(enc_in, dec_in, x_mark_dec, probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
@@ -278,18 +290,23 @@ class Model(nn.Module):
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_dec(self, x, hidden, cell, enc_hidden_attn, dec_hidden):
+    def run_lstm_dec(self, x, hidden, cell, enc_hidden_attn, dec_hidden, x_mark_dec_step):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
-        _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+        _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
 
         if self.use_attn is not None:
-            hidden_attn = hidden.clone().view(self.batch_size, self.L_dec, self.H, self.E_dec)
+            hidden_attn = hidden.clone().view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 8, 5]
 
-            if self.attention_projection:
-                hidden_attn = self.dec_hidden_projection(hidden_attn)
+            if self.attention_projection is not None:
                 enc_hidden_attn = self.enc_hidden_projection(enc_hidden_attn)
+                if self.attention_projection == 'ap':
+                    hidden_attn = self.dec_hidden_projection(hidden_attn)
+                else:
+                    # [256, 1, 64], [256, 1, 16]
+                    hidden_attn = hidden_attn.view(self.batch_size, self.L_dec, -1)  # [256, 1, 64]
+                    hidden_attn = self.dec_hidden_projection(hidden_attn, x_mark_dec_step)
 
             if self.use_norm:
                 enc_hidden_attn = self.enc_norm(enc_hidden_attn)
@@ -297,7 +314,7 @@ class Model(nn.Module):
 
             y, attn = self.attention(hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
 
-            if self.attention_projection:
+            if self.attention_projection is not None:
                 y = self.out_projection(y)
 
             if self.use_norm:
@@ -334,7 +351,7 @@ class Model(nn.Module):
         return gamma, eta_k
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, x_enc, x_dec, labels=None, sample=False, probability_range=None):
+    def probability_forecast(self, x_enc, x_dec, x_mark_dec, labels=None, sample=False, probability_range=None):
         # [256, 96, 4], [256, 12, 7], [256, 12,]
         if probability_range is None:
             probability_range = [0.5]
@@ -400,8 +417,9 @@ class Model(nn.Module):
 
             # decoder
             for t in range(self.pred_steps):
+                x_mark_dec_step = x_mark_dec[:, t, :].clone()
                 hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                              enc_hidden_attn, dec_hidden)
+                                                              enc_hidden_attn, dec_hidden, x_mark_dec_step)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -447,8 +465,9 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
+                    x_mark_dec_step = x_mark_dec[:, t, :].clone()
                     hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                  enc_hidden_attn, dec_hidden)
+                                                                  enc_hidden_attn, dec_hidden, x_mark_dec_step)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -491,8 +510,9 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
+                    x_mark_dec_step = x_mark_dec[:, t, :].clone()
                     hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                  enc_hidden_attn, dec_hidden)
+                                                                  enc_hidden_attn, dec_hidden, x_mark_dec_step)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
