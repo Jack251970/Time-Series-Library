@@ -103,29 +103,29 @@ class Model(nn.Module):
 
         # LSTM: Encoder and Decoder
         self.lstm_enc = nn.LSTM(input_size=self.enc_lstm_input_size,
-                                    hidden_size=self.lstm_hidden_size,
-                                    num_layers=self.enc_lstm_layers,
-                                    bias=True,
-                                    batch_first=False,
-                                    bidirectional=False,
-                                    dropout=self.lstm_dropout)
+                                hidden_size=self.lstm_hidden_size,
+                                num_layers=self.enc_lstm_layers,
+                                bias=True,
+                                batch_first=False,
+                                bidirectional=False,
+                                dropout=self.lstm_dropout)
         self.lstm_dec = nn.LSTM(input_size=self.dec_lstm_input_size,
-                                    hidden_size=self.lstm_hidden_size,
-                                    num_layers=self.dec_lstm_layers,
-                                    bias=True,
-                                    batch_first=False,
-                                    bidirectional=False,
-                                    dropout=self.lstm_dropout)
+                                hidden_size=self.lstm_hidden_size,
+                                num_layers=self.dec_lstm_layers,
+                                bias=True,
+                                batch_first=False,
+                                bidirectional=False,
+                                dropout=self.lstm_dropout)
         self.init_lstm(self.lstm_enc)
         self.init_lstm(self.lstm_dec)
 
         # Attention
         if self.use_attn is not None:
             if self.use_attn == 'attn':
-                self.attention = FullAttention(mask_flag=False, output_attention=True)
+                self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=0.1)
             else:
                 self.attention = AutoCorrelation(mask_flag=False, output_attention=True, agg_mode='full',
-                                                 attention_dropout=0)
+                                                 attention_dropout=0.1)
             self.L_enc = self.pred_start
             self.L_dec = 1
             self.H = self.n_heads
@@ -309,11 +309,11 @@ class Model(nn.Module):
                 y = y - dec_hidden
 
             if self.dec_hidden_separate:
-                return y, hidden, cell
+                return y, hidden, cell, attn
             else:
-                return y, y, cell
+                return y, y, cell, attn
         else:
-            return hidden, hidden, cell
+            return hidden, hidden, cell, None
 
     @staticmethod
     def get_hidden_permute(hidden):
@@ -351,7 +351,8 @@ class Model(nn.Module):
             labels = labels.permute(1, 0)  # [12, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        hidden = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size,
+                             device=device)  # [2, 256, 40]
         cell = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         # run encoder
@@ -368,12 +369,14 @@ class Model(nn.Module):
         if self.use_attn:
             if self.dec_hidden_difference1:
                 enc_hidden_1_n = enc_hidden  # [96, 1, 256, 40]
-                enc_hidden_0_1n = torch.concat((torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
-                                                 enc_hidden[:-1]), dim=0)
+                enc_hidden_0_1n = torch.concat(
+                    (torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
+                     enc_hidden[:-1]), dim=0)
                 enc_hidden = enc_hidden_1_n - enc_hidden_0_1n  # [96, 1, 256, 40]
                 cell_hidden_1_n = enc_cell  # [96, 1, 256, 40]
-                cell_hidden_0_1n = torch.concat((torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
-                                                    enc_cell[:-1]), dim=0)
+                cell_hidden_0_1n = torch.concat(
+                    (torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
+                     enc_cell[:-1]), dim=0)
                 enc_cell = cell_hidden_1_n - cell_hidden_0_1n  # [96, 1, 256, 40]
 
             enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
@@ -392,7 +395,8 @@ class Model(nn.Module):
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps, self.lstm_hidden_size * self.dec_lstm_layers,
+            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps,
+                                          self.lstm_hidden_size * self.dec_lstm_layers,
                                           device=device)
 
             # initialize hidden and cell
@@ -400,8 +404,8 @@ class Model(nn.Module):
 
             # decoder
             for t in range(self.pred_steps):
-                hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                              enc_hidden_attn, dec_hidden)
+                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
+                                                                 enc_hidden_attn, dec_hidden)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -434,9 +438,11 @@ class Model(nn.Module):
             high_alpha = alpha_high.unsqueeze(0).expand(self.batch_size, -1)  # [256, 3]
 
             # initialize samples
-            samples_low = torch.zeros(probability_range_len, self.batch_size, self.pred_steps, device=device)  # [3, 256, 16]
+            samples_low = torch.zeros(probability_range_len, self.batch_size, self.pred_steps,
+                                      device=device)  # [3, 256, 16]
             samples_high = samples_low.clone()  # [3, 256, 16]
             samples = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, device=device)  # [99, 256, 12]
+            attention_map = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, self.L_enc, device=device)
 
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
@@ -447,8 +453,8 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                  enc_hidden_attn, dec_hidden)
+                    hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
+                                                                        enc_hidden_attn, dec_hidden)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
