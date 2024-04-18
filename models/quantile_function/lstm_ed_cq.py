@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from layers.AutoCorrelation import AutoCorrelation
+from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
 
@@ -78,16 +79,6 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.attention_projection = False
-        if len(custom_params) > 0 and custom_params[0] == 'dhd2':
-            self.dec_hidden_difference2 = True
-            custom_params.pop(0)
-        else:
-            self.dec_hidden_difference2 = False
-        if len(custom_params) > 0 and custom_params[0] == 'dhs':
-            self.dec_hidden_separate = True
-            custom_params.pop(0)
-        else:
-            self.dec_hidden_separate = False
         if len(custom_params) > 0 and custom_params[0] == 'norm':
             self.use_norm = True
             custom_params.pop(0)
@@ -130,39 +121,48 @@ class Model(nn.Module):
             self.L_dec = 1
             self.H = self.n_heads
 
-            # check if the hidden size is divisible by the number of heads
-            if self.enc_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
-                raise ValueError("enc_lstm_layers * lstm_hidden_size must be divisible by n_heads")
-            if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
-                raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
+            if self.attention_projection:
+                if self.d_model % self.n_heads != 0:
+                    raise ValueError("d_model must be divisible by n_heads")
+                if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
+                    raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
 
-            self.E_enc = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
-            self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
+                self.E_enc = self.d_model // self.n_heads
+                self.E_dec = self.d_model // self.n_heads
+            else:
+                if self.enc_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
+                    raise ValueError("enc_lstm_layers * lstm_hidden_size must be divisible by n_heads")
+                self.E_enc = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+
+                if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
+                    raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
+                self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
 
             if self.attention_projection:
-                self.enc_hidden_projection = nn.Linear(self.E_enc, self.d_model)
-                self.dec_hidden_projection = nn.Linear(self.E_dec, self.d_model)
-                self.out_projection = nn.Linear(self.d_model, self.E_dec)
+                self.enc_embedding = DataEmbedding(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model,
+                                                   params.embed, params.freq, 0)
+                self.dec_embedding = DataEmbedding(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model,
+                                                   params.embed, params.freq, 0)
             if self.use_norm:
-                if self.attention_projection:
-                    self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.d_model])
-                    self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.d_model])
-                else:
-                    self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.E_enc])
-                    self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
+                self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.E_enc])
+                self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
                 self.out_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
 
         # QSQM
+        if self.attention_projection:
+            self.qsqm_input_size = self.d_model
+        else:
+            self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
         self._lambda = -1e-3  # make sure all data is not on the left point
         if self.algorithm_type == '2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, 1)
+            self.linear_gamma = nn.Linear(self.qsqm_input_size, 1)
         elif self.algorithm_type == '1+2':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, self.num_spline)
+            self.linear_gamma = nn.Linear(self.qsqm_input_size, self.num_spline)
         elif self.algorithm_type == '1':
-            self.linear_gamma = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, self.num_spline)
+            self.linear_gamma = nn.Linear(self.qsqm_input_size, self.num_spline)
         else:
             raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-        self.linear_eta_k = nn.Linear(self.lstm_hidden_size * self.dec_lstm_layers, self.num_spline)
+        self.linear_eta_k = nn.Linear(self.qsqm_input_size, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
         device = torch.device("cuda" if params.use_gpu else "cpu")
         y = torch.ones(self.num_spline) / self.num_spline
@@ -258,14 +258,14 @@ class Model(nn.Module):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
             enc_in, dec_in, labels = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, labels)  # return loss list
+            return self.probability_forecast(enc_in, dec_in, x_mark_enc, x_mark_dec, labels)  # return loss list
         return None
 
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
             enc_in, dec_in, _ = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, probability_range=probability_range)
+            return self.probability_forecast(enc_in, dec_in, x_mark_enc, x_mark_dec, probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
@@ -278,40 +278,33 @@ class Model(nn.Module):
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_dec(self, x, hidden, cell, enc_hidden_attn, dec_hidden):
+    def run_lstm_dec(self, x, x_mark_dec_step, hidden, cell, enc_hidden_attn, dec_hidden):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
-        _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+        _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
 
         if self.use_attn is not None:
-            hidden_attn = hidden.clone().view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 2, 20]
-
             if self.attention_projection:
-                hidden_attn = self.dec_hidden_projection(hidden_attn)
-                enc_hidden_attn = self.enc_hidden_projection(enc_hidden_attn)
+                dec_hidden_attn = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
+                dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
+            else:
+                dec_hidden_attn = hidden.clone()
+
+            dec_hidden_attn = dec_hidden_attn.view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 2, 20]
 
             if self.use_norm:
                 enc_hidden_attn = self.enc_norm(enc_hidden_attn)
-                hidden_attn = self.dec_norm(hidden_attn)
+                dec_hidden_attn = self.dec_norm(dec_hidden_attn)
 
-            y, attn = self.attention(hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
-
-            if self.attention_projection:
-                y = self.out_projection(y)
+            y, attn = self.attention(dec_hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
 
             if self.use_norm:
                 y = self.out_norm(y)
 
-            y = y.view(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size)
+            y = y.view(self.dec_lstm_layers, self.batch_size, -1)
 
-            if self.dec_hidden_difference2:
-                y = y - dec_hidden
-
-            if self.dec_hidden_separate:
-                return y, hidden, cell, attn
-            else:
-                return y, y, cell, attn
+            return y, hidden, cell, attn
         else:
             return hidden, hidden, cell, None
 
@@ -334,7 +327,7 @@ class Model(nn.Module):
         return gamma, eta_k
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, x_enc, x_dec, labels=None, sample=False, probability_range=None):
+    def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False, probability_range=None):
         # [256, 96, 4], [256, 12, 7], [256, 12,]
         if probability_range is None:
             probability_range = [0.5]
@@ -379,7 +372,13 @@ class Model(nn.Module):
                      enc_cell[:-1]), dim=0)
                 enc_cell = cell_hidden_1_n - cell_hidden_0_1n  # [96, 1, 256, 40]
 
-            enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
+            # embedding encoder
+            if self.attention_projection:
+                enc_hidden = enc_hidden.view(self.batch_size, self.pred_start, self.enc_lstm_layers * self.lstm_hidden_size)
+                enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
+                enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
+            else:
+                enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
             if self.dec_hidden_zero:
                 dec_hidden = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
@@ -395,17 +394,16 @@ class Model(nn.Module):
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps,
-                                          self.lstm_hidden_size * self.dec_lstm_layers,
-                                          device=device)
+            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps, self.qsqm_input_size, device=device)
 
             # initialize hidden and cell
             hidden, cell = dec_hidden.clone(), dec_cell.clone()
 
             # decoder
             for t in range(self.pred_steps):
-                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                 enc_hidden_attn, dec_hidden)
+                x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                                                                 hidden, cell, enc_hidden_attn, dec_hidden)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -453,8 +451,9 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                        enc_hidden_attn, dec_hidden)
+                    x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                    hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                                                                        hidden, cell, enc_hidden_attn, dec_hidden)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -497,8 +496,9 @@ class Model(nn.Module):
 
                 # decoder
                 for t in range(self.pred_steps):
-                    hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), hidden, cell,
-                                                                  enc_hidden_attn, dec_hidden)
+                    x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                    hidden_qsqm, hidden, cell = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                                                                  hidden, cell, enc_hidden_attn, dec_hidden)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 

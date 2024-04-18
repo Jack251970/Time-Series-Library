@@ -11,11 +11,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
-
-        _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 2
-        _config['n_heads'] = 4
-        _config['d_model'] = 64
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
           _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -27,11 +22,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
-
-        _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 1
-        _config['n_heads'] = 1
-        _config['d_model'] = 64
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -47,11 +37,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 21
         _config['dec_in'] = 21
         _config['c_out'] = 21
-
-        _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 2
-        _config['n_heads'] = 2
-        _config['d_model'] = 40
     elif _data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
@@ -71,7 +56,7 @@ def link_fieldnames_data(_config):
 def get_search_space(_model):
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -241,20 +226,13 @@ def build_custom_parameters():
 
     attentions3 = [None, 'dhd1']
 
-    # attentions4 = [None, 'dhd2']
-    attentions4 = [None]
-
     # attentions5 = [None, 'ap']
     attentions5 = ['ap']
-
-    # attentions6 = [None, 'dhs']
-    attentions6 = [None]
 
     # attentions7 = [None, 'norm']
     attentions7 = ['norm']
 
-    return combine_lists([features, attentions1, attentions2, attentions3, attentions4, attentions5, attentions6,
-                          attentions7])
+    return combine_lists([features, attentions1, attentions2, attentions3, attentions5, attentions7])
 
 
 def combine_lists(lists, separator='_'):
@@ -264,10 +242,10 @@ def combine_lists(lists, separator='_'):
     return [separator.join(filter(None, combo)) for combo in combinations]
 
 
-h = HyperOptimizer(False, ['LSTM-ED-CQ', 'QSQF-C'],
+h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=False, try_model=False, force_exp=True, add_tags=[])
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=False, try_model=True, force_exp=True, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0)
