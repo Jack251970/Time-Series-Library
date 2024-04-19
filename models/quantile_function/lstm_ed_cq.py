@@ -74,7 +74,7 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.dec_hidden_difference1 = False
-        if len(custom_params) > 0 and custom_params[0] == 'ap':
+        if len(custom_params) > 0 and custom_params[0] == 'ap1':
             self.attention_projection = True
             custom_params.pop(0)
         else:
@@ -265,7 +265,8 @@ class Model(nn.Module):
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
             enc_in, dec_in, _ = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, x_mark_enc, x_mark_dec, probability_range=probability_range)
+            return self.probability_forecast(enc_in, dec_in, x_mark_enc, x_mark_dec,
+                                             probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
@@ -327,7 +328,8 @@ class Model(nn.Module):
         return gamma, eta_k
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False, probability_range=None):
+    def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False,
+                             probability_range=None):
         # [256, 96, 4], [256, 12, 7], [256, 12,]
         if probability_range is None:
             probability_range = [0.5]
@@ -374,7 +376,8 @@ class Model(nn.Module):
 
             # embedding encoder
             if self.attention_projection:
-                enc_hidden = enc_hidden.view(self.batch_size, self.pred_start, self.enc_lstm_layers * self.lstm_hidden_size)
+                enc_hidden = enc_hidden.view(self.batch_size, self.pred_start,
+                                             self.enc_lstm_layers * self.lstm_hidden_size)
                 enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
                 enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
             else:
@@ -498,7 +501,7 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
                     hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                  hidden, cell, enc_hidden_attn, dec_hidden)
+                                                                     hidden, cell, enc_hidden_attn, dec_hidden)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
