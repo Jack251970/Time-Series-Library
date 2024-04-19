@@ -55,10 +55,7 @@ class Model(nn.Module):
                 input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
             self.dec_lstm_input_size = input_size
         if len(custom_params) > 0 and custom_params[0] == 'attn' or custom_params[0] == 'corr':
-            if custom_params[0] == 'attn':
-                self.use_attn = 'attn'
-            else:
-                self.use_attn = 'corr'
+            self.use_attn = custom_params[0]
             self.n_heads = params.n_heads
             self.d_model = params.d_model
             custom_params.pop(0)
@@ -74,11 +71,11 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.dec_hidden_difference1 = False
-        if len(custom_params) > 0 and custom_params[0] == 'ap1':
-            self.attention_projection = True
+        if len(custom_params) > 0 and custom_params[0] == 'ap' or custom_params[0] == 'ap1' or custom_params[0] == 'ap2':
+            self.attention_projection = custom_params[0]
             custom_params.pop(0)
         else:
-            self.attention_projection = False
+            self.attention_projection = None
         if len(custom_params) > 0 and custom_params[0] == 'norm':
             self.use_norm = True
             custom_params.pop(0)
@@ -121,7 +118,7 @@ class Model(nn.Module):
             self.L_dec = 1
             self.H = self.n_heads
 
-            if self.attention_projection:
+            if self.attention_projection is not None:
                 if self.d_model % self.n_heads != 0:
                     raise ValueError("d_model must be divisible by n_heads")
                 if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
@@ -138,7 +135,7 @@ class Model(nn.Module):
                     raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
                 self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
 
-            if self.attention_projection:
+            if self.attention_projection is not None:
                 self.enc_embedding = DataEmbedding(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model,
                                                    params.embed, params.freq, 0)
                 self.dec_embedding = DataEmbedding(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model,
@@ -149,7 +146,7 @@ class Model(nn.Module):
                 self.out_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
 
         # QSQM
-        if self.attention_projection:
+        if self.attention_projection is not None:
             self.qsqm_input_size = self.d_model
         else:
             self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
@@ -286,9 +283,12 @@ class Model(nn.Module):
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
 
         if self.use_attn is not None:
-            if self.attention_projection:
+            if self.attention_projection is not None:
                 dec_hidden_attn = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
-                dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
+                if self.attention_projection == 'dp1':
+                    dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
+                else:
+                    dec_hidden_attn = self.dec_embedding(dec_hidden_attn, None)
             else:
                 dec_hidden_attn = hidden.clone()
 
@@ -375,10 +375,13 @@ class Model(nn.Module):
                 enc_cell = cell_hidden_1_n - cell_hidden_0_1n  # [96, 1, 256, 40]
 
             # embedding encoder
-            if self.attention_projection:
+            if self.attention_projection is not None:
                 enc_hidden = enc_hidden.view(self.batch_size, self.pred_start,
                                              self.enc_lstm_layers * self.lstm_hidden_size)
-                enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
+                if self.attention_projection == 'dp1':
+                    enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
+                else:
+                    enc_hidden = self.enc_embedding(enc_hidden, None)
                 enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
             else:
                 enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
