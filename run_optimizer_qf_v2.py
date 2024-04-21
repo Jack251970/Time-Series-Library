@@ -11,9 +11,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
-
-        _config['lstm_hidden_size'] = 40
-        _config['lstm_layers'] = 1
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
           _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -25,9 +22,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
-
-        _config['lstm_hidden_size'] = 40
-        _config['lstm_layers'] = 1
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -43,9 +37,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 21
         _config['dec_in'] = 21
         _config['c_out'] = 21
-
-        _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 3
     elif _data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
@@ -189,12 +180,12 @@ def get_search_space(_model):
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'n_heads': {'_type': 'single', '_value': 4},
-        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        'd_model': {'_type': 'single', '_value': 64},
-        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'n_heads': {'_type': 'single', '_value': 4},
+        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        # 'd_model': {'_type': 'single', '_value': 64},
+        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap2_norm'},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 

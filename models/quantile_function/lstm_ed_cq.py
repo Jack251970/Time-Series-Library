@@ -76,6 +76,11 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.attention_projection = None
+        if len(custom_params) > 0 and custom_params[0] == 'dhs':
+            self.dec_hidden_separate = True
+            custom_params.pop(0)
+        else:
+            self.dec_hidden_separate = False
         if len(custom_params) > 0 and custom_params[0] == 'norm':
             self.use_norm = True
             custom_params.pop(0)
@@ -135,18 +140,26 @@ class Model(nn.Module):
                     raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
                 self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
 
+            out_size = self.E_dec
             if self.attention_projection is not None:
                 self.enc_embedding = DataEmbedding(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model,
                                                    params.embed, params.freq, 0)
                 self.dec_embedding = DataEmbedding(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model,
                                                    params.embed, params.freq, 0)
+                if not self.dec_hidden_separate:
+                    out_size = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
+                    self.out_projection = nn.Linear(self.E_dec, out_size)
+                else:
+                    self.out_projection = None
+            else:
+                self.out_projection = None
             if self.use_norm:
                 self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.E_enc])
                 self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
-                self.out_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
+                self.out_norm = nn.LayerNorm([self.L_dec, self.H, out_size])
 
         # QSQM
-        if self.attention_projection is not None:
+        if self.attention_projection is not None and self.dec_hidden_separate:
             self.qsqm_input_size = self.d_model
         else:
             self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
@@ -300,12 +313,18 @@ class Model(nn.Module):
 
             y, attn = self.attention(dec_hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
 
+            if self.out_projection is not None:
+                y = self.out_projection(y)
+
             if self.use_norm:
                 y = self.out_norm(y)
 
             y = y.view(self.dec_lstm_layers, self.batch_size, -1)
 
-            return y, hidden, cell, attn
+            if self.dec_hidden_separate:
+                return y, hidden, cell, attn
+            else:
+                return y, y, cell, attn
         else:
             return hidden, hidden, cell, None
 
