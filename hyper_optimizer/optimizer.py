@@ -468,13 +468,14 @@ class HyperOptimizer(object):
             # set args for later
             args = self.set_args(args, config)
 
-            # check if the parameters of this experiment need to be jumped
-            if self._check_config_data(config, _jump_config_list) and not force_exp:
-                continue
+            if not force_exp:
+                # check if the parameters of this experiment need to be jumped
+                if self._check_config_data(config, _jump_config_list):
+                    continue
 
-            # check if the parameters of this experiment have been done
-            if self._check_config_data(config, _config_list) and not force_exp:
-                continue
+                # check if the parameters of this experiment have been done
+                if self._check_config_data(config, _config_list):
+                    continue
 
             # check if the model of this experiment can work
             if _process_index == 0 and try_model:
