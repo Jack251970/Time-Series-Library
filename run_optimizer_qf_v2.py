@@ -69,7 +69,7 @@ def get_search_space(_model):
 
     dataset_config = {
         # 1
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -91,8 +91,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-                                                    'weather/weather.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+        #                                             'weather/weather.csv']},
     }
 
     learning_config = {
@@ -134,6 +134,9 @@ def get_search_space(_model):
         'sample_times': {'_type': 'single', '_value': 99},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
     }
 
     lstm_cq_config = {
@@ -185,8 +188,8 @@ def get_search_space(_model):
         # 'd_model': {'_type': 'single', '_value': 64},
         'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
-        # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
+        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
+        'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
     model_configs = {
@@ -224,10 +227,11 @@ def build_custom_parameters():
     # attentions2 = [None, 'dhz']
     attentions2 = ['dhz']
 
-    attentions3 = [None, 'dhd1']
+    # attentions3 = [None, 'dhd1']
+    attentions3 = [None]
 
-    # attentions5 = [None, 'ap']
-    attentions5 = ['ap']
+    attentions5 = [None, 'ap', 'ap1', 'ap2']
+    # attentions5 = ['ap1']
 
     # attentions7 = [None, 'norm']
     attentions7 = ['norm']
@@ -245,7 +249,7 @@ def combine_lists(lists, separator='_'):
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=False, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0)

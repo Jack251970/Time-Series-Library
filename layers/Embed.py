@@ -138,7 +138,7 @@ class DataEmbedding(nn.Module):
             self.temporal_embedding = TemporalEmbedding(d_model=d_model, embed_type=embed_type, freq=freq)
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, x, x_mark):
+    def forward(self, x, x_mark=None):
         if x_mark is None:
             x = self.value_embedding(x) + self.position_embedding(x)
         else:
