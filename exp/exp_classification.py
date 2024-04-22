@@ -170,7 +170,8 @@ class Exp_Classification(Exp_Basic):
                 preds.append(outputs.detach())
                 trues.append(label)
 
-        total_loss = np.average(total_loss)
+        total_loss_values = [tensor_item.item() for tensor_item in total_loss]
+        total_loss = np.average(total_loss_values)
 
         preds = torch.cat(preds, 0)
         trues = torch.cat(trues, 0)

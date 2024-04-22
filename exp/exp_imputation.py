@@ -174,7 +174,8 @@ class Exp_Imputation(Exp_Basic):
 
                 loss = criterion(pred[mask == 0], true[mask == 0])
                 total_loss.append(loss)
-        total_loss = np.average(total_loss)
+        total_loss_values = [tensor_item.item() for tensor_item in total_loss]
+        total_loss = np.average(total_loss_values)
         self.model.train()
         return total_loss
 

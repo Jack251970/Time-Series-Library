@@ -209,7 +209,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 loss = criterion(pred, true)
 
                 total_loss.append(loss)
-        total_loss = np.average(total_loss)
+        total_loss_values = [tensor_item.item() for tensor_item in total_loss]
+        total_loss = np.average(total_loss_values)
         self.model.train()
         return total_loss
 
