@@ -69,7 +69,7 @@ def get_search_space(_model):
 
     dataset_config = {
         # 1
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -91,8 +91,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-                                                    'weather/weather.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+        #                                             'weather/weather.csv']},
     }
 
     learning_config = {
@@ -117,7 +117,9 @@ def get_search_space(_model):
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'choice', '_value': [16, 32, 96]},
+        # 'pred_len': {'_type': 'single', '_value': 32},
+        'pred_len': {'_type': 'single', '_value': 96},
+        # 'pred_len': {'_type': 'choice', '_value': [16, 32, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -189,8 +191,8 @@ def get_search_space(_model):
         # 'd_model': {'_type': 'single', '_value': 64},
         'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
-        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
-        'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
+        # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
     model_configs = {
@@ -247,7 +249,7 @@ def combine_lists(lists, separator='_'):
     return [separator.join(filter(None, combo)) for combo in combinations]
 
 
-h = HyperOptimizer(False, ['QSQF-C'],
+h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
