@@ -691,6 +691,7 @@ class HyperOptimizer(object):
             _ = []
             with open(file_path, 'r') as csv_file:
                 reader = csv.DictReader(csv_file, fieldnames=self.all_fieldnames)
+                next(reader)  # skip the header
                 for row in reader:
                     _.append(row)
             _config_list.extend(_)
