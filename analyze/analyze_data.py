@@ -49,10 +49,25 @@ def get_latex_table_data(_data, row_label, column_label, value_label, rearrange_
     return table_data
 
 
+# Draw MSE & MAE table
+# latex_text = get_latex_table_data(data,
+#                                   row_label=['data_path', 'pred_len'],
+#                                   column_label=['model'],
+#                                   value_label=['mse', 'mae'],
+#                                   rearrange_column_label=['model', None],
+#                                   add_table_appendix=True,
+#                                   replace_nan=True,
+#                                   replace_regex=[['electricity/electricity.csv', 'Electricity'],
+#                                                  ['exchange_rate/exchange_rate.csv', 'Exchange'],
+#                                                  ['weather/weather.csv', 'Weather'],
+#                                                  ['data_path', ''],
+#                                                  ['pred_len', ''],
+#                                                  ['model', '']])
+
 latex_text = get_latex_table_data(data,
                                   row_label=['data_path', 'pred_len'],
                                   column_label=['model'],
-                                  value_label=['mse', 'mae'],
+                                  value_label=['crps', 'pinaw'],
                                   rearrange_column_label=['model', None],
                                   add_table_appendix=True,
                                   replace_nan=True,
