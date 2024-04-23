@@ -178,18 +178,18 @@ def get_search_space(_model):
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
 
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        'lstm_layers': {'_type': 'single', '_value': 2},
-        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'lstm_layers': {'_type': 'single', '_value': 2},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        # 'n_heads': {'_type': 'single', '_value': 4},
-        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        # 'd_model': {'_type': 'single', '_value': 64},
-        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        'n_heads': {'_type': 'single', '_value': 4},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        'd_model': {'_type': 'single', '_value': 24},
+        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
@@ -252,7 +252,8 @@ def combine_lists(lists, separator='_'):
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[],
+                            inverse_exp=True)
 
 if __name__ == "__main__":
     h.start_search(0)
