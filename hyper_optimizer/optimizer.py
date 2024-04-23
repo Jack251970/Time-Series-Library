@@ -752,6 +752,6 @@ class HyperOptimizer(object):
         if system == 'Windows':
             os.system('shutdown -s -t 0')
         elif system == 'Linux':
-            os.system('shutdown now')
+            os.system("shutdown -t now")
         else:
             print(f'The system {system} is not supported to shutdown!')
