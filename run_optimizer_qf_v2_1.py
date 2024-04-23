@@ -252,7 +252,8 @@ def combine_lists(lists, separator='_'):
 h = HyperOptimizer(False, ['LSTM-ED-CQ'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
+h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[],
+                            inverse_exp=True)
 
 if __name__ == "__main__":
     h.start_search(0)

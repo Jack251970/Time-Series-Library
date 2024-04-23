@@ -51,6 +51,7 @@ class HyperOptimizer(object):
             self.models = models
             self.try_model = False  # whether to try model before running the experiments
             self.force_exp = False  # whether to force to run the experiments if already run them
+            self.inverse_exp = False  # whether to inverse the experiments
 
             # search spaces
             self.get_search_space = get_search_space
@@ -75,7 +76,7 @@ class HyperOptimizer(object):
 
     def config_optimizer_settings(self, custom_test_time=None, random_seed=None, add_tags=None, jump_csv_file=None,
                                   data_csv_file_format=None, scan_all_csv=None, process_number=None, save_process=None,
-                                  try_model=None, force_exp=None):
+                                  try_model=None, force_exp=None, inverse_exp=None):
         if random_seed is not None:
             self.seed = random_seed
         if custom_test_time is not None:
@@ -97,6 +98,8 @@ class HyperOptimizer(object):
                 self.try_model = try_model
             if force_exp is not None:
                 self.force_exp = force_exp
+            if inverse_exp is not None:
+                self.inverse_exp = inverse_exp
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -431,6 +434,9 @@ class HyperOptimizer(object):
             for combination in _combinations:
                 parameter = {param: value for param, value in zip(_params.keys(), combination)}
                 _parameters.append(parameter)
+
+        if self.inverse_exp:
+            _parameters = _parameters[::-1]
 
         self._parameters = _parameters
         return _parameters
