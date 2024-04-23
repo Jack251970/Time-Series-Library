@@ -240,7 +240,7 @@ class HyperOptimizer(object):
         self._task_names = task_names
         return task_names
 
-    def start_search(self, _process_index=0):
+    def start_search(self, _process_index=0, shutdown_after_done=False):
         # run directly under script mode
         if self.script_mode:
             # parse launch parameters and load default config
@@ -250,38 +250,14 @@ class HyperOptimizer(object):
             config = self._build_config_dict(args)
 
             # start experiment
-            eva_config, run_time, setting, stop_epochs = self._start_experiment(args, None, config,
-                                                                                _try_model=False, _check_folder=False)
+            experiment_result = self._start_experiment(args, None, config, False, False)
 
             # phase criteria and save data
-            if eva_config is not None:
-                # phase criteria data from eva_config
-                mse = eva_config.get('mse', None)
-                mae = eva_config.get('mae', None)
-                acc = eva_config.get('acc', None)
-                smape = eva_config.get('smape', None)
-                f_score = eva_config.get('f_score', None)
-                crps = eva_config.get('crps', None)
-                mre = eva_config.get('mre', None)
-                pinaw = eva_config.get('pinaw', None)
+            self._save_experiment(config, experiment_result)
 
-                # load criteria data
-                config['mse'] = mse
-                config['mae'] = mae
-                config['acc'] = acc
-                config['smape'] = smape
-                config['f_score'] = f_score
-                config['crps'] = crps
-                config['mre'] = mre
-                config['pinaw'] = pinaw
-
-                # load setting and run time
-                config['setting'] = setting
-                config['run_time'] = run_time
-                config['stop_epochs'] = stop_epochs
-
-                _csv_file_path = self.get_csv_file_path(config['task_name'])
-                self._save_config_dict(_csv_file_path, config)
+            # shutdown after done
+            if shutdown_after_done:
+                self._shutdown()
 
             return
 
@@ -353,44 +329,21 @@ class HyperOptimizer(object):
             args = self.set_args(args, config)
 
             # start experiment
-            eva_config, run_time, setting, stop_epochs = self._start_experiment(args, parameter, config, False,
-                                                                                (_process_index == 0 and _time == 1))
+            experiment_result = self._start_experiment(args, parameter, config, False,
+                                                       (_process_index == 0 and _time == 1))
 
             # phase criteria and save data
-            if eva_config is not None:
-                # phase criteria data from eva_config
-                mse = eva_config.get('mse', None)
-                mae = eva_config.get('mae', None)
-                acc = eva_config.get('acc', None)
-                smape = eva_config.get('smape', None)
-                f_score = eva_config.get('f_score', None)
-                crps = eva_config.get('crps', None)
-                mre = eva_config.get('mre', None)
-                pinaw = eva_config.get('pinaw', None)
-
-                # load criteria data
-                config['mse'] = mse
-                config['mae'] = mae
-                config['acc'] = acc
-                config['smape'] = smape
-                config['f_score'] = f_score
-                config['crps'] = crps
-                config['mre'] = mre
-                config['pinaw'] = pinaw
-
-                # load setting and run time
-                config['setting'] = setting
-                config['run_time'] = run_time
-                config['stop_epochs'] = stop_epochs
-
-                _csv_file_path = self.get_csv_file_path(config['task_name'], _process_index=_process_index)
-                self._save_config_dict(_csv_file_path, config)
+            self._save_experiment(config, experiment_result)
 
             print(f'>>>>>>> We have finished {_time}/{total_times}! >>>>>>>>>>>>>>>>>>>>>>>>>>\n')
             finish_time = finish_time + 1
             _time = _time + 1
 
         print(f"We have finished {finish_time} times, {total_times} times in total!")
+
+        # shutdown after done
+        if shutdown_after_done:
+            self._shutdown()
 
     def _get_search_spaces(self):
         if self.search_spaces is not None:
@@ -588,6 +541,40 @@ class HyperOptimizer(object):
 
         return _eva_config, _run_time, _setting, stop_epochs
 
+    def _save_experiment(self, config, _experiment_result):
+        # unpack the experiment result
+        eva_config, setting, run_time, stop_epochs = _experiment_result
+
+        # phase criteria and save data
+        if eva_config is not None:
+            # phase criteria data from eva_config
+            mse = eva_config.get('mse', None)
+            mae = eva_config.get('mae', None)
+            acc = eva_config.get('acc', None)
+            smape = eva_config.get('smape', None)
+            f_score = eva_config.get('f_score', None)
+            crps = eva_config.get('crps', None)
+            mre = eva_config.get('mre', None)
+            pinaw = eva_config.get('pinaw', None)
+
+            # load criteria data
+            config['mse'] = mse
+            config['mae'] = mae
+            config['acc'] = acc
+            config['smape'] = smape
+            config['f_score'] = f_score
+            config['crps'] = crps
+            config['mre'] = mre
+            config['pinaw'] = pinaw
+
+            # load setting and run time
+            config['setting'] = setting
+            config['run_time'] = run_time
+            config['stop_epochs'] = stop_epochs
+
+            _csv_file_path = self.get_csv_file_path(config['task_name'])
+            self._save_config_dict(_csv_file_path, config)
+
     def _fix_random_seed(self):
         random.seed(self.seed)
         torch.manual_seed(self.seed)
@@ -756,3 +743,15 @@ class HyperOptimizer(object):
                         else:
                             parameter['checkpoints'] = f'./checkpoints_{_process_index}/'
                 return process_parameters
+
+    @staticmethod
+    def _shutdown():
+        import platform
+        system = platform.system()
+
+        if system == 'Windows':
+            os.system('shutdown -s -t 0')
+        elif system == 'Linux':
+            os.system('shutdown now')
+        else:
+            print(f'The system {system} is not supported to shutdown!')
