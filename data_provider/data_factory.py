@@ -77,6 +77,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
 
     # get data information
     timeenc = 0 if args.embed != 'timeF' else 1
+    pin_memory = args.pin_memory
     if flag == 'test':
         shuffle_flag = False
         drop_last = True
@@ -86,6 +87,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             # batch_size = 1  # bsz=1 for evaluation
             batch_size = args.batch_size  # fasten the test process
         freq = args.freq
+        pin_memory = False
     else:
         shuffle_flag = True
         drop_last = True
@@ -121,7 +123,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last,
-            pin_memory=args.pin_memory,
+            pin_memory=pin_memory,
             persistent_workers=True)
         if cache_data:
             cache_dataloader(flag, argument, data_set, new_indexes)
@@ -156,7 +158,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             num_workers=args.num_workers,
             drop_last=drop_last,
             collate_fn=lambda x: collate_fn(x, max_len=args.seq_len,),
-            pin_memory=args.pin_memory,
+            pin_memory=pin_memory,
             persistent_workers=True
         )
         if cache_data:
@@ -212,7 +214,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last,
-            pin_memory=args.pin_memory,
+            pin_memory=pin_memory,
             persistent_workers=True
         )
         if cache_data:
