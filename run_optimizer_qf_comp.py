@@ -49,6 +49,11 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 5
         _config['dec_in'] = 5
         _config['c_out'] = 5
+    _pred_len = _config['pred_len']
+    if _pred_len == 16 or _pred_len == 32:
+        _config['label_len'] = 16
+    elif _pred_len == 96 or _pred_len == 192:
+        _config['label_len'] = 48
     return _config
 
 
@@ -80,7 +85,7 @@ def get_search_space(_model):
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 16},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
