@@ -546,7 +546,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                     os.makedirs(_path)
 
                 attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
-                attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1, pred_length)
+                attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1,
+                                                      self.args.seq_len)
                 # [15616, 8, 1, 96]
 
                 interval = 96
@@ -556,7 +557,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                         continue
 
                     _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
-                    _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, pred_length)  # [8, 96, 96]
+                    _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, self.args.seq_len)
+                    # [8, 96, 96]
                     draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
 
         # draw demo data for overall structure
