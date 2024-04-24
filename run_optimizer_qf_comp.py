@@ -75,6 +75,7 @@ def get_search_space(_model):
     dataset_config = {
         'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
                                                     'weather/weather.csv']},
+        'pin_memory': {'_type': 'single', '_value': False},
     }
 
     learning_config = {
