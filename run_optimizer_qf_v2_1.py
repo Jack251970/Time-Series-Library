@@ -69,7 +69,7 @@ def get_search_space(_model):
 
     dataset_config = {
         # 1
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -91,8 +91,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'weather/weather.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'weather/weather.csv']},
     }
 
     learning_config = {
@@ -179,18 +179,17 @@ def get_search_space(_model):
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
 
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        # 'lstm_layers': {'_type': 'single', '_value': 2},
-        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        # Step 1: Attention
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
+        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
-        'num_spline': {'_type': 'single', '_value': 20},
-        'sample_times': {'_type': 'single', '_value': 99},
-
-        'n_heads': {'_type': 'single', '_value': 4},
-        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        'd_model': {'_type': 'single', '_value': 24},
-        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        # Step 2: LSTM
+        # 'n_heads': {'_type': 'single', '_value': 2},
+        # 'd_model': {'_type': 'single', '_value': 24},
+        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
@@ -257,4 +256,4 @@ h = HyperOptimizer(False, ['LSTM-ED-CQ'],
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
-    h.start_search(0)
+    h.start_search(0, shutdown_after_done=True)
