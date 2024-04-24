@@ -14,7 +14,7 @@ from exp.exp_imputation import Exp_Imputation
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_probability_forecasting import Exp_Probability_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
-from utils.print_args import print_args
+# from utils.print_args import print_args
 
 
 class HyperOptimizer(object):
@@ -51,7 +51,6 @@ class HyperOptimizer(object):
             self.models = models
             self.try_model = False  # whether to try model before running the experiments
             self.force_exp = False  # whether to force to run the experiments if already run them
-            self.inverse_exp = False  # whether to inverse the experiments
 
             # search spaces
             self.get_search_space = get_search_space
@@ -76,7 +75,7 @@ class HyperOptimizer(object):
 
     def config_optimizer_settings(self, custom_test_time=None, random_seed=None, add_tags=None, jump_csv_file=None,
                                   data_csv_file_format=None, scan_all_csv=None, process_number=None, save_process=None,
-                                  try_model=None, force_exp=None, inverse_exp=None):
+                                  try_model=None, force_exp=None):
         if random_seed is not None:
             self.seed = random_seed
         if custom_test_time is not None:
@@ -98,8 +97,6 @@ class HyperOptimizer(object):
                 self.try_model = try_model
             if force_exp is not None:
                 self.force_exp = force_exp
-            if inverse_exp is not None:
-                self.inverse_exp = inverse_exp
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -240,7 +237,7 @@ class HyperOptimizer(object):
         self._task_names = task_names
         return task_names
 
-    def start_search(self, _process_index=0, shutdown_after_done=False):
+    def start_search(self, _process_index=0, inverse_exp=False, shutdown_after_done=False):
         # run directly under script mode
         if self.script_mode:
             # parse launch parameters and load default config
@@ -295,7 +292,7 @@ class HyperOptimizer(object):
         jump_config_list = self._get_config_list(None, _jump_csv_file_path)
 
         # get all possible parameters
-        parameters = self._get_parameters()
+        parameters = self._get_parameters(inverse_exp=inverse_exp)
 
         # filter combinations with the known rules or trying models
         filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
@@ -357,7 +354,7 @@ class HyperOptimizer(object):
         self.search_spaces = search_spaces
         return search_spaces
 
-    def _get_parameters(self):
+    def _get_parameters(self, inverse_exp=False):
         if self._parameters is not None:
             return self._parameters
 
@@ -388,7 +385,7 @@ class HyperOptimizer(object):
                 parameter = {param: value for param, value in zip(_params.keys(), combination)}
                 _parameters.append(parameter)
 
-        if self.inverse_exp:
+        if inverse_exp:
             _parameters = _parameters[::-1]
 
         self._parameters = _parameters
