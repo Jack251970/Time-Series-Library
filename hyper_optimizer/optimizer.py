@@ -292,12 +292,16 @@ class HyperOptimizer(object):
         jump_config_list = self._get_config_list(None, _jump_csv_file_path)
 
         # get all possible parameters
-        parameters = self._get_parameters(inverse_exp=inverse_exp)
+        parameters = self._get_parameters()
 
         # filter combinations with the known rules or trying models
         filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
                                                       _process_index, try_model=self.try_model,
                                                       force_exp=self.force_exp)
+
+        # inverse the experiments if needed
+        if inverse_exp:
+            filtered_parameters = filtered_parameters[::-1]
 
         # equally distribute the parameters according to the number of processes
         # parameters = parameters[_process_index::(max_process_index + 1)]: It's in the order of the loops.
@@ -354,7 +358,7 @@ class HyperOptimizer(object):
         self.search_spaces = search_spaces
         return search_spaces
 
-    def _get_parameters(self, inverse_exp=False):
+    def _get_parameters(self):
         if self._parameters is not None:
             return self._parameters
 
@@ -384,9 +388,6 @@ class HyperOptimizer(object):
             for combination in _combinations:
                 parameter = {param: value for param, value in zip(_params.keys(), combination)}
                 _parameters.append(parameter)
-
-        if inverse_exp:
-            _parameters = _parameters[::-1]
 
         self._parameters = _parameters
         return _parameters
