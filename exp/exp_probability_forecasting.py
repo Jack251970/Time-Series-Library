@@ -502,7 +502,7 @@ class Exp_Probability_Forecast(Exp_Basic):
             # draw figures
             print('drawing probabilistic figure')
             for i in tqdm(range(pred_length)):
-                _path = os.path.join(folder_path, f'probabilistic_figure', f'{i}_step')
+                _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
                 if not os.path.exists(_path):
                     os.makedirs(_path)
 
@@ -521,24 +521,43 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             # attention map
             # move to cpu and covert to numpy for plotting
-            attention_maps = attention_maps.detach().cpu().numpy()  # [15616, 16, 256, 8, 1, 96]
+            attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
 
             # save results in npy
             np.save(folder_path + 'attention_maps.npy', attention_maps)
 
             # draw attention map
             print('drawing attention map')
-            for i in tqdm(range(loader_length)):
-                _path = os.path.join(folder_path, f'attention_map', f'{i}_loader')
+            # for i in tqdm(range(loader_length)):
+            #     _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
+            #     if not os.path.exists(_path):
+            #         os.makedirs(_path)
+            #
+            #     attention_map = attention_maps[i]
+            #     attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
+            #                                           self.args.seq_len)
+            #     for j in range(batch_size):
+            #         _ = attention_map[j]
+            #         draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+
+            for i in tqdm(range(pred_length)):
+                _path = os.path.join(folder_path, f'attention_map', f'step {i}')
                 if not os.path.exists(_path):
                     os.makedirs(_path)
 
-                attention_map = attention_maps[i]
-                attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
-                                                      self.args.seq_len)
-                for j in range(batch_size):
-                    _ = attention_map[j]
-                    draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+                attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
+                attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1, pred_length)
+                # [15616, 8, 1, 96]
+
+                interval = 96
+                num = math.floor(data_length / interval)
+                for j in range(num):
+                    if j * interval >= data_length:
+                        continue
+
+                    _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
+                    _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, pred_length)  # [8, 96, 96]
+                    draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
 
         # draw demo data for overall structure
         # draw_demo(0, 19, pred_value, true_value, high_value, low_value, folder_path, probability_range)
