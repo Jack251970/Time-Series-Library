@@ -10,7 +10,7 @@ from tqdm import tqdm
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
 from utils.pf_utils import init_metrics, update_metrics, final_metrics
-from utils.tools import EarlyStopping, adjust_learning_rate, draw_figure
+from utils.tools import EarlyStopping, adjust_learning_rate, draw_figure, draw_attention_map
 
 warnings.filterwarnings('ignore')
 
@@ -281,7 +281,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         self.model.train()
         return total_loss
 
-    def test(self, setting, test=False, check_folder=False, out_prediction_results=False):
+    def test(self, setting, test=False, check_folder=False):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
@@ -308,17 +308,21 @@ class Exp_Probability_Forecast(Exp_Basic):
         probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         probability_range_len = len(probability_range)
 
-        pred_length = test_data.pred_len
-        length = len(test_data)
-        pred_value = torch.zeros(pred_length, length).to(self.device)
-        true_value = torch.zeros(pred_length, length).to(self.device)
-        high_value = torch.zeros(pred_length, probability_range_len, length).to(self.device)
-        low_value = torch.zeros(pred_length, probability_range_len, length).to(self.device)
+        pred_length = self.args.pred_len
+        batch_size = self.args.batch_size
+        data_length = len(test_data)
+        loader_length = len(test_loader)
+        pred_value = torch.zeros(pred_length, data_length).to(self.device)
+        true_value = torch.zeros(pred_length, data_length).to(self.device)
+        high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
+        low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
+
+        attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, self.args.seq_len)
+                          .to(self.device))
 
         self.model.eval()
         with (torch.no_grad()):
             metrics = init_metrics(self.args.pred_len, self.device)
-            batch_size = test_loader.batch_size
 
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)  # [256, 96, 17]
@@ -349,8 +353,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                         outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark,
                                                      probability_range=probability_range)
 
-                samples, sample_mu, sample_std, samples_high, samples_low = outputs
-                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16]
+                samples, sample_mu, sample_std, samples_high, samples_low, attention_map = outputs
+                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16], [16, 256, 8, 1, 96]
 
                 pred = sample_mu[:, :, -1].transpose(0, 1).squeeze()
                 pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
@@ -391,6 +395,8 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 preds.append(pred)
                 trues.append(true)
+
+                attention_maps[i] = attention_map
 
             summary = final_metrics(metrics)
 
@@ -434,11 +440,12 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         self.print_content("", True)
 
-        if out_prediction_results:
+        if test:
             folder_path = self.root_prob_results_path + f'/{setting}/'
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
 
+            # pred value, true value & probability range
             # move to cpu and covert to numpy for plotting
             pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
             true_value = true_value.detach().cpu().numpy()  # [16, 15616]
@@ -458,14 +465,14 @@ class Exp_Probability_Forecast(Exp_Basic):
             low_value = low_value.reshape(-1)  # [16 * 46848]
 
             # convert to shape: (sample, feature) for inverse transform
-            new_shape = (pred_length * length, self.args.enc_in)
+            new_shape = (pred_length * data_length, self.args.enc_in)
             _ = np.zeros(new_shape)
             _[:, -1] = pred_value
             pred_value = _
             _ = np.zeros(new_shape)
             _[:, -1] = true_value
             true_value = _
-            new_shape = (pred_length * probability_range_len * length, self.args.enc_in)
+            new_shape = (pred_length * probability_range_len * data_length, self.args.enc_in)
             _ = np.zeros(new_shape)
             _[:, -1] = high_value
             high_value = _
@@ -487,21 +494,22 @@ class Exp_Probability_Forecast(Exp_Basic):
             low_value = low_value[:, -1].squeeze()  # [16 * 46848]
 
             # restore different probability range data
-            pred_value = pred_value.reshape(pred_length, length)  # [16, 15616]
-            true_value = true_value.reshape(pred_length, length)  # [16, 15616]
-            high_value = high_value.reshape(pred_length, probability_range_len, length)  # [16, 3, 15616]
-            low_value = low_value.reshape(pred_length, probability_range_len, length)  # [16, 3, 15616]
+            pred_value = pred_value.reshape(pred_length, data_length)  # [16, 15616]
+            true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
+            high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
+            low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
 
             # draw figures
-            for i in range(pred_length):
-                _path = os.path.join(folder_path, f'{i}_step')
+            print('drawing probabilistic figure')
+            for i in tqdm(range(pred_length)):
+                _path = os.path.join(folder_path, f'probabilistic_figure', f'{i}_step')
                 if not os.path.exists(_path):
                     os.makedirs(_path)
 
                 interval = 128
-                num = math.floor(length / interval)
+                num = math.floor(data_length / interval)
                 for j in range(num):
-                    if j * interval >= length:
+                    if j * interval >= data_length:
                         continue
                     draw_figure(range(interval),
                                 pred_value[i, j * interval: (j + 1) * interval],
@@ -511,34 +519,29 @@ class Exp_Probability_Forecast(Exp_Basic):
                                 probability_range,
                                 os.path.join(_path, f'prediction {j}.png'))
 
+            # attention map
+            # move to cpu and covert to numpy for plotting
+            attention_maps = attention_maps.detach().cpu().numpy()  # [15616, 16, 256, 8, 1, 96]
+
+            # save results in npy
+            np.save(folder_path + 'attention_maps.npy', attention_maps)
+
+            # draw attention map
+            print('drawing attention map')
+            for i in tqdm(range(loader_length)):
+                _path = os.path.join(folder_path, f'attention_map', f'{i}_loader')
+                if not os.path.exists(_path):
+                    os.makedirs(_path)
+
+                attention_map = attention_maps[i]
+                attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
+                                                      self.args.seq_len)
+                for j in range(batch_size):
+                    _ = attention_map[j]
+                    draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+
         # draw demo data for overall structure
-        # from matplotlib import pyplot as plt
-        #
-        # i = 0
-        # j = 19
-        # interval = 128
-        # pred_data_prop = 1 / 3
-        # demo_pred_len = int(interval * pred_data_prop)
-        # demo_true_data = true_value[i, j * interval: (j + 1) * interval - demo_pred_len]
-        # demo_true_data_1 = true_value[i, j * interval + interval - demo_pred_len: (j + 1) * interval]
-        # demo_pred_data = pred_value[i, j * interval + interval - demo_pred_len: (j + 1) * interval]
-        # demo_high_data = high_value[i, :, j * interval + interval - demo_pred_len: (j + 1) * interval]
-        # demo_low_data = low_value[i, :, j * interval + interval - demo_pred_len: (j + 1) * interval]
-        # plt.clf()
-        # plt.plot(demo_true_data.squeeze(), color='black')
-        # plt.legend()
-        # plt.savefig(os.path.join(folder_path, f'overall structure 0.png'))
-        # plt.clf()
-        # plt.plot(demo_true_data_1.squeeze(), color='gray')
-        # plt.legend()
-        # plt.savefig(os.path.join(folder_path, f'overall structure 1.png'))
-        # plt.clf()
-        # plt.plot(demo_pred_data.squeeze(), color='black')
-        # for j in range(len(probability_range)):
-        #     plt.fill_between(range(demo_pred_len), demo_high_data[j, :].squeeze(), demo_low_data[j, :].squeeze(), color='gray',
-        #                      alpha=1 - probability_range[j])
-        # plt.legend()
-        # plt.savefig(os.path.join(folder_path, f'overall structure 2.png'))
+        # draw_demo(0, 19, pred_value, true_value, high_value, low_value, folder_path, probability_range)
 
         # convert to float
         crps = float(ss_metric['CRPS_Mean'].item())
@@ -552,3 +555,32 @@ class Exp_Probability_Forecast(Exp_Basic):
             'mre': mre,
             'pinaw': pinaw
         }
+
+
+def draw_demo(i, j, pred, true, high, low, folder_path, probability_range):
+    from matplotlib import pyplot as plt
+
+    interval = 128
+    pred_data_prop = 1 / 3
+    demo_pred_len = int(interval * pred_data_prop)
+    demo_true_data = true[i, j * interval: (j + 1) * interval - demo_pred_len]
+    demo_true_data_1 = true[i, j * interval + interval - demo_pred_len: (j + 1) * interval]
+    demo_pred_data = pred[i, j * interval + interval - demo_pred_len: (j + 1) * interval]
+    demo_high_data = high[i, :, j * interval + interval - demo_pred_len: (j + 1) * interval]
+    demo_low_data = low[i, :, j * interval + interval - demo_pred_len: (j + 1) * interval]
+    plt.clf()
+    plt.plot(demo_true_data.squeeze(), color='black')
+    plt.legend()
+    plt.savefig(os.path.join(folder_path, f'overall structure 0.png'))
+    plt.clf()
+    plt.plot(demo_true_data_1.squeeze(), color='gray')
+    plt.legend()
+    plt.savefig(os.path.join(folder_path, f'overall structure 1.png'))
+    plt.clf()
+    plt.plot(demo_pred_data.squeeze(), color='black')
+    for j in range(len(probability_range)):
+        plt.fill_between(range(demo_pred_len), demo_high_data[j, :].squeeze(), demo_low_data[j, :].squeeze(),
+                         color='gray',
+                         alpha=1 - probability_range[j])
+    plt.legend()
+    plt.savefig(os.path.join(folder_path, f'overall structure 2.png'))

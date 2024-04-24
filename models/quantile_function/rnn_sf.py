@@ -233,4 +233,4 @@ class Model(nn.Module):
                         if t < self.pred_steps - lag - 1:
                             test_batch[self.pred_start + t + 1, :, self.new_index[0]] = pred
 
-            return samples, samples_mu, samples_std, samples_high, samples_low
+            return samples, samples_mu, samples_std, samples_high, samples_low, None

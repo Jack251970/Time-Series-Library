@@ -469,7 +469,6 @@ class Model(nn.Module):
                                       device=device)  # [3, 256, 16]
             samples_high = samples_low.clone()  # [3, 256, 16]
             samples = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, device=device)  # [99, 256, 12]
-            attention_map = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, self.L_enc, device=device)
 
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
@@ -481,7 +480,7 @@ class Model(nn.Module):
                 # decoder
                 for t in range(self.pred_steps):
                     x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                         hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
@@ -512,30 +511,42 @@ class Model(nn.Module):
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
-            # use integral to calculate the mean
+            # get attention map using integral to calculate the pred value
+            if self.use_attn:
+                attention_map = torch.zeros(self.pred_steps, self.batch_size, self.H, self.L_dec, self.L_enc,
+                                            device=device)
+            else:
+                attention_map = None
+
+            # clone test batch
+            x_dec_clone = x_dec.clone()  # [16, 256, 7]
+
+            # sample
+            samples_mu1 = torch.zeros(self.batch_size, self.pred_steps, 1, device=device)
+
+            # initialize hidden and cell
+            hidden, cell = dec_hidden.clone(), dec_cell.clone()
+
+            # decoder
+            for t in range(self.pred_steps):
+                x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                                                                    hidden, cell, enc_hidden_attn)
+                if self.use_attn:
+                    attention_map[t] = attn
+                hidden_permute = self.get_hidden_permute(hidden_qsqm)
+                gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
+
+                pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
+                samples_mu1[:, t, 0] = pred
+
+                for lag in range(self.lag):
+                    if t < self.pred_steps - lag - 1:
+                        x_dec_clone[t + 1, :, self.lag_index[0]] = pred
+
             if not sample:
-                # clone test batch
-                x_dec_clone = x_dec.clone()  # [16, 256, 7]
-
-                # sample
-                samples_mu = torch.zeros(self.batch_size, self.pred_steps, 1, device=device)
-
-                # initialize hidden and cell
-                hidden, cell = dec_hidden.clone(), dec_cell.clone()
-
-                # decoder
-                for t in range(self.pred_steps):
-                    x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                     hidden, cell, enc_hidden_attn)
-                    hidden_permute = self.get_hidden_permute(hidden_qsqm)
-                    gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
-
-                    pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
-                    samples_mu[:, t, 0] = pred
-
-                    for lag in range(self.lag):
-                        if t < self.pred_steps - lag - 1:
-                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
-
-            return samples, samples_mu, samples_std, samples_high, samples_low
+                # use integral to calculate the mean
+                return samples, samples_mu1, samples_std, samples_high, samples_low, attention_map
+            else:
+                # use uniform samples to calculate the mean
+                return samples, samples_mu, samples_std, samples_high, samples_low, attention_map
