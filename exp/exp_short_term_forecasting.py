@@ -5,7 +5,6 @@ import warnings
 import numpy as np
 import pandas
 import torch
-import torch.nn as nn
 
 from data_provider.m4 import M4Meta
 from exp.exp_basic import Exp_Basic
@@ -44,8 +43,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         if only_init:
             return
 
-        train_data, train_loader = self._get_data(flag='train', _try_model=self.try_model)
-        vali_data, vali_loader = self._get_data(flag='val', _try_model=self.try_model)
+        train_data, train_loader = self._get_data(data_flag='train', enter_flag='train', _try_model=self.try_model)
+        vali_data, vali_loader = self._get_data(data_flag='val', enter_flag='train', _try_model=self.try_model)
 
         time_now = time.time()
 
@@ -91,7 +90,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
                 batch_y_mark = batch_y_mark[:, -self.args.pred_len:, f_dim:].to(self.device)
                 loss_value = criterion(batch_x, self.args.frequency_map, outputs, batch_y, batch_y_mark)
-                # loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1, :]))
+                # loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1,
+                # :]))
                 loss = loss_value  # + loss_sharpness * 1e-5
                 train_loss.append(loss.item())
 
@@ -154,7 +154,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             else:
                 self.model.load_state_dict(torch.load(best_model_path))
 
-        return self.model
+        return stop_epochs
 
     def vali(self, train_loader, vali_loader, criterion):
         x, _ = train_loader.dataset.last_insample_window()
@@ -188,8 +188,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         return loss
 
     def test(self, setting, test=False, check_folder=False):
-        _, train_loader = self._get_data(flag='train', _try_model=self.try_model)
-        _, test_loader = self._get_data(flag='test', _try_model=self.try_model)
+        _, train_loader = self._get_data(data_flag='train', enter_flag='test', _try_model=self.try_model)
+        _, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         x, _ = train_loader.dataset.last_insample_window()
         y = test_loader.dataset.timeseries
         x = torch.tensor(x, dtype=torch.float32).to(self.device)

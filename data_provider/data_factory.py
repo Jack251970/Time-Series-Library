@@ -58,7 +58,7 @@ def get_cached_dataloader(argument, flag):
     return None
 
 
-def data_provider(args, flag, new_indexes=None, cache_data=True):
+def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True):
     # prepare for cache
     argument = None
     cached_data_set = None
@@ -68,7 +68,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
         argument = build_argument(args)
 
         # check if the dataloader is cached
-        _cached_data = get_cached_dataloader(argument, flag)
+        _cached_data = get_cached_dataloader(argument, data_flag)
         if _cached_data is not None:
             cached_data_set, cached_new_indexes = _cached_data
 
@@ -78,7 +78,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
     # get data information
     timeenc = 0 if args.embed != 'timeF' else 1
     pin_memory = args.pin_memory
-    if flag == 'test':
+    if data_flag == 'test':
         shuffle_flag = False
         drop_last = True
         if args.task_name == 'anomaly_detection' or args.task_name == 'classification':
@@ -87,12 +87,13 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             # batch_size = 1  # bsz=1 for evaluation
             batch_size = args.batch_size  # fasten the test process
         freq = args.freq
-        pin_memory = False
     else:
         shuffle_flag = True
         drop_last = True
         batch_size = args.batch_size  # bsz for train and valid
         freq = args.freq
+    if enter_flag != 'train':
+        pin_memory = False
 
     # return dataset, data loader and information
     if args.task_name == 'anomaly_detection':
@@ -103,12 +104,12 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             data_set = Data(
                 root_path=args.root_path,
                 win_size=args.seq_len,
-                flag=flag,
+                flag=data_flag,
             )
             # reindex if needed
             if args.reindex:
                 if new_indexes is None:
-                    if flag == 'train':
+                    if data_flag == 'train':
                         new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                     else:
                         new_indexes = Data(
@@ -126,11 +127,11 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             pin_memory=pin_memory,
             persistent_workers=True)
         if cache_data:
-            cache_dataloader(flag, argument, data_set, new_indexes)
+            cache_dataloader(data_flag, argument, data_set, new_indexes)
         if cached_data_set is not None:
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", new_indexes
+            return data_set, data_loader, f"{args.data}: {data_flag} {len(data_set)} (cached)", new_indexes
         else:
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
+            return data_set, data_loader, f"{args.data}: {data_flag} {len(data_set)}", new_indexes
     elif args.task_name == 'classification':
         drop_last = False
         if cached_data_set is not None:
@@ -138,12 +139,12 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
         else:
             data_set = Data(
                 root_path=args.root_path,
-                flag=flag,
+                flag=data_flag,
             )
             # reindex if needed
             if args.reindex:
                 if new_indexes is None:
-                    if flag == 'train':
+                    if data_flag == 'train':
                         new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                     else:
                         new_indexes = Data(
@@ -162,11 +163,11 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             persistent_workers=True
         )
         if cache_data:
-            cache_dataloader(flag, argument, data_set, new_indexes)
+            cache_dataloader(data_flag, argument, data_set, new_indexes)
         if cached_data_set is not None:
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", new_indexes
+            return data_set, data_loader, f"{args.data}: {data_flag} {len(data_set)} (cached)", new_indexes
         else:
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
+            return data_set, data_loader, f"{args.data}: {data_flag} {len(data_set)}", new_indexes
     else:
         if args.data == 'm4':
             drop_last = False
@@ -176,7 +177,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             data_set = Data(
                 root_path=args.root_path,
                 data_path=args.data_path,
-                flag=flag,
+                flag=data_flag,
                 size=[args.seq_len, args.label_len, args.pred_len],
                 features=args.features,
                 target=args.target,
@@ -190,7 +191,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             # reindex if needed
             if args.reindex:
                 if new_indexes is None:
-                    if flag == 'train':
+                    if data_flag == 'train':
                         new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                     else:
                         new_indexes = Data(
@@ -218,8 +219,8 @@ def data_provider(args, flag, new_indexes=None, cache_data=True):
             persistent_workers=True
         )
         if cache_data:
-            cache_dataloader(flag, argument, data_set, new_indexes)
+            cache_dataloader(data_flag, argument, data_set, new_indexes)
         if cached_data_set is not None:
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", new_indexes
+            return data_set, data_loader, f"{args.data}: {data_flag} {len(data_set)} (cached)", new_indexes
         else:
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
+            return data_set, data_loader, f"{args.data}: {data_flag} {len(data_set)}", new_indexes

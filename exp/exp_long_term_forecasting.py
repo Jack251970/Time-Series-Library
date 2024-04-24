@@ -32,9 +32,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             os.makedirs(process_path)
         self.process_file_path = process_path + f'{self.args.task_name}.txt'
 
-        train_data, train_loader = self._get_data(flag='train', _try_model=self.try_model)
-        vali_data, vali_loader = self._get_data(flag='val', _try_model=self.try_model)
-        test_data, test_loader = self._get_data(flag='test', _try_model=self.try_model)
+        train_data, train_loader = self._get_data(data_flag='train', enter_flag='train', _try_model=self.try_model)
+        vali_data, vali_loader = self._get_data(data_flag='val', enter_flag='train', _try_model=self.try_model)
+        test_data, test_loader = self._get_data(data_flag='test', enter_flag='train', _try_model=self.try_model)
 
         if only_init:
             return
@@ -215,7 +215,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return total_loss
 
     def test(self, setting, test=False, check_folder=False):
-        test_data, test_loader = self._get_data(flag='test', _try_model=self.try_model)
+        test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)

@@ -82,8 +82,8 @@ class Exp_Basic(object):
                     self.print_content('Use CPU')
         return device
 
-    def _get_data(self, flag, _try_model):
-        data_set, data_loader, info, new_index = data_provider(self.args, flag, self.new_index)
+    def _get_data(self, data_flag, enter_flag, _try_model):
+        data_set, data_loader, info, new_index = data_provider(self.args, data_flag, enter_flag, self.new_index)
         if new_index is not None and self.new_index is None:
             self.new_index = new_index
             try:

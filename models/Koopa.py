@@ -299,6 +299,7 @@ class Model(nn.Module):
         """
         get shared frequency spectrums
         """
+        # TODO: Add support.
         train_data, train_loader = data_provider(configs, 'train')
         amps = 0.0
         for data in train_loader:

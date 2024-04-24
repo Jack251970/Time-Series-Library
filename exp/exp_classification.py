@@ -19,8 +19,8 @@ class Exp_Classification(Exp_Basic):
 
     def _build_model(self):
         # model input depends on data
-        train_data, train_loader = self._get_data(flag='TRAIN', _try_model=self.try_model)
-        test_data, test_loader = self._get_data(flag='TEST', _try_model=self.try_model)
+        train_data, train_loader = self._get_data(data_flag='train', enter_flag='test', _try_model=self.try_model)
+        test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         self.args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len)
         self.args.pred_len = 0
         self.args.enc_in = train_data.feature_df.shape[1]
@@ -43,9 +43,9 @@ class Exp_Classification(Exp_Basic):
         if only_init:
             return
 
-        train_data, train_loader = self._get_data(flag='TRAIN', _try_model=self.try_model)
-        vali_data, vali_loader = self._get_data(flag='TEST', _try_model=self.try_model)
-        test_data, test_loader = self._get_data(flag='TEST', _try_model=self.try_model)
+        train_data, train_loader = self._get_data(data_flag='train', enter_flag='train', _try_model=self.try_model)
+        vali_data, vali_loader = self._get_data(data_flag='val', enter_flag='train', _try_model=self.try_model)
+        test_data, test_loader = self._get_data(data_flag='test', enter_flag='train', _try_model=self.try_model)
 
         time_now = time.time()
 
@@ -184,7 +184,7 @@ class Exp_Classification(Exp_Basic):
         return total_loss, accuracy
 
     def test(self, setting, test=False, check_folder=False):
-        test_data, test_loader = self._get_data(flag='TEST', _try_model=self.try_model)
+        test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
             path = os.path.join(self.args.checkpoints, setting)
