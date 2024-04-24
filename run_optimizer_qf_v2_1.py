@@ -71,7 +71,7 @@ def get_search_space(_model):
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
         # 2
         # 'data_path': {'_type': 'choice',
@@ -91,8 +91,8 @@ def get_search_space(_model):
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'weather/weather.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'weather/weather.csv']},
     }
 
     learning_config = {
@@ -117,10 +117,10 @@ def get_search_space(_model):
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 32},
+        # 'pred_len': {'_type': 'single', '_value': 32},
         # 'pred_len': {'_type': 'single', '_value': 96},
         # 'pred_len': {'_type': 'single', '_value': 192},
-        # 'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -253,7 +253,7 @@ def combine_lists(lists, separator='_'):
     return [separator.join(filter(None, combo)) for combo in combinations]
 
 
-h = HyperOptimizer(False, ['LSTM-ED-CQ'],
+h = HyperOptimizer(False, ['QSQF-C'],
                    prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
                    link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
