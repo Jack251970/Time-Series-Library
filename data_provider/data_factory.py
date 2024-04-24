@@ -19,7 +19,7 @@ data_dict = {
 }
 
 
-cached_data = {'train': None, 'val': None, 'test': None}
+cached_data = {'train': [], 'val': [], 'test': []}
 
 
 def build_argument(args):
@@ -34,27 +34,35 @@ def build_argument(args):
     return argument
 
 
-def cache_dataloader(flag, argument, data_set, data_loader, new_indexes):
+def cache_dataloader(flag, argument, data_set, new_indexes):
     global cached_data
-    cached_data[flag] = (argument, (data_set, data_loader, new_indexes))
+    cached_data[flag].append((argument, (data_set, new_indexes)))
 
 
 def get_cached_dataloader(argument, flag):
     global cached_data
-    if cached_data[flag] is None:
+    if len(cached_data[flag]) == 0:
         return None
 
     # check if the arguments are the same
-    cached_argument, cached_data_set_data_loader_new_indexes = cached_data[flag]
-    for key in argument.keys():
-        if argument[key] != cached_argument[key]:
-            return None
+    for cached_argument, cached_data_set_new_indexes in cached_data[flag]:
+        flag = True
+        for key in argument.keys():
+            if argument[key] != cached_argument[key]:
+                flag = False
+                break
+        if flag:
+            # return the cached dataset with the same parameters
+            return cached_data_set_new_indexes
 
-    # return the cached dataloader with the same parameters
-    return cached_data_set_data_loader_new_indexes
+    return None
 
 
-def data_provider(args, flag, new_indexes=None, cache_data=False):
+def data_provider(args, flag, new_indexes=None, cache_data=True):
+    # prepare for cache
+    argument = None
+    cached_data_set = None
+    cached_new_indexes = None
     if cache_data:
         # build argument
         argument = build_argument(args)
@@ -62,8 +70,7 @@ def data_provider(args, flag, new_indexes=None, cache_data=False):
         # check if the dataloader is cached
         _cached_data = get_cached_dataloader(argument, flag)
         if _cached_data is not None:
-            data_set, data_loader, _new_indexes = _cached_data
-            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", _new_indexes
+            cached_data_set, cached_new_indexes = _cached_data
 
     # get data class
     Data = data_dict[args.data]
@@ -88,51 +95,60 @@ def data_provider(args, flag, new_indexes=None, cache_data=False):
     # return dataset, data loader and information
     if args.task_name == 'anomaly_detection':
         drop_last = False
-        data_set = Data(
-            root_path=args.root_path,
-            win_size=args.seq_len,
-            flag=flag,
-        )
-        # reindex if needed
-        if args.reindex:
-            if new_indexes is None:
-                if flag == 'train':
-                    new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
-                else:
-                    new_indexes = Data(
-                        root_path=args.root_path,
-                        win_size=args.seq_len,
-                        flag='train',  # use train dataset to get more detailed information from more data
-                    ).get_new_indexes(tolerance=args.reindex_tolerance)
-            data_set.set_new_indexes(new_indexes)
+        if cached_data_set is not None:
+            data_set, new_indexes = cached_data_set, cached_new_indexes
+        else:
+            data_set = Data(
+                root_path=args.root_path,
+                win_size=args.seq_len,
+                flag=flag,
+            )
+            # reindex if needed
+            if args.reindex:
+                if new_indexes is None:
+                    if flag == 'train':
+                        new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
+                    else:
+                        new_indexes = Data(
+                            root_path=args.root_path,
+                            win_size=args.seq_len,
+                            flag='train',  # use train dataset to get more detailed information from more data
+                        ).get_new_indexes(tolerance=args.reindex_tolerance)
+                data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last,
-            pin_memory=True,
+            pin_memory=args.pin_memory,
             persistent_workers=True)
         if cache_data:
-            cache_dataloader(flag, argument, data_set, data_loader, new_indexes)
-        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
+            cache_dataloader(flag, argument, data_set, new_indexes)
+        if cached_data_set is not None:
+            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", new_indexes
+        else:
+            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
     elif args.task_name == 'classification':
         drop_last = False
-        data_set = Data(
-            root_path=args.root_path,
-            flag=flag,
-        )
-        # reindex if needed
-        if args.reindex:
-            if new_indexes is None:
-                if flag == 'train':
-                    new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
-                else:
-                    new_indexes = Data(
-                        root_path=args.root_path,
-                        flag='train',
-                    ).get_new_indexes(tolerance=args.reindex_tolerance)
-            data_set.set_new_indexes(new_indexes)
+        if cached_data_set is not None:
+            data_set, new_indexes = cached_data_set, cached_new_indexes
+        else:
+            data_set = Data(
+                root_path=args.root_path,
+                flag=flag,
+            )
+            # reindex if needed
+            if args.reindex:
+                if new_indexes is None:
+                    if flag == 'train':
+                        new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
+                    else:
+                        new_indexes = Data(
+                            root_path=args.root_path,
+                            flag='train',
+                        ).get_new_indexes(tolerance=args.reindex_tolerance)
+                data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -140,59 +156,68 @@ def data_provider(args, flag, new_indexes=None, cache_data=False):
             num_workers=args.num_workers,
             drop_last=drop_last,
             collate_fn=lambda x: collate_fn(x, max_len=args.seq_len,),
-            pin_memory=True,
+            pin_memory=args.pin_memory,
             persistent_workers=True
         )
         if cache_data:
-            cache_dataloader(flag, argument, data_set, data_loader, new_indexes)
-        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
+            cache_dataloader(flag, argument, data_set, new_indexes)
+        if cached_data_set is not None:
+            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", new_indexes
+        else:
+            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
     else:
         if args.data == 'm4':
             drop_last = False
-        data_set = Data(
-            root_path=args.root_path,
-            data_path=args.data_path,
-            flag=flag,
-            size=[args.seq_len, args.label_len, args.pred_len],
-            features=args.features,
-            target=args.target,
-            scale=True,
-            scaler=args.scaler,
-            timeenc=timeenc,
-            freq=freq,
-            lag=args.lag,
-            seasonal_patterns=args.seasonal_patterns
-        )
-        # reindex if needed
-        if args.reindex:
-            if new_indexes is None:
-                if flag == 'train':
-                    new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
-                else:
-                    new_indexes = Data(
-                        root_path=args.root_path,
-                        data_path=args.data_path,
-                        flag='train',
-                        size=[args.seq_len, args.label_len, args.pred_len],
-                        features=args.features,
-                        target=args.target,
-                        scale=True,
-                        scaler=args.scaler,
-                        timeenc=timeenc,
-                        freq=freq,
-                        lag=args.lag,
-                        seasonal_patterns=args.seasonal_patterns
-                    ).get_new_indexes(tolerance=args.reindex_tolerance)
-            data_set.set_new_indexes(new_indexes)
+        if cached_data_set is not None:
+            data_set, new_indexes = cached_data_set, cached_new_indexes
+        else:
+            data_set = Data(
+                root_path=args.root_path,
+                data_path=args.data_path,
+                flag=flag,
+                size=[args.seq_len, args.label_len, args.pred_len],
+                features=args.features,
+                target=args.target,
+                scale=True,
+                scaler=args.scaler,
+                timeenc=timeenc,
+                freq=freq,
+                lag=args.lag,
+                seasonal_patterns=args.seasonal_patterns
+            )
+            # reindex if needed
+            if args.reindex:
+                if new_indexes is None:
+                    if flag == 'train':
+                        new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
+                    else:
+                        new_indexes = Data(
+                            root_path=args.root_path,
+                            data_path=args.data_path,
+                            flag='train',
+                            size=[args.seq_len, args.label_len, args.pred_len],
+                            features=args.features,
+                            target=args.target,
+                            scale=True,
+                            scaler=args.scaler,
+                            timeenc=timeenc,
+                            freq=freq,
+                            lag=args.lag,
+                            seasonal_patterns=args.seasonal_patterns
+                        ).get_new_indexes(tolerance=args.reindex_tolerance)
+                data_set.set_new_indexes(new_indexes)
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last,
-            pin_memory=True,
+            pin_memory=args.pin_memory,
             persistent_workers=True
         )
         if cache_data:
-            cache_dataloader(flag, argument, data_set, data_loader, new_indexes)
-        return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes
+            cache_dataloader(flag, argument, data_set, new_indexes)
+        if cached_data_set is not None:
+            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)} (cached)", new_indexes
+        else:
+            return data_set, data_loader, f"{args.data}: {flag} {len(data_set)}", new_indexes

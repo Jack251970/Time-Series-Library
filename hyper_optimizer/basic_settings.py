@@ -44,6 +44,7 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--reindex', type=int, default=0, help='reindex feature dimensions data, 1: enable 0: disable')
     parser.add_argument('--reindex_tolerance', type=float, default=0.9,
                         help='reindex tolerance for feature dimensions data')
+    parser.add_argument('--pin_memory', type=bool, default=True, help='pin memory of data loader')
 
     # forecasting task
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
@@ -142,6 +143,7 @@ def build_config_dict(_args):
         'scaler': _args.scaler,
         'reindex': _args.reindex,
         'reindex_tolerance': _args.reindex_tolerance,
+        'pin_memory': _args.pin_memory,
 
         # forecasting task
         'seq_len': _args.seq_len,
@@ -232,6 +234,7 @@ def set_args(_args, _config):
     _args.scaler = _config['scaler']
     _args.reindex = _config['reindex']
     _args.reindex_tolerance = _config['reindex_tolerance']
+    _args.pin_memory = _config['pin_memory']
 
     # forecasting task
     _args.seq_len = _config['seq_len']
@@ -355,6 +358,8 @@ def prepare_config(_params, _script_mode=False):
             _args.reindex = _params['reindex']
         if 'reindex_tolerance' in _params:
             _args.reindex_tolerance = _params['reindex_tolerance']
+        if 'pin_memory' in _params:
+            _args.pin_memory = _params['pin_memory']
 
         # forecasting task
         if 'seq_len' in _params:
@@ -541,19 +546,19 @@ def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['model', 'data_path', 'custom_params', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre',
                       'pinaw', 'setting', 'seed', 'task_name', 'is_training', 'model_id', 'data', 'features', 'target',
-                      'freq', 'lag', 'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'seq_len', 'label_len',
-                      'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k', 'num_kernels',
-                      'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff', 'moving_avg',
-                      'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation', 'output_attention',
-                      'channel_independence', 'num_workers', 'train_epochs', 'stop_epochs', 'batch_size', 'patience',
-                      'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices',
-                      'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers', 'num_spline',
-                      'sample_times', 'run_time']
+                      'freq', 'lag', 'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'pin_memory', 'seq_len',
+                      'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k',
+                      'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff',
+                      'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
+                      'output_attention', 'channel_independence', 'num_workers', 'train_epochs', 'stop_epochs',
+                      'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu',
+                      'use_multi_gpu', 'devices', 'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers',
+                      'num_spline', 'sample_times', 'run_time']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
-                           'is_training', 'root_path', 'checkpoints', 'output_attention', 'num_workers', 'stop_epochs',
-                           'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
+                           'is_training', 'root_path', 'checkpoints', 'pin_memory', 'output_attention', 'num_workers',
+                           'stop_epochs', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 
     # init the required fieldnames
