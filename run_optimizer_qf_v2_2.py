@@ -117,8 +117,8 @@ def get_search_space(_model):
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 32},
-        # 'pred_len': {'_type': 'single', '_value': 96},
+        # 'pred_len': {'_type': 'single', '_value': 32},
+        'pred_len': {'_type': 'single', '_value': 96},
         # 'pred_len': {'_type': 'single', '_value': 192},
         # 'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
         'e_layers': {'_type': 'single', '_value': 1},
@@ -178,9 +178,6 @@ def get_search_space(_model):
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
-
-        'num_spline': {'_type': 'single', '_value': 20},
-        'sample_times': {'_type': 'single', '_value': 99},
 
         # Step 1: Attention
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
@@ -259,4 +256,4 @@ h = HyperOptimizer(False, ['LSTM-ED-CQ'],
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
-    h.start_search(0)
+    h.start_search(0, shutdown_after_done=True)
