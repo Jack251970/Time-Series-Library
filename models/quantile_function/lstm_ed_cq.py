@@ -54,7 +54,7 @@ class Model(nn.Module):
                 input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
                 input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
             self.dec_lstm_input_size = input_size
-        if len(custom_params) > 0 and custom_params[0] == 'attn' or custom_params[0] == 'corr':
+        if len(custom_params) > 0 and custom_params[0] in ('attn', 'corr'):
             self.use_attn = custom_params[0]
             self.n_heads = params.n_heads
             self.d_model = params.d_model
@@ -71,7 +71,7 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.dec_hidden_difference1 = False
-        if len(custom_params) > 0 and custom_params[0] == 'ap' or custom_params[0] == 'ap1' or custom_params[0] == 'ap2':
+        if len(custom_params) > 0 and custom_params[0] in ('ap', 'ap1', 'ap2'):
             self.attention_projection = custom_params[0]
             custom_params.pop(0)
         else:
@@ -293,7 +293,7 @@ class Model(nn.Module):
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_dec(self, x, x_mark_dec_step, hidden, cell, enc_hidden_attn, dec_hidden):
+    def run_lstm_dec(self, x, x_mark_dec_step, hidden, cell, enc_hidden_attn):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
@@ -432,7 +432,7 @@ class Model(nn.Module):
             for t in range(self.pred_steps):
                 x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
                 hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                 hidden, cell, enc_hidden_attn, dec_hidden)
+                                                                 hidden, cell, enc_hidden_attn)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -482,7 +482,7 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
                     hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                        hidden, cell, enc_hidden_attn, dec_hidden)
+                                                                        hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -527,7 +527,7 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
                     hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                     hidden, cell, enc_hidden_attn, dec_hidden)
+                                                                     hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
