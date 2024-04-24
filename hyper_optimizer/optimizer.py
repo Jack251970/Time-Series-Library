@@ -677,7 +677,9 @@ class HyperOptimizer(object):
                     if file == self.jump_csv_file:
                         continue
                     if file.endswith('.csv') and file not in file_paths:
-                        file_paths.append(f'{root}/{file}')
+                        _append_path = os.path.join(root, file)
+                        self._init_header(_append_path)
+                        file_paths.append(_append_path)
 
         _config_list = []
         for file_path in file_paths:
