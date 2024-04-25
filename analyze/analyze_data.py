@@ -1,16 +1,98 @@
 import os
+
+import numpy as np
 import pandas as pd
 
-file = 'probability_forecast/data_baseline_paper.csv'
+import warnings
+warnings.filterwarnings('ignore')
+
+root_path = os.path.join('..', 'data')
+
+file = os.path.join('probability_forecast', 'data_baseline_paper.csv')
 
 
 def get_csv_data(path):
-    root_path = '../data/'
+    global root_path
+
     return pd.read_csv(os.path.join(root_path, path))
 
 
-data = get_csv_data(file)
-# print(data.columns)
+baseline_data = get_csv_data(file)
+# print(baseline_data.columns)
+
+
+def update_data(_baseline_data, checked_columns):
+    global root_path
+
+    # 扫描所有数据文件
+    file_paths = []
+    for root, dirs, files in os.walk(root_path):
+        for _file in files:
+            if _file == 'jump_data.csv':
+                continue
+            if _file.endswith('.csv') and _file not in file_paths:
+                _append_path = os.path.join(root, _file)
+                file_paths.append(_append_path)
+    print(f'scan {len(file_paths)} data files')
+
+    # 读取所有数据文件
+    all_data = pd.DataFrame()
+    for _file in file_paths:
+        all_data = pd.concat([all_data, get_csv_data(_file)], ignore_index=True)
+    print(f'load {len(all_data)} records')
+
+    # 检查标准数据中是否需要更新：若MSE,NAE,CRPS,PINAW中有指标可以更小，则更新
+    for index, row in _baseline_data.iterrows():
+        _check_data = {}
+        for _column in checked_columns:
+            _check_data[_column] = row[_column]
+        _mse = row['mse']
+        _mae = row['mae']
+        _crps = row['crps']
+        _pinaw = row['pinaw']
+
+        # 获取检查数据都相同的数据
+        _data = all_data
+        for _column, _value in _check_data.items():
+            # 如果数据相同，或者都是空值，则选择
+            if pd.isna(_value):
+                _data = _data[pd.isna(_data[_column])]
+            else:
+                _data = _data[_data[_column] == _value]
+            if _data.empty:
+                break
+        if _data.empty:
+            continue
+
+        _new_mse = _data['mse'].values[0]
+        _new_mae = _data['mae'].values[0]
+        _new_crps = _data['crps'].values[0]
+        _new_pinaw = _data['pinaw'].values[0]
+
+        if _new_mse < _mse:
+            _baseline_data.loc[index, 'mse'] = _new_mse
+            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
+            print(f"update mse for model {_check_data['model']}: {_mse} -> {_new_mse}")
+        if _new_mae < _mae:
+            _baseline_data.loc[index, 'mae'] = _new_mae
+            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
+            print(f"update mae for model {_check_data['model']}: {_mae} -> {_new_mae}")
+        if _new_crps < _crps:
+            _baseline_data.loc[index, 'crps'] = _new_crps
+            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
+            print(f"update crps for model {_check_data['model']}: {_crps} -> {_new_crps}")
+        if _new_pinaw < _pinaw:
+            _baseline_data.loc[index, 'pinaw'] = _new_pinaw
+            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
+            print(f"update pinaw for model {_check_data['model']}: {_pinaw} -> {_new_pinaw}")
+
+    return _baseline_data
+
+
+# 更新最佳数据
+checked_fieldnames = ['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
+                      'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse']
+baseline_data = update_data(baseline_data, checked_fieldnames)
 
 
 def get_latex_table_data(_data, row_label, column_label, value_label, rearrange_column_label=None,
@@ -49,22 +131,26 @@ def get_latex_table_data(_data, row_label, column_label, value_label, rearrange_
     return table_data
 
 
-# Draw MSE & MAE table
-# latex_text = get_latex_table_data(data,
-#                                   row_label=['data_path', 'pred_len'],
-#                                   column_label=['model'],
-#                                   value_label=['mse', 'mae'],
-#                                   rearrange_column_label=['model', None],
-#                                   add_table_appendix=True,
-#                                   replace_nan=True,
-#                                   replace_regex=[['electricity/electricity.csv', 'Electricity'],
-#                                                  ['exchange_rate/exchange_rate.csv', 'Exchange'],
-#                                                  ['weather/weather.csv', 'Weather'],
-#                                                  ['data_path', ''],
-#                                                  ['pred_len', ''],
-#                                                  ['model', '']])
+# MSE & MAE table
+latex_text = get_latex_table_data(baseline_data,
+                                  row_label=['data_path', 'pred_len'],
+                                  column_label=['model'],
+                                  value_label=['mse', 'mae'],
+                                  rearrange_column_label=['model', None],
+                                  add_table_appendix=True,
+                                  replace_nan=True,
+                                  replace_regex=[['electricity/electricity.csv', 'Electricity'],
+                                                 ['exchange_rate/exchange_rate.csv', 'Exchange'],
+                                                 ['weather/weather.csv', 'Weather'],
+                                                 ['data_path', ''],
+                                                 ['pred_len', ''],
+                                                 ['model', '']])
 
-latex_text = get_latex_table_data(data,
+with open('accuracy_table.txt', 'w') as f:
+    f.write(latex_text)
+
+# CRPS & PINAW table
+latex_text = get_latex_table_data(baseline_data,
                                   row_label=['data_path', 'pred_len'],
                                   column_label=['model'],
                                   value_label=['crps', 'pinaw'],
@@ -78,5 +164,5 @@ latex_text = get_latex_table_data(data,
                                                  ['pred_len', ''],
                                                  ['model', '']])
 
-with open('table.txt', 'w') as f:
+with open('reliability_table.txt', 'w') as f:
     f.write(latex_text)
