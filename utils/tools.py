@@ -113,7 +113,7 @@ def draw_figure(x, pred, true, high, low, pred_range, path):
             plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
                              alpha=1-pred_range[j])
     plt.title('Prediction')
-    plt.legend('Prediction')
+    plt.legend('')
     plt.savefig(path)
 
 
@@ -159,7 +159,7 @@ def draw_attention_map(att_map, path, cols=4):
                 axs[i, j].set_title(title)
                 axs[i, j].set_yticks([])
                 axs[i, j].set_xticks([])
-    plt.legend('Attention Map')
+    plt.legend('')
     plt.savefig(path)
 
 
