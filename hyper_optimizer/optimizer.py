@@ -541,7 +541,7 @@ class HyperOptimizer(object):
 
     def _save_experiment(self, config, _experiment_result):
         # unpack the experiment result
-        eva_config, setting, run_time, stop_epochs = _experiment_result
+        eva_config, run_time, setting, stop_epochs = _experiment_result
 
         # phase criteria and save data
         if eva_config is not None:
