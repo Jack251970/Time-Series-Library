@@ -1,6 +1,5 @@
 import os
 
-import numpy as np
 import pandas as pd
 
 import warnings
@@ -13,8 +12,8 @@ file = os.path.join('probability_forecast', 'data_baseline_paper.csv')
 
 def get_csv_data(path):
     global root_path
-
-    return pd.read_csv(os.path.join(root_path, path))
+    _path = os.path.join(root_path, path)
+    return pd.read_csv(_path)
 
 
 baseline_data = get_csv_data(file)
@@ -23,7 +22,6 @@ baseline_data = get_csv_data(file)
 
 def update_data(_baseline_data, checked_columns):
     global root_path
-
     # 扫描所有数据文件
     file_paths = []
     for root, dirs, files in os.walk(root_path):
@@ -37,8 +35,8 @@ def update_data(_baseline_data, checked_columns):
 
     # 读取所有数据文件
     all_data = pd.DataFrame()
-    for _file in file_paths:
-        all_data = pd.concat([all_data, get_csv_data(_file)], ignore_index=True)
+    for _file_path in file_paths:
+        all_data = pd.concat([all_data, pd.read_csv(_file_path)], ignore_index=True)
     print(f'load {len(all_data)} records')
 
     # 检查标准数据中是否需要更新：若MSE,NAE,CRPS,PINAW中有指标可以更小，则更新
