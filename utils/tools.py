@@ -127,8 +127,6 @@ def draw_attention_map(att_map, path, cols=4):
     n_heads = att_map.shape[0]
     for i in range(n_heads):
         to_shows.append((att_map[i], f'Head {i}'))
-    if n_heads < cols:
-        to_shows += [(np.zeros_like(att_map[0]), 'pad')] * (cols - n_heads + 1)
     if n_heads != 1:
         average_att_map = att_map.mean(axis=0)
         to_shows.append((average_att_map, 'Head Average'))
@@ -138,18 +136,29 @@ def draw_attention_map(att_map, path, cols=4):
     rows = (len(to_shows) - 1) // cols + 1
     it = iter(to_shows)
     fig, axs = plt.subplots(rows, cols, figsize=(rows * 8.5, cols * 2))
-    for i in range(rows):
+    if rows == 1:
         for j in range(cols):
             try:
                 image, title = next(it)
             except StopIteration:
                 image = np.zeros_like(to_shows[0][0])
                 title = 'pad'
-            axs[i, j].imshow(image)
-            axs[i, j].set_title(title)
-            axs[i, j].set_yticks([])
-            axs[i, j].set_xticks([])
-    plt.title('Attention Map')
+            axs[j].imshow(image)
+            axs[j].set_title(title)
+            axs[j].set_yticks([])
+            axs[j].set_xticks([])
+    else:
+        for i in range(rows):
+            for j in range(cols):
+                try:
+                    image, title = next(it)
+                except StopIteration:
+                    image = np.zeros_like(to_shows[0][0])
+                    title = 'pad'
+                axs[i, j].imshow(image)
+                axs[i, j].set_title(title)
+                axs[i, j].set_yticks([])
+                axs[i, j].set_xticks([])
     plt.legend('Attention Map')
     plt.savefig(path)
 
