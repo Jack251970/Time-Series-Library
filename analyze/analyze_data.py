@@ -62,27 +62,25 @@ def update_data(_baseline_data, checked_columns):
         if _data.empty:
             continue
 
-        _new_mse = _data['mse'].values[0]
-        _new_mae = _data['mae'].values[0]
-        _new_crps = _data['crps'].values[0]
-        _new_pinaw = _data['pinaw'].values[0]
+        # 统计出最小的指标
+        _min_mse = _data['mse'].min()
+        _min_mae = _data['mae'].min()
+        _min_crps = _data['crps'].min()
+        _min_pinaw = _data['pinaw'].min()
 
-        if _new_mse < _mse:
-            _baseline_data.loc[index, 'mse'] = _new_mse
-            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
-            print(f"update mse for model {_check_data['model']}: {_mse} -> {_new_mse}")
-        if _new_mae < _mae:
-            _baseline_data.loc[index, 'mae'] = _new_mae
-            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
-            print(f"update mae for model {_check_data['model']}: {_mae} -> {_new_mae}")
-        if _new_crps < _crps:
-            _baseline_data.loc[index, 'crps'] = _new_crps
-            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
-            print(f"update crps for model {_check_data['model']}: {_crps} -> {_new_crps}")
-        if _new_pinaw < _pinaw:
-            _baseline_data.loc[index, 'pinaw'] = _new_pinaw
-            print(f"check data: {_check_data} mse={_mse} mae={_mae} crps={_crps} pinaw={_pinaw}")
-            print(f"update pinaw for model {_check_data['model']}: {_pinaw} -> {_new_pinaw}")
+        # 获取最小指标
+        if _min_mse < _mse:
+            _baseline_data.loc[index, 'mse'] = _min_mse
+            print(f"update mse for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
+        if _min_mae < _mae:
+            _baseline_data.loc[index, 'mae'] = _min_mae
+            print(f"update mae for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
+        if _min_crps < _crps:
+            _baseline_data.loc[index, 'crps'] = _min_crps
+            print(f"update crps for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
+        if _min_pinaw < _pinaw:
+            _baseline_data.loc[index, 'pinaw'] = _min_pinaw
+            print(f"update pinaw for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
 
     return _baseline_data
 
