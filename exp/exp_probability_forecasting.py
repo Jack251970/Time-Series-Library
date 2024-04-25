@@ -445,79 +445,79 @@ class Exp_Probability_Forecast(Exp_Basic):
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
 
-            # # pred value, true value & probability range
-            # # move to cpu and covert to numpy for plotting
-            # pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
-            # true_value = true_value.detach().cpu().numpy()  # [16, 15616]
-            # high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
-            # low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
-            #
-            # # save results in npy
-            # np.save(folder_path + 'pred_value.npy', pred_value)
-            # np.save(folder_path + 'true_value.npy', true_value)
-            # np.save(folder_path + 'high_value.npy', high_value)
-            # np.save(folder_path + 'low_value.npy', low_value)
-            #
-            # # integrate different probability range data
-            # pred_value = pred_value.reshape(-1)  # [16 * 15616]
-            # true_value = true_value.reshape(-1)  # [16 * 15616]
-            # high_value = high_value.reshape(-1)  # [16 * 46848]
-            # low_value = low_value.reshape(-1)  # [16 * 46848]
-            #
-            # # convert to shape: (sample, feature) for inverse transform
-            # new_shape = (pred_length * data_length, self.args.enc_in)
-            # _ = np.zeros(new_shape)
-            # _[:, -1] = pred_value
-            # pred_value = _
-            # _ = np.zeros(new_shape)
-            # _[:, -1] = true_value
-            # true_value = _
-            # new_shape = (pred_length * probability_range_len * data_length, self.args.enc_in)
-            # _ = np.zeros(new_shape)
-            # _[:, -1] = high_value
-            # high_value = _
-            # _ = np.zeros(new_shape)
-            # _[:, -1] = low_value
-            # low_value = _
-            #
-            # # perform inverse transform
-            # dataset = test_data
-            # pred_value = dataset.inverse_transform(pred_value)
-            # true_value = dataset.inverse_transform(true_value)
-            # high_value = dataset.inverse_transform(high_value)
-            # low_value = dataset.inverse_transform(low_value)
-            #
-            # # get the original data
-            # pred_value = pred_value[:, -1].squeeze()  # [16 * 15616]
-            # true_value = true_value[:, -1].squeeze()  # [16 * 15616]
-            # high_value = high_value[:, -1].squeeze()  # [16 * 46848]
-            # low_value = low_value[:, -1].squeeze()  # [16 * 46848]
-            #
-            # # restore different probability range data
-            # pred_value = pred_value.reshape(pred_length, data_length)  # [16, 15616]
-            # true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
-            # high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
-            # low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
-            #
-            # # draw figures
-            # print('drawing probabilistic figure')
-            # for i in tqdm(range(pred_length)):
-            #     _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
-            #     if not os.path.exists(_path):
-            #         os.makedirs(_path)
-            #
-            #     interval = 128
-            #     num = math.floor(data_length / interval)
-            #     for j in range(num):
-            #         if j * interval >= data_length:
-            #             continue
-            #         draw_figure(range(interval),
-            #                     pred_value[i, j * interval: (j + 1) * interval],
-            #                     true_value[i, j * interval: (j + 1) * interval],
-            #                     high_value[i, :, j * interval: (j + 1) * interval],
-            #                     low_value[i, :, j * interval: (j + 1) * interval],
-            #                     probability_range,
-            #                     os.path.join(_path, f'prediction {j}.png'))
+            # pred value, true value & probability range
+            # move to cpu and covert to numpy for plotting
+            pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
+            true_value = true_value.detach().cpu().numpy()  # [16, 15616]
+            high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
+            low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
+
+            # save results in npy
+            np.save(folder_path + 'pred_value.npy', pred_value)
+            np.save(folder_path + 'true_value.npy', true_value)
+            np.save(folder_path + 'high_value.npy', high_value)
+            np.save(folder_path + 'low_value.npy', low_value)
+
+            # integrate different probability range data
+            pred_value = pred_value.reshape(-1)  # [16 * 15616]
+            true_value = true_value.reshape(-1)  # [16 * 15616]
+            high_value = high_value.reshape(-1)  # [16 * 46848]
+            low_value = low_value.reshape(-1)  # [16 * 46848]
+
+            # convert to shape: (sample, feature) for inverse transform
+            new_shape = (pred_length * data_length, self.args.enc_in)
+            _ = np.zeros(new_shape)
+            _[:, -1] = pred_value
+            pred_value = _
+            _ = np.zeros(new_shape)
+            _[:, -1] = true_value
+            true_value = _
+            new_shape = (pred_length * probability_range_len * data_length, self.args.enc_in)
+            _ = np.zeros(new_shape)
+            _[:, -1] = high_value
+            high_value = _
+            _ = np.zeros(new_shape)
+            _[:, -1] = low_value
+            low_value = _
+
+            # perform inverse transform
+            dataset = test_data
+            pred_value = dataset.inverse_transform(pred_value)
+            true_value = dataset.inverse_transform(true_value)
+            high_value = dataset.inverse_transform(high_value)
+            low_value = dataset.inverse_transform(low_value)
+
+            # get the original data
+            pred_value = pred_value[:, -1].squeeze()  # [16 * 15616]
+            true_value = true_value[:, -1].squeeze()  # [16 * 15616]
+            high_value = high_value[:, -1].squeeze()  # [16 * 46848]
+            low_value = low_value[:, -1].squeeze()  # [16 * 46848]
+
+            # restore different probability range data
+            pred_value = pred_value.reshape(pred_length, data_length)  # [16, 15616]
+            true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
+            high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
+            low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
+
+            # draw figures
+            print('drawing probabilistic figure')
+            for i in tqdm(range(pred_length)):
+                _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
+                if not os.path.exists(_path):
+                    os.makedirs(_path)
+
+                interval = 128
+                num = math.floor(data_length / interval)
+                for j in range(num):
+                    if j * interval >= data_length:
+                        continue
+                    draw_figure(range(interval),
+                                pred_value[i, j * interval: (j + 1) * interval],
+                                true_value[i, j * interval: (j + 1) * interval],
+                                high_value[i, :, j * interval: (j + 1) * interval],
+                                low_value[i, :, j * interval: (j + 1) * interval],
+                                probability_range,
+                                os.path.join(_path, f'prediction {j}.png'))
 
             # attention map
             # move to cpu and covert to numpy for plotting
