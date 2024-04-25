@@ -128,7 +128,7 @@ def draw_attention_map(att_map, path, cols=4):
     for i in range(n_heads):
         to_shows.append((att_map[i], f'Head {i}'))
     if n_heads < cols:
-        to_shows += [(np.zeros_like(att_map[0]), 'pad')] * (cols - n_heads)
+        to_shows += [(np.zeros_like(att_map[0]), 'pad')] * (cols - n_heads + 1)
     if n_heads != 1:
         average_att_map = att_map.mean(axis=0)
         to_shows.append((average_att_map, 'Head Average'))
