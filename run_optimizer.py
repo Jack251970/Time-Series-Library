@@ -52,12 +52,12 @@ def get_search_space():
         'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'batch_size': {'_type': 'single', '_value': 256},
-        'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'MS'},
-        'root_path': {'_type': 'single', '_value': './dataset/'},
     }
 
     dataset_config = {
+        'data': {'_type': 'single', '_value': 'custom'},
+        'features': {'_type': 'single', '_value': 'MS'},
+        'root_path': {'_type': 'single', '_value': './dataset/'},
         'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTh1.csv',
                                                     'ETT-small/ETTh2.csv', 'ETT-small/ETTm1.csv', 'ETT-small/ETTm2.csv',
                                                     'exchange_rate/exchange_rate.csv', 'illness/national_illness.csv',
@@ -100,15 +100,18 @@ h = HyperOptimizer(script_mode=False,
                    link_fieldnames_data=link_fieldnames_data)
 # Uncomment the following line to output the script
 # h.output_script('Electricity')
-h.config_optimizer_settings(random_seed=2021,
+h.config_optimizer_settings(root_path='.',
+                            data_dir='data',
                             jump_csv_file='jump_data.csv',
+                            data_csv_file='data.csv',
                             data_csv_file_format='data_{}.csv',
                             scan_all_csv=True,
                             process_number=1,
                             save_process=True,
                             try_model=False,
                             force_exp=False,
-                            add_tags=[])
+                            add_tags=[],
+                            custom_test_time=None)
 
 if __name__ == "__main__":
     h.start_search(process_index=0, inverse_exp=False, shutdown_after_done=False)

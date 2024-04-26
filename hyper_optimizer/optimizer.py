@@ -40,7 +40,10 @@ class HyperOptimizer(object):
         self.seed = 2021  # random seed
         self.custom_test_time = None  # time of a custom model when testing
         self.add_tags = []  # added tags in the model id
+        self.root_path = '.'  # root path of the data, script output, checkpoints, process and model results
+        self.data_dir = 'data'  # data directory
         self.jump_csv_file = 'jump_data.csv'  # config data to be jumped
+        self.data_csv_file = 'data.csv'  # default config data to be stored
         self.data_csv_file_format = 'data_{}.csv'  # config data to be stored in other processes
         self.scan_all_csv = False  # scan all config data in the path
         self.max_process_index = 0  # the maximum index of the processes
@@ -80,13 +83,18 @@ class HyperOptimizer(object):
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
-    def config_optimizer_settings(self, random_seed=None, jump_csv_file=None, data_csv_file_format=None,
-                                  scan_all_csv=None, process_number=None, save_process=None, try_model=None,
-                                  force_exp=None, add_tags=None, custom_test_time=None):
-        if random_seed is not None:
-            self.seed = random_seed
+    def config_optimizer_settings(self, root_path=None, data_dir=None, jump_csv_file=None, data_csv_file=None,
+                                  data_csv_file_format=None, scan_all_csv=None, process_number=None,
+                                  save_process=None, try_model=None, force_exp=None, add_tags=None,
+                                  custom_test_time=None):
+        if root_path is not None:
+            self.root_path = root_path
+        if data_dir is not None:
+            self.data_dir = data_dir
         if jump_csv_file is not None:
             self.jump_csv_file = jump_csv_file
+        if data_csv_file is not None:
+            self.data_csv_file = data_csv_file
         if data_csv_file_format is not None:
             self.data_csv_file_format = data_csv_file_format
         if scan_all_csv is not None:
@@ -100,10 +108,10 @@ class HyperOptimizer(object):
                 self.try_model = try_model
             if force_exp is not None:
                 self.force_exp = force_exp
-        if add_tags is not None:
-            self.add_tags = add_tags
-        if custom_test_time is not None:
-            self.custom_test_time = custom_test_time
+            if add_tags is not None:
+                self.add_tags = add_tags
+            if custom_test_time is not None:
+                self.custom_test_time = custom_test_time
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -112,18 +120,21 @@ class HyperOptimizer(object):
 
         all_mode_settings = {
             'random_seed': self.seed,
+            'root_path': self.root_path,
+            'data_dir': self.data_dir,
             'jump_csv_file': self.jump_csv_file,
+            'data_csv_file': self.data_csv_file,
             'data_csv_file_format': self.data_csv_file_format,
             'scan_all_csv': self.scan_all_csv,
             'process_number': self.max_process_index + 1,
             'save_process': self.save_process,
-            'add_tags': self.add_tags,
         }
 
         non_script_mode_settings = {
             'models': self.models,
             'try_model': self.try_model,
             'force_exp': self.force_exp,
+            'add_tags': self.add_tags,
             'custom_test_time': self.custom_test_time,
             'search_spaces': self._get_search_spaces(),
             'all_fieldnames': self.all_fieldnames,
@@ -142,16 +153,15 @@ class HyperOptimizer(object):
         if _jump_data:
             # get csv file name for jump data
             csv_file_name = self.jump_csv_file
-            csv_file_path = f'./data/{csv_file_name}'
+            csv_file_path = os.path.join(self.root_path, self.data_dir, csv_file_name)
         else:
             if _process_index == 0:
                 # get csv file name for core process
-                csv_file_name = 'data.csv'
-                csv_file_path = f'./data/{task_name}/{csv_file_name}'
+                csv_file_name = self.data_csv_file
             else:
                 # get csv file name for other processes
                 csv_file_name = self.data_csv_file_format.format(_process_index)
-                csv_file_path = f'./data/{task_name}/{csv_file_name}'
+            csv_file_path = os.path.join(self.root_path, self.data_dir, task_name, csv_file_name)
 
         return csv_file_path
 
@@ -184,7 +194,7 @@ class HyperOptimizer(object):
                 parameters = task_parameters[task]
 
                 # get the path of the specific script
-                script_path = f'./scripts/{task}/{_data}_script'
+                script_path = os.path.join(self.root_path, 'scripts', task, f'{_data}_script')
 
                 # create the folder of the specific script
                 if not os.path.exists(script_path):
@@ -291,7 +301,7 @@ class HyperOptimizer(object):
             # combine config list
             config_list.extend(task_config_list)
 
-        # jumped data files are under './data'
+        # jumped data files are under root data path
         # init the name of jumped data file
         _jump_csv_file_path = self.get_csv_file_path(None, _process_index=process_index, _jump_data=True)
         # init the head of jumped data file
@@ -515,7 +525,7 @@ class HyperOptimizer(object):
         # try model if needed
         if _try_model:
             # build the experiment
-            exp = self.Exp(_args, try_model=True, save_process=False)
+            exp = self.Exp(self.root_path, _args, try_model=True, save_process=False)
 
             # validate the model
             valid = exp.train(_setting, check_folder=True)
@@ -525,7 +535,7 @@ class HyperOptimizer(object):
 
         if _args.is_training:
             # build the experiment
-            exp = self.Exp(_args, try_model=False, save_process=self.save_process)
+            exp = self.Exp(self.root_path, _args, try_model=False, save_process=self.save_process)
 
             # print info of the experiment
             if _parameter is not None:
@@ -546,7 +556,7 @@ class HyperOptimizer(object):
             torch.cuda.empty_cache()
         else:
             # build the experiment
-            exp = self.Exp(_args, try_model=False, save_process=self.save_process)
+            exp = self.Exp(self.root_path, _args, try_model=False, save_process=self.save_process)
 
             # print info of the experiment
             if _parameter is not None:
@@ -694,7 +704,7 @@ class HyperOptimizer(object):
             file_paths = [file_paths]
 
         if scan_all_csv:
-            root_path = f'./data/{task_name}'
+            root_path = os.path.join(self.root_path, task_name)
             # get all csv file under the path
             for root, dirs, files in os.walk(root_path):
                 for file in files:
@@ -756,18 +766,6 @@ class HyperOptimizer(object):
 
             # Return parameters for the current process
             if i == _process_index:
-                if _process_index != 0:
-                    # Add process index into the checkpoint path to avoid the load dict conflict
-                    for parameter in process_parameters:
-                        # check if the checkpoints path is in the parameter
-                        if 'checkpoints' in parameter.keys():
-                            if parameter['checkpoints'].endswith('/'):
-                                parameter['checkpoints'] = parameter['checkpoints'][:-1]
-                                parameter['checkpoints'] = parameter['checkpoints'] + f'_{_process_index}/'
-                            else:
-                                parameter['checkpoints'] = parameter['checkpoints'] + f'_{_process_index}'
-                        else:
-                            parameter['checkpoints'] = f'./checkpoints_{_process_index}/'
                 return process_parameters
 
     @staticmethod

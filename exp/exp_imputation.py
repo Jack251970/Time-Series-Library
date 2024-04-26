@@ -14,16 +14,16 @@ warnings.filterwarnings('ignore')
 
 # noinspection DuplicatedCode
 class Exp_Imputation(Exp_Basic):
-    def __init__(self, args, try_model=False, save_process=True):
-        super(Exp_Imputation, self).__init__(args, try_model, save_process)
+    def __init__(self, root_path, args, try_model=False, save_process=True):
+        super(Exp_Imputation, self).__init__(root_path, args, try_model, save_process)
 
     def train(self, setting, check_folder=False, only_init=False):
         if check_folder:
-            self._check_folders([self.args.checkpoints, self.root_process_path])
+            self._check_folders([self.root_checkpoints_path, self.root_process_path])
 
-        path = os.path.join(self.args.checkpoints, setting)
-        if not os.path.exists(path) and not self.try_model:
-            os.makedirs(path)
+        checkpoints_path = os.path.join(self.root_checkpoints_path, setting)
+        if not os.path.exists(checkpoints_path) and not self.try_model:
+            os.makedirs(checkpoints_path)
 
         process_path = self.root_process_path + f'/{setting}/'
         if not os.path.exists(process_path) and not self.try_model:
@@ -120,7 +120,7 @@ class Exp_Imputation(Exp_Basic):
                  format(epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             self.print_content(_)
 
-            _ = early_stopping(vali_loss, self.model, path)
+            _ = early_stopping(vali_loss, self.model, checkpoints_path)
             if _ is not None:
                 self.print_content(_)
 
@@ -133,7 +133,7 @@ class Exp_Imputation(Exp_Basic):
             if _ is not None:
                 self.print_content(_)
 
-        best_model_path = path + '/' + self.checkpoints_file_path
+        best_model_path = checkpoints_path + '/' + self.checkpoints_file_path
         if os.path.exists(best_model_path):
             if self.device == torch.device('cpu'):
                 self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
@@ -183,7 +183,7 @@ class Exp_Imputation(Exp_Basic):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
-            path = os.path.join(self.args.checkpoints, setting)
+            path = os.path.join(self.root_checkpoints_path, setting)
             best_model_path = path + '/' + self.checkpoints_file_path
             if os.path.exists(best_model_path):
                 if self.device == torch.device('cpu'):

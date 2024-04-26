@@ -11,7 +11,7 @@ from utils.losses import mape_loss, mase_loss, smape_loss
 
 
 class Exp_Basic(object):
-    def __init__(self, args, try_model, save_process):
+    def __init__(self, root_path, args, try_model, save_process):
         self.args = args
         self.try_model = try_model
         self.save_process = save_process
@@ -22,11 +22,12 @@ class Exp_Basic(object):
         self.new_index = None
 
         # folder paths
-        self.root_process_path = './process'
-        self.root_results_path = './results'
-        self.root_test_results_path = './test_results'
-        self.root_m4_results_path = './m4_results'
-        self.root_prob_results_path = './prob_results'
+        self.root_checkpoints_path = os.path.join(root_path, 'checkpoints')
+        self.root_process_path = os.path.join(root_path, 'process')
+        self.root_results_path = os.path.join(root_path, 'results')
+        self.root_test_results_path = os.path.join(root_path, 'test_results')
+        self.root_m4_results_path = os.path.join(root_path, 'm4_results')
+        self.root_prob_results_path = os.path.join(root_path, 'prob_results')
 
         # file paths
         self.checkpoints_file_path = 'checkpoint.pth'
