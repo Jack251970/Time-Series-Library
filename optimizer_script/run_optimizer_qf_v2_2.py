@@ -10,6 +10,9 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+
+        _config['lstm_hidden_size'] = 64
+        _config['lstm_layers'] = 3
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
           _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -21,6 +24,9 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+
+        _config['lstm_hidden_size'] = 24
+        _config['lstm_layers'] = 2
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -36,6 +42,9 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 21
         _config['dec_in'] = 21
         _config['c_out'] = 21
+
+        _config['lstm_hidden_size'] = 64
+        _config['lstm_layers'] = 1
     elif _data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
@@ -167,16 +176,16 @@ def get_search_space():
         'train_epochs': {'_type': 'single', '_value': 50},
 
         # Step 1: LSTM
-        'n_heads': {'_type': 'single', '_value': 2},
-        'd_model': {'_type': 'single', '_value': 24},
-        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        # 'n_heads': {'_type': 'single', '_value': 2},
+        # 'd_model': {'_type': 'single', '_value': 24},
+        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         # Step 2: Attention
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 2},
-        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
+        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
     }
@@ -193,7 +202,8 @@ def get_search_space():
 
 h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', scan_all_csv=False, try_model=False, force_exp=False)
+h.config_optimizer_settings(root_path='..', data_csv_file='data_parameter_16_4.csv', scan_all_csv=False,
+                            try_model=False, force_exp=False)
 
 if __name__ == "__main__":
     h.start_search(0)
