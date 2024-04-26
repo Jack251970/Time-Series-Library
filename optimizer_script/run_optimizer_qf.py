@@ -15,7 +15,7 @@ def get_search_space():
 
     dataset_config = {
         # wind dataset
-        'root_path': {'_type': 'single', '_value': './dataset/wind/'},
+        'root_path': {'_type': 'single', '_value': '../dataset/wind/'},
         # 'data_path': {'_type': 'single', '_value': 'Zone1/Zone1.csv'},
         'data_path': {'_type': 'choice', '_value': ['Zone2/Zone2.csv', 'Zone3/Zone3.csv', 'Zone4/Zone4.csv',
                                                     'Zone5/Zone5.csv', 'Zone6/Zone6.csv', 'Zone7/Zone7.csv',
@@ -118,8 +118,8 @@ h = HyperOptimizer(script_mode=False, models=['LSTM-CQ', 'QSQF-C', 'RNN-SF'], ge
 # 2024-04-09 20-20-21: 1+2 algorithm, 1e-4
 # 2024-04-09 21-05-56: 1+2 algorithm, 1e-6
 # 2024-04-09 21-59-59: 1 algorithm, 1e-6
-h.config_optimizer_settings(custom_test_time="2024-04-09 21-05-56", scan_all_csv=True, try_model=False, force_exp=False,
-                            add_tags=[])
+h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=False,
+                            add_tags=[], custom_test_time="2024-04-09 21-05-56", )
 
 if __name__ == "__main__":
     h.start_search(0)

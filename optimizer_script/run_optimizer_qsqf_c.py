@@ -55,21 +55,20 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
         'freq': {'_type': 'single', '_value': 't'},
         'batch_size': {'_type': 'single', '_value': 256},
-        'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'MS'},
-        'root_path': {'_type': 'single', '_value': './dataset/'},
     }
 
     dataset_config = {
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
+        'data': {'_type': 'single', '_value': 'custom'},
+        'features': {'_type': 'single', '_value': 'MS'},
+        'root_path': {'_type': 'single', '_value': '../dataset/'},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'weather/weather.csv']},
     }
 
     learning_config = {
@@ -80,10 +79,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 16},
-        # 'pred_len': {'_type': 'single', '_value': 32},
-        # 'pred_len': {'_type': 'single', '_value': 96},
-        # 'pred_len': {'_type': 'single', '_value': 192},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -106,42 +102,16 @@ def get_search_space():
         'lstm_layers': {'_type': 'single', '_value': 2},
     }
 
-    lstm_ed_cq_config = {
-        # model
-        'label_len': {'_type': 'single', '_value': 0},
-        'lag': {'_type': 'single', '_value': 3},
-        'dropout': {'_type': 'single', '_value': 0},
-
-        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
-        'reindex': {'_type': 'single', '_value': 0},
-
-        'learning_rate': {'_type': 'single', '_value': 0.001},
-        'train_epochs': {'_type': 'single', '_value': 50},
-
-        'num_spline': {'_type': 'single', '_value': 20},
-        'sample_times': {'_type': 'single', '_value': 99},
-
-        # Config the target parameter here!
-        # 2024-04-23 10-33-28: Electricity, 96_0_96
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 3},
-        'n_heads': {'_type': 'single', '_value': 1},
-        'd_model': {'_type': 'single', '_value': 24},
-
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
-    }
-
     model_configs = {
         'QSQF-C': qsqf_config,
-        'LSTM-ED-CQ': lstm_ed_cq_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
+h = HyperOptimizer(script_mode=False, models=['QSQF-C'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=True, add_tags=[])
+h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0)

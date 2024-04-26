@@ -61,12 +61,13 @@ def get_search_space():
         'embed': {'_type': 'single', '_value': 'timeF'},
         'freq': {'_type': 'single', '_value': 't'},
         'batch_size': {'_type': 'single', '_value': 256},
-        'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'MS'},
-        'root_path': {'_type': 'single', '_value': './dataset/'},
     }
 
     dataset_config = {
+        'data': {'_type': 'single', '_value': 'custom'},
+        'features': {'_type': 'single', '_value': 'MS'},
+        'root_path': {'_type': 'single', '_value': '../dataset/'},
+
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
@@ -117,9 +118,9 @@ def get_search_space():
         'label_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 32},
-        # 'pred_len': {'_type': 'single', '_value': 96},
+        'pred_len': {'_type': 'single', '_value': 96},
         # 'pred_len': {'_type': 'single', '_value': 192},
-        'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
+        # 'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -178,20 +179,17 @@ def get_search_space():
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
 
-        'num_spline': {'_type': 'single', '_value': 20},
-        'sample_times': {'_type': 'single', '_value': 99},
+        # Step 1: LSTM
+        'n_heads': {'_type': 'single', '_value': 2},
+        'd_model': {'_type': 'single', '_value': 24},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
-        # Step 1: Attention
+        # Step 2: Attention
         # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
         # 'lstm_layers': {'_type': 'single', '_value': 2},
         # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
         # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
-
-        # Step 2: LSTM
-        'n_heads': {'_type': 'single', '_value': 4},
-        'd_model': {'_type': 'single', '_value': 24},
-        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
@@ -241,9 +239,9 @@ def combine_lists(lists, separator='_'):
     return [separator.join(filter(None, combo)) for combo in combinations]
 
 
-h = HyperOptimizer(script_mode=False, models=['QSQF-C'],
+h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
+h.config_optimizer_settings(root_path='..', scan_all_csv=False, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
-    h.start_search(0, inverse_exp=True)
+    h.start_search(0)

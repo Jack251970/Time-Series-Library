@@ -66,12 +66,12 @@ def get_search_space():
         'embed': {'_type': 'single', '_value': 'timeF'},
         'freq': {'_type': 'single', '_value': 't'},
         'batch_size': {'_type': 'single', '_value': 256},
-        'data': {'_type': 'single', '_value': 'custom'},
-        'features': {'_type': 'single', '_value': 'MS'},
-        'root_path': {'_type': 'single', '_value': './dataset/'},
     }
 
     dataset_config = {
+        'data': {'_type': 'single', '_value': 'custom'},
+        'features': {'_type': 'single', '_value': 'MS'},
+        'root_path': {'_type': 'single', '_value': '../dataset/'},
         'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
                                                     'weather/weather.csv']},
         'pin_memory': {'_type': 'single', '_value': False},
@@ -106,7 +106,7 @@ def get_search_space():
 
 h = HyperOptimizer(script_mode=False, models=['Transformer', 'Informer', 'Reformer', 'Autoformer'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
+h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":
     h.start_search(0)
