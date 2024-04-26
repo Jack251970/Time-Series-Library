@@ -85,7 +85,6 @@ def get_search_space():
     }
 
     qsqf_config = {
-        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
