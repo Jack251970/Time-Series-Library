@@ -43,6 +43,8 @@ def update_data(_baseline_data, checked_columns, target_columns):
     _update_number = 0
     for index, row in _baseline_data.iterrows():
         _model = row['model']
+        _dataset = row['data_path']
+        _pred_len = row['pred_len']
 
         # 获取检查数据和目标数据
         _check_data = {}
@@ -82,12 +84,12 @@ def update_data(_baseline_data, checked_columns, target_columns):
                 if not pd.isna(_baseline_value) and _value < _baseline_value:
                     _baseline_data.loc[index, _column] = _value
                     _update_number += 1
-                    print(f"update {_column} for model {_model}: {_baseline_value} -> {_value} in {_check_data}")
+                    print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
             elif _method == 'max':
                 if not pd.isna(_baseline_value) and _value > _baseline_value:
                     _baseline_data.loc[index, _column] = _value
                     _update_number += 1
-                    print(f"update {_column} for model {_model}: {_baseline_value} -> {_value} in {_check_data}")
+                    print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
             else:
                 raise ValueError(f"unknown method: {_method}")
 
@@ -103,10 +105,23 @@ target_fieldnames = [('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 
 baseline_data = update_data(baseline_data, checked_fieldnames, target_fieldnames)
 
 
-def get_latex_table_data(_data, row_label, column_label, value_label, rearrange_column_label=None,
+def get_latex_table_data(_data, row_label, column_label, value_label, replace_label=None, rearrange_column_label=None,
                          add_table_appendix=True, replace_nan=True, replace_regex=None):
     if replace_regex is None:
         replace_regex = []
+
+    # 替换列标签
+    if replace_label is not None:
+        for _replace_label, _ in replace_label:
+            old_label = _replace_label[0]
+            new_label = _replace_label[1]
+            _data.rename(columns={old_label: new_label}, inplace=True)
+            if old_label in row_label:
+                row_label[row_label.index(old_label)] = new_label
+            if old_label in column_label:
+                column_label[column_label.index(old_label)] = new_label
+            if old_label in value_label:
+                value_label[value_label.index(old_label)] = new_label
 
     # 创建一个二维数组，用于存储表格数据
     table_data = pd.pivot_table(_data, values=value_label, index=row_label, columns=column_label, aggfunc='mean')
@@ -120,11 +135,19 @@ def get_latex_table_data(_data, row_label, column_label, value_label, rearrange_
     # table_data.columns = [' '.join(col).strip() for col in table_data.columns.values]
 
     # 将表格数据转换为latex格式，数字仅仅取出小数点后3位
-    table_data = table_data.to_latex(float_format='%.3f')
+    table_data = table_data.to_latex(float_format='%.4f')
 
     # 将nan替换为'-'
     if replace_nan:
         table_data = table_data.replace('NaN', '-')
+
+    # 处理替换标签
+    if replace_label is not None:
+        for _replace_label, keep_in_latex in replace_label:
+            old_label = _replace_label[0]
+            new_label = _replace_label[1]
+            if not keep_in_latex:
+                table_data = table_data.replace(new_label, old_label)
 
     # 执行替换规则
     for regex in replace_regex:
@@ -144,6 +167,8 @@ latex_text = get_latex_table_data(baseline_data,
                                   row_label=['data_path', 'pred_len'],
                                   column_label=['model'],
                                   value_label=['mse', 'mae'],
+                                  replace_label=[(['mse', 'amse'], False),
+                                                 (['mae', 'bmae'], False)],
                                   rearrange_column_label=['model', None],
                                   add_table_appendix=True,
                                   replace_nan=True,
