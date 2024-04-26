@@ -704,7 +704,7 @@ class HyperOptimizer(object):
             file_paths = [file_paths]
 
         if scan_all_csv:
-            root_path = os.path.join(self.root_path, task_name)
+            root_path = os.path.join(self.root_path, self.data_dir, task_name)
             # get all csv file under the path
             for root, dirs, files in os.walk(root_path):
                 for file in files:
@@ -729,8 +729,33 @@ class HyperOptimizer(object):
 
     def _check_config_data(self, config_data, _config_list):
         for _config in _config_list:
-            if all(_config[field] == str(config_data[field]) for field in self.checked_fieldnames):
+            flag = True
+            for _field in self.checked_fieldnames:
+                if not self._check_data_same(_config[_field], config_data[_field]):
+                    flag = False
+                    break
+            if flag:
                 return True
+        return False
+
+    @staticmethod
+    def _check_data_same(_data1, _data2):
+        # check string value
+        str1 = str(_data1)
+        str2 = str(_data2)
+        if str1 == str2:
+            return True
+
+        # check number value
+        # noinspection PyBroadException
+        try:
+            value1 = eval(str1)
+            value2 = eval(str2)
+            if value1 == value2:
+                return True
+        except:
+            return False
+
         return False
 
     def _save_config_dict(self, file_path, _config):
