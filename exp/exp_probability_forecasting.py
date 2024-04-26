@@ -528,17 +528,17 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             # draw attention map
             print('drawing attention map')
-            # for i in tqdm(range(loader_length)):
-            #     _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
-            #     if not os.path.exists(_path):
-            #         os.makedirs(_path)
-            #
-            #     attention_map = attention_maps[i]
-            #     attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
-            #                                           self.args.seq_len)
-            #     for j in range(batch_size):
-            #         _ = attention_map[j]
-            #         draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+            for i in tqdm(range(loader_length)):
+                _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
+                if not os.path.exists(_path):
+                    os.makedirs(_path)
+
+                attention_map = attention_maps[i]
+                attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
+                                                      self.args.seq_len)
+                for j in range(batch_size):
+                    _ = attention_map[j]
+                    draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
 
             for i in tqdm(range(pred_length)):
                 _path = os.path.join(folder_path, f'attention_map', f'step {i}')
