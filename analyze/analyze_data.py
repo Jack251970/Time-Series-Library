@@ -20,7 +20,7 @@ baseline_data = get_csv_data(file)
 # print(baseline_data.columns)
 
 
-def update_data(_baseline_data, checked_columns):
+def update_data(_baseline_data, checked_columns, target_columns):
     global root_path
     # 扫描所有数据文件
     file_paths = []
@@ -40,14 +40,17 @@ def update_data(_baseline_data, checked_columns):
     print(f'load {len(all_data)} records')
 
     # 检查标准数据中是否需要更新：若MSE,NAE,CRPS,PINAW中有指标可以更小，则更新
+    _update_number = 0
     for index, row in _baseline_data.iterrows():
+        _model = row['model']
+
+        # 获取检查数据和目标数据
         _check_data = {}
         for _column in checked_columns:
             _check_data[_column] = row[_column]
-        _mse = row['mse']
-        _mae = row['mae']
-        _crps = row['crps']
-        _pinaw = row['pinaw']
+        _target_data = {}
+        for _column, _method in target_columns:
+            _target_data[_column] = row[_column]
 
         # 获取检查数据都相同的数据
         _data = all_data
@@ -63,24 +66,32 @@ def update_data(_baseline_data, checked_columns):
             continue
 
         # 统计出最小的指标
-        _min_mse = _data['mse'].min()
-        _min_mae = _data['mae'].min()
-        _min_crps = _data['crps'].min()
-        _min_pinaw = _data['pinaw'].min()
+        _min_target_data = {}
+        for _column, _method in target_columns:
+            if _method == 'min':
+                _min_target_data[_column] = (_data[_column].min(), _method)
+            elif _method == 'max':
+                _min_target_data[_column] = (_data[_column].max(), _method)
+            else:
+                raise ValueError(f"unknown method: {_method}")
 
         # 获取最小指标
-        if _min_mse < _mse:
-            _baseline_data.loc[index, 'mse'] = _min_mse
-            print(f"update mse for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
-        if _min_mae < _mae:
-            _baseline_data.loc[index, 'mae'] = _min_mae
-            print(f"update mae for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
-        if _min_crps < _crps:
-            _baseline_data.loc[index, 'crps'] = _min_crps
-            print(f"update crps for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
-        if _min_pinaw < _pinaw:
-            _baseline_data.loc[index, 'pinaw'] = _min_pinaw
-            print(f"update pinaw for model {_check_data['model']}: {_mse} -> {_min_mse} in {_check_data}")
+        for _column, (_value, _method) in _min_target_data.items():
+            _baseline_value = _target_data[_column]
+            if _method == 'min':
+                if not pd.isna(_baseline_value) and _value < _baseline_value:
+                    _baseline_data.loc[index, _column] = _value
+                    _update_number += 1
+                    print(f"update {_column} for model {_model}: {_baseline_value} -> {_value} in {_check_data}")
+            elif _method == 'max':
+                if not pd.isna(_baseline_value) and _value > _baseline_value:
+                    _baseline_data.loc[index, _column] = _value
+                    _update_number += 1
+                    print(f"update {_column} for model {_model}: {_baseline_value} -> {_value} in {_check_data}")
+            else:
+                raise ValueError(f"unknown method: {_method}")
+
+    print(f'update {_update_number} cells')
 
     return _baseline_data
 
@@ -88,7 +99,8 @@ def update_data(_baseline_data, checked_columns):
 # 更新最佳数据
 checked_fieldnames = ['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
                       'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse']
-baseline_data = update_data(baseline_data, checked_fieldnames)
+target_fieldnames = [('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')]
+baseline_data = update_data(baseline_data, checked_fieldnames, target_fieldnames)
 
 
 def get_latex_table_data(_data, row_label, column_label, value_label, rearrange_column_label=None,
