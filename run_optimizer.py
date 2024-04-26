@@ -85,10 +85,7 @@ def get_search_space():
         'Transformer': transformer_config
     }
 
-    # get config
-    _config = {**default_config, **dataset_config, **learning_config, **period_config}
-
-    return _config, model_configs
+    return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
 h = HyperOptimizer(script_mode=False, models=['Transformer'],

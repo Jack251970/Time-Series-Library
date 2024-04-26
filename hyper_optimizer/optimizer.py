@@ -352,8 +352,16 @@ class HyperOptimizer(object):
 
         search_spaces = {}
         for model in self.models:
-            # get search space and model configs
-            config, model_configs = self.get_search_space()
+            # get config list and model configs
+            config_list, model_configs = self.get_search_space()
+
+            # get default config
+            config = {}
+            for _config in config_list:
+                for key in _config:
+                    if key in config and config[key] != _config[key]:
+                        raise ValueError(f'The key {key} has different values in the config list!')
+                    config[key] = _config[key]
 
             # get config for specific model
             model_config = model_configs[model] if model_configs.get(model) else {}

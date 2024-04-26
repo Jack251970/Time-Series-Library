@@ -110,9 +110,7 @@ def get_search_space():
         'LSTM-CQ': lstm_cq_config,
     }
 
-    _config = {**default_config, **dataset_config, **learning_config, **period_config}
-
-    return _config, model_configs
+    return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
 h = HyperOptimizer(False, ['LSTM-CQ', 'QSQF-C', 'RNN-SF'],
