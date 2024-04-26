@@ -352,8 +352,18 @@ class HyperOptimizer(object):
 
         search_spaces = {}
         for model in self.models:
-            search_space = self.get_search_space(model)
-            search_spaces[model] = search_space
+            # get search space and model configs
+            config, model_configs = self.get_search_space()
+
+            # get config for specific model
+            model_config = model_configs[model] if model_configs.get(model) else {}
+            model_config['model'] = {'_type': 'single', '_value': model}
+
+            # combine default config and model config
+            for key, value in model_config.items():
+                config[key] = value
+
+            search_spaces[model] = config
 
         self.search_spaces = search_spaces
         return search_spaces

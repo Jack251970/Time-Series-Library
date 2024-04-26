@@ -3,7 +3,7 @@ from hyper_optimizer.optimizer import HyperOptimizer
 
 
 # noinspection DuplicatedCode
-def get_search_space(_model):
+def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
         'is_training': {'_type': 'single', '_value': 1},
@@ -110,18 +110,9 @@ def get_search_space(_model):
         'LSTM-CQ': lstm_cq_config,
     }
 
-    # get config for specific model
-    model_config = model_configs[_model] if model_configs.get(_model) else {}
-    model_config['model'] = {'_type': 'single', '_value': _model}
-
-    # get config
     _config = {**default_config, **dataset_config, **learning_config, **period_config}
 
-    # integrate model config
-    for key, value in model_config.items():
-        _config[key] = value
-
-    return _config
+    return _config, model_configs
 
 
 h = HyperOptimizer(False, ['LSTM-CQ', 'QSQF-C', 'RNN-SF'],
