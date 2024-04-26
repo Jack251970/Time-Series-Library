@@ -119,7 +119,7 @@ h = HyperOptimizer(script_mode=False, models=['LSTM-CQ', 'QSQF-C', 'RNN-SF'], ge
 # 2024-04-09 21-05-56: 1+2 algorithm, 1e-6
 # 2024-04-09 21-59-59: 1 algorithm, 1e-6
 h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=False,
-                            add_tags=[], custom_test_time="2024-04-09 21-05-56", )
+                            custom_test_time="2024-04-09 21-05-56")
 
 if __name__ == "__main__":
     h.start_search(0)

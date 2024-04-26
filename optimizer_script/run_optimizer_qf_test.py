@@ -140,7 +140,7 @@ def get_search_space():
 
 h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=True, add_tags=[],
+h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=True,
                             custom_test_time='2024-04-23 10-33-28')
 
 if __name__ == "__main__":
