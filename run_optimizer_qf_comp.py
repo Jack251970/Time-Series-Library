@@ -1,4 +1,3 @@
-from hyper_optimizer.basic_settings import prepare_config, build_setting, build_config_dict, set_args, get_fieldnames
 from hyper_optimizer.optimizer import HyperOptimizer
 
 
@@ -105,9 +104,8 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(False, ['Transformer', 'Informer', 'Reformer', 'Autoformer'],
-                   prepare_config, build_setting, build_config_dict, set_args, get_fieldnames, get_search_space,
-                   link_fieldnames_data=link_fieldnames_data)
+h = HyperOptimizer(script_mode=False, models=['Transformer', 'Informer', 'Reformer', 'Autoformer'],
+                   get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(custom_test_time="", scan_all_csv=True, try_model=False, force_exp=False, add_tags=[])
 
 if __name__ == "__main__":

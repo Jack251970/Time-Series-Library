@@ -1,12 +1,9 @@
 import csv
+import numpy as np
 import os
 import random
 import time
-from itertools import product
-
-import numpy as np
 import torch
-from tqdm import tqdm
 
 from exp.exp_anomaly_detection import Exp_Anomaly_Detection
 from exp.exp_classification import Exp_Classification
@@ -14,21 +11,30 @@ from exp.exp_imputation import Exp_Imputation
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_probability_forecasting import Exp_Probability_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
+from hyper_optimizer import basic_settings
+from itertools import product
+from tqdm import tqdm
 # from utils.print_args import print_args
 
 
 class HyperOptimizer(object):
-    def __init__(self, script_mode, models, prepare_config, build_setting, build_config_dict, set_args, get_fieldnames,
-                 get_search_space, get_model_id_tags=None, check_jump_experiment=None, link_fieldnames_data=None):
+    def __init__(self, script_mode, models=None, get_search_space=None, prepare_config=None, build_setting=None,
+                 build_config_dict=None, set_args=None, get_fieldnames=None, get_model_id_tags=None,
+                 check_jump_experiment=None, link_fieldnames_data=None):
         # core settings
         self.script_mode = script_mode  # script mode
 
         # core functions
-        self.prepare_config = prepare_config  # prepare config
-        self.build_setting = build_setting  # build setting, which is the unique identifier of the model
-        self.build_config_dict_ori = build_config_dict  # build config dict - the data to be stored in files
-        self.set_args = set_args  # set args
-        self.get_tags = get_model_id_tags  # get tags
+        # prepare config
+        self.prepare_config = basic_settings.prepare_config if prepare_config is None else prepare_config
+        # build setting, which is the unique identifier of the model
+        self.build_setting = basic_settings.build_setting if build_setting is None else build_setting
+        # build config dict - the data to be stored in files
+        self.build_config_dict = basic_settings.build_config_dict if build_config_dict is None else build_config_dict
+        # set args
+        self.set_args = basic_settings.set_args if set_args is None else set_args
+        # get tags
+        self.get_model_id_tags = get_model_id_tags  # get tags
 
         # all mode settings
         self.seed = 2021  # random seed
@@ -46,20 +52,21 @@ class HyperOptimizer(object):
         self._task_names = None
 
         if not self.script_mode:
-            # non script mode settings
+            # non-script mode settings
             # models
             self.models = models
             self.try_model = False  # whether to try model before running the experiments
             self.force_exp = False  # whether to force to run the experiments if already run them
 
+            # fieldnames
+            get_fieldnames = basic_settings.get_fieldnames if get_fieldnames is None else get_fieldnames
+            self.all_fieldnames = get_fieldnames('all')  # all fieldnames
+            self.checked_fieldnames = get_fieldnames('checked')  # checked fieldnames
+
             # search spaces
             self.get_search_space = get_search_space
             self.search_spaces = None
             self._check_required_fieldnames(get_fieldnames('required'))
-
-            # fieldnames
-            self.all_fieldnames = get_fieldnames('all')  # all fieldnames
-            self.checked_fieldnames = get_fieldnames('checked')  # checked fieldnames
 
             # non script mode functions
             self.check_jump_experiment = check_jump_experiment  # check if we need to jump the experiment
@@ -73,13 +80,11 @@ class HyperOptimizer(object):
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
-    def config_optimizer_settings(self, custom_test_time=None, random_seed=None, jump_csv_file=None,
-                                  data_csv_file_format=None, scan_all_csv=None, process_number=None, save_process=None,
-                                  try_model=None, force_exp=None, add_tags=None):
+    def config_optimizer_settings(self, random_seed=None, jump_csv_file=None, data_csv_file_format=None,
+                                  scan_all_csv=None, process_number=None, save_process=None, try_model=None,
+                                  force_exp=None, add_tags=None, custom_test_time=None):
         if random_seed is not None:
             self.seed = random_seed
-        if custom_test_time is not None:
-            self.custom_test_time = custom_test_time
         if jump_csv_file is not None:
             self.jump_csv_file = jump_csv_file
         if data_csv_file_format is not None:
@@ -97,6 +102,8 @@ class HyperOptimizer(object):
                 self.force_exp = force_exp
         if add_tags is not None:
             self.add_tags = add_tags
+        if custom_test_time is not None:
+            self.custom_test_time = custom_test_time
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -105,18 +112,19 @@ class HyperOptimizer(object):
 
         all_mode_settings = {
             'random_seed': self.seed,
-            'add_tags': self.add_tags,
             'jump_csv_file': self.jump_csv_file,
             'data_csv_file_format': self.data_csv_file_format,
             'scan_all_csv': self.scan_all_csv,
             'process_number': self.max_process_index + 1,
             'save_process': self.save_process,
+            'add_tags': self.add_tags,
         }
 
         non_script_mode_settings = {
             'models': self.models,
             'try_model': self.try_model,
             'force_exp': self.force_exp,
+            'custom_test_time': self.custom_test_time,
             'search_spaces': self._get_search_spaces(),
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
@@ -597,7 +605,7 @@ class HyperOptimizer(object):
         np.random.seed(self.seed)
 
     def _build_config_dict(self, _args):
-        config_dict = self.build_config_dict_ori(_args)
+        config_dict = self.build_config_dict(_args)
         config_dict['seed'] = self.seed
         config_dict['model_id'] = config_dict['model_id'] + self._get_tags(_args, self.add_tags)
 
@@ -606,8 +614,8 @@ class HyperOptimizer(object):
     def _get_tags(self, _args, _add_tags):
         tags = []
 
-        if self.get_tags is not None:
-            tags = self.get_tags(_args)
+        if self.get_model_id_tags is not None:
+            tags = self.get_model_id_tags(_args)
 
         for add_tag in _add_tags:
             tags.append(add_tag)

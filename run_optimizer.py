@@ -1,4 +1,3 @@
-from hyper_optimizer.basic_settings import prepare_config, build_setting, build_config_dict, set_args, get_fieldnames
 from hyper_optimizer.optimizer import HyperOptimizer
 
 
@@ -88,10 +87,16 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(script_mode=False, models=['Transformer'],
-                   prepare_config=prepare_config, build_setting=build_setting, build_config_dict=build_config_dict,
-                   set_args=set_args, get_fieldnames=get_fieldnames, get_search_space=get_search_space,
-                   get_model_id_tags=get_model_id_tags, check_jump_experiment=check_jump_experiment,
+h = HyperOptimizer(script_mode=False,
+                   models=['Transformer'],
+                   get_search_space=get_search_space,
+                   prepare_config=None,
+                   build_setting=None,
+                   build_config_dict=None,
+                   set_args=None,
+                   get_fieldnames=None,
+                   get_model_id_tags=get_model_id_tags,
+                   check_jump_experiment=check_jump_experiment,
                    link_fieldnames_data=link_fieldnames_data)
 # Uncomment the following line to output the script
 # h.output_script('Electricity')
