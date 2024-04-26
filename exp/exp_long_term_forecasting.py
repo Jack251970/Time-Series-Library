@@ -24,8 +24,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             self._check_folders([self.root_checkpoints_path, self.root_process_path])
 
         checkpoints_path = os.path.join(self.root_checkpoints_path, setting)
-        if not os.path.exists(checkpoints_path) and not self.try_model:
-            os.makedirs(checkpoints_path)
         
         process_path = self.root_process_path + f'/{setting}/'
         if not os.path.exists(process_path) and not self.try_model:
@@ -42,7 +40,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         time_now = time.time()
 
         train_steps = len(train_loader)
-        early_stopping = EarlyStopping(self.checkpoints_file_path, patience=self.args.patience, verbose=True)
+        early_stopping = EarlyStopping(self.checkpoints_file, patience=self.args.patience, verbose=True)
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -164,7 +162,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         self.print_content("", True)
 
-        best_model_path = checkpoints_path + '/' + self.checkpoints_file_path
+        best_model_path = checkpoints_path + '/' + self.checkpoints_file
         if os.path.exists(best_model_path):
             if self.device == torch.device('cpu'):
                 self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
@@ -219,7 +217,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         if test:
             self.print_content('loading model')
             path = os.path.join(self.root_checkpoints_path, setting)
-            best_model_path = path + '/' + self.checkpoints_file_path
+            best_model_path = path + '/' + self.checkpoints_file
             if os.path.exists(best_model_path):
                 if self.device == torch.device('cpu'):
                     self.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))

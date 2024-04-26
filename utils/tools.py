@@ -1,7 +1,8 @@
+import math
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import torch
-import math
 
 plt.switch_backend('agg')
 
@@ -33,9 +34,9 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 
 class EarlyStopping:
-    def __init__(self, checkpoints_file_path, patience=7, verbose=False, delta=0):
+    def __init__(self, checkpoints_file, patience=7, verbose=False, delta=0):
         self.patience = patience
-        self.checkpoints = checkpoints_file_path
+        self.checkpoints_file = checkpoints_file
         self.verbose = verbose
         self.counter = 0
         self.best_score = None
@@ -60,12 +61,14 @@ class EarlyStopping:
         return _
 
     def save_checkpoint(self, val_loss, model, path):
-        best_model_path = path + '/' + self.checkpoints
+        best_model_path = path + '/' + self.checkpoints_file
         if self.verbose:
             _ = (f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). '
                  f'Saving model to {best_model_path}.')
         else:
             _ = None
+        if not os.path.exists(path):
+            os.makedirs(path)
         torch.save(model.state_dict(), best_model_path)
         self.val_loss_min = val_loss
         return _
@@ -112,7 +115,6 @@ def draw_figure(x, pred, true, high, low, pred_range, path):
             # plt.plot(low[j, :].squeeze(), label='Low Value', color='green')
             plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
                              alpha=1-pred_range[j])
-    plt.title('Prediction')
     plt.legend('')
     plt.savefig(path)
 

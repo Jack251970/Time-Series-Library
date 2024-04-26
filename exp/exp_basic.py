@@ -11,14 +11,15 @@ from utils.losses import mape_loss, mase_loss, smape_loss
 
 
 class Exp_Basic(object):
-    def __init__(self, root_path, args, try_model, save_process):
+    def __init__(self, root_path, args, try_model, save_process, initialize_later=False):
         self.args = args
         self.try_model = try_model
         self.save_process = save_process
         self.process_content = ""
         self.process_file_path = None
-        self.device = self._acquire_device(try_model)
-        self.model = self._build_model().to(self.device)
+        if not initialize_later:
+            self.device = self._acquire_device(try_model)
+            self.model = self._build_model().to(self.device)
         self.new_index = None
 
         # folder paths
@@ -30,7 +31,7 @@ class Exp_Basic(object):
         self.root_prob_results_path = os.path.join(root_path, 'prob_results')
 
         # file paths
-        self.checkpoints_file_path = 'checkpoint.pth'
+        self.checkpoints_file = 'checkpoint.pth'
 
     def _build_model(self):
         # get model from model dictionary
@@ -146,18 +147,14 @@ class Exp_Basic(object):
     def predict(self, setting, load=False):
         pass
 
-    # noinspection PyMethodMayBeStatic
-    def _check_folders(self, folders):
+    @staticmethod
+    def _check_folders(folders):
         if not isinstance(folders, list):
             folders = [folders]
 
         for folder in folders:
-            # Delete blank folders under the folder
-            if os.path.exists(folder):
-                for path in os.listdir(folder):
-                    sub_folder = os.path.join(folder, path)
-                    if os.path.isdir(sub_folder) and not os.listdir(sub_folder):
-                        os.rmdir(sub_folder)
+            if not os.path.exists(folder):
+                os.makedirs(folder)
 
     def print_content(self, content, write=False):
         print(content)
