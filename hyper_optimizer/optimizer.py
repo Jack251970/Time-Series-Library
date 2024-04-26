@@ -73,15 +73,13 @@ class HyperOptimizer(object):
                 if fieldname not in search_space.keys():
                     raise ValueError(f'The required fieldname {fieldname} is not in the search space!')
 
-    def config_optimizer_settings(self, custom_test_time=None, random_seed=None, add_tags=None, jump_csv_file=None,
+    def config_optimizer_settings(self, custom_test_time=None, random_seed=None, jump_csv_file=None,
                                   data_csv_file_format=None, scan_all_csv=None, process_number=None, save_process=None,
-                                  try_model=None, force_exp=None):
+                                  try_model=None, force_exp=None, add_tags=None):
         if random_seed is not None:
             self.seed = random_seed
         if custom_test_time is not None:
             self.custom_test_time = custom_test_time
-        if add_tags is not None:
-            self.add_tags = add_tags
         if jump_csv_file is not None:
             self.jump_csv_file = jump_csv_file
         if data_csv_file_format is not None:
@@ -89,7 +87,7 @@ class HyperOptimizer(object):
         if scan_all_csv is not None:
             self.scan_all_csv = scan_all_csv
         if process_number is not None:
-            self.max_process_index = process_number + 1
+            self.max_process_index = process_number - 1
         if save_process is not None:
             self.save_process = save_process
         if not self.script_mode:
@@ -97,6 +95,8 @@ class HyperOptimizer(object):
                 self.try_model = try_model
             if force_exp is not None:
                 self.force_exp = force_exp
+        if add_tags is not None:
+            self.add_tags = add_tags
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -237,7 +237,7 @@ class HyperOptimizer(object):
         self._task_names = task_names
         return task_names
 
-    def start_search(self, _process_index=0, inverse_exp=False, shutdown_after_done=False):
+    def start_search(self, process_index=0, inverse_exp=False, shutdown_after_done=False):
         # run directly under script mode
         if self.script_mode:
             # parse launch parameters and load default config
@@ -259,21 +259,21 @@ class HyperOptimizer(object):
             return
 
         # check the index of the process
-        if _process_index > self.max_process_index or _process_index < 0:
-            raise ValueError(f'The index of the process {_process_index} is out of range!')
+        if process_index > self.max_process_index or process_index < 0:
+            raise ValueError(f'The index of the process {process_index} is out of range!')
 
         # init the config list
         config_list = []
         for task_name in self.get_all_task_names():
             # data files are under './data/{task_name}'
             # init the name of data file
-            _csv_file_path = self.get_csv_file_path(task_name, _process_index=_process_index)
+            _csv_file_path = self.get_csv_file_path(task_name, _process_index=process_index)
 
             # init the head of data file
             self._init_header(_csv_file_path)
 
             # load config list in data file
-            if _process_index == 0:
+            if process_index == 0:
                 task_config_list = self._get_config_list(task_name, _csv_file_path, scan_all_csv=self.scan_all_csv)
             else:
                 add_csv_file_path = self.get_csv_file_path(task_name, _process_index=0)
@@ -285,7 +285,7 @@ class HyperOptimizer(object):
 
         # jumped data files are under './data'
         # init the name of jumped data file
-        _jump_csv_file_path = self.get_csv_file_path(None, _process_index=_process_index, _jump_data=True)
+        _jump_csv_file_path = self.get_csv_file_path(None, _process_index=process_index, _jump_data=True)
         # init the head of jumped data file
         self._init_header(_jump_csv_file_path)
         # load config list in jumped data file
@@ -296,7 +296,7 @@ class HyperOptimizer(object):
 
         # filter combinations with the known rules or trying models
         filtered_parameters = self._filter_parameters(parameters, jump_config_list, config_list, _jump_csv_file_path,
-                                                      _process_index, try_model=self.try_model,
+                                                      process_index, try_model=self.try_model,
                                                       force_exp=self.force_exp)
 
         # inverse the experiments if needed
@@ -306,7 +306,7 @@ class HyperOptimizer(object):
         # equally distribute the parameters according to the number of processes
         # parameters = parameters[_process_index::(max_process_index + 1)]: It's in the order of the loops.
         # It's in the order in which they are arranged.
-        process_parameters = self._distribute_parameters(filtered_parameters, _process_index)
+        process_parameters = self._distribute_parameters(filtered_parameters, process_index)
 
         # find total times
         total_times = len(process_parameters)
@@ -331,7 +331,7 @@ class HyperOptimizer(object):
 
             # start experiment
             experiment_result = self._start_experiment(args, parameter, config, False,
-                                                       (_process_index == 0 and _time == 1))
+                                                       (process_index == 0 and _time == 1))
 
             # phase criteria and save data
             self._save_experiment(config, experiment_result)
