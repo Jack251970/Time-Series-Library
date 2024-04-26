@@ -488,7 +488,7 @@ def prepare_config(_params, _script_mode=False):
 
 
 # noinspection DuplicatedCode
-def build_setting(_args, _time, _format, _custom_time, _try_model):
+def build_setting(_root_path, _args, _time, _format, _custom_time, _try_model):
     prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
         _args.task_name,
         _args.model_id,
@@ -509,7 +509,7 @@ def build_setting(_args, _time, _format, _custom_time, _try_model):
         _args.embed,
         _args.distil,
         _args.des)
-    checkpoints_folder = _args.checkpoints
+    checkpoints_folder = os.path.join(_root_path, 'checkpoints')
 
     if not _args.is_training:
         checkpoints = os.listdir(checkpoints_folder)
