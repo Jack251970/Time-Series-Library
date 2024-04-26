@@ -96,29 +96,16 @@ def get_search_space():
     }
 
     learning_config = {
-        # learning mode 1: extra large lr
-        # 'learning_rate': {'_type': 'single', '_value': 0.001},
-        # 'train_epochs': {'_type': 'single', '_value': 3},
-
-        # learning mode 2: large lr
         'learning_rate': {'_type': 'single', '_value': 0.0001},
         'train_epochs': {'_type': 'single', '_value': 3},
-
-        # learning mode 3: medium lr
-        # 'learning_rate': {'_type': 'single', '_value': 0.00005},
-        # 'train_epochs': {'_type': 'single', '_value': 6},
-
-        # learning mode 4: small lr
-        # 'learning_rate': {'_type': 'single', '_value': 0.00001},
-        # 'train_epochs': {'_type': 'single', '_value': 10},
     }
 
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        # 'pred_len': {'_type': 'single', '_value': 16},
+        'pred_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'single', '_value': 32},
-        'pred_len': {'_type': 'single', '_value': 96},
+        # 'pred_len': {'_type': 'single', '_value': 96},
         # 'pred_len': {'_type': 'single', '_value': 192},
         # 'pred_len': {'_type': 'choice', '_value': [16, 32, 96, 192]},
         'e_layers': {'_type': 'single', '_value': 1},
@@ -192,7 +179,6 @@ def get_search_space():
         # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
-        # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
     model_configs = {
@@ -203,40 +189,6 @@ def get_search_space():
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
-
-
-# noinspection DuplicatedCode
-def build_custom_parameters():
-    # 1. Feature
-    # features = ['AA', 'AC', 'AL', 'CA', 'CC', 'CL', 'LA', 'LC', 'LL', 'HA', 'HC', 'HL']
-    # features = ['LA', 'AA', 'CC', 'AC', 'HC', 'LC', 'HA', 'CA', 'LL', 'HL']
-    # features = ['AA', 'LA']
-    features = ['AA']
-
-    # 2. Attention
-    # attentions1 = ['attn', 'corr']
-    attentions1 = ['attn']
-
-    # attentions2 = [None, 'dhz']
-    attentions2 = ['dhz']
-
-    # attentions3 = [None, 'dhd1']
-    attentions3 = [None]
-
-    # attentions5 = [None, 'ap', 'ap1', 'ap2']
-    attentions5 = ['ap', 'ap1', 'ap2']
-
-    # attentions7 = [None, 'norm']
-    attentions7 = ['norm']
-
-    return combine_lists([features, attentions1, attentions2, attentions3, attentions5, attentions7])
-
-
-def combine_lists(lists, separator='_'):
-    import itertools
-
-    combinations = itertools.product(*lists)
-    return [separator.join(filter(None, combo)) for combo in combinations]
 
 
 h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
