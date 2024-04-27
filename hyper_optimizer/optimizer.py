@@ -583,6 +583,8 @@ class HyperOptimizer(object):
         exp.print_content('cost time: {}'.format(exp_time))
         exp.print_content('>>>>>>>({}) end testing: {}<<<<<<<'.format(exp_end_run_time, exp_setting))
 
+        print('\n')
+
         return eva_config, exp_start_run_time, exp_setting, stop_epochs
 
     def _get_run_time(self):
