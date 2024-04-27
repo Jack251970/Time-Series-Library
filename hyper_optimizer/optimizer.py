@@ -38,8 +38,6 @@ class HyperOptimizer(object):
 
         # all mode settings
         self.seed = 2021  # random seed
-        self.custom_test_time = None  # time of a custom model when testing
-        self.add_tags = []  # added tags in the model id
         self.root_path = '.'  # root path of the data, script output, checkpoints, process and model results
         self.data_dir = 'data'  # data directory
         self.jump_csv_file = 'jump_data.csv'  # config data to be jumped
@@ -48,6 +46,9 @@ class HyperOptimizer(object):
         self.scan_all_csv = False  # scan all config data in the path
         self.max_process_index = 0  # the maximum index of the processes
         self.save_process = True  # whether to save process
+        self.add_tags = []  # added tags in the model id
+        self.time_format = '%Y-%m-%d %H-%M-%S'  # time format in data and process
+        self.custom_test_time = None  # time of a custom model when testing
 
         # init experiment and parameters
         self.Exp = None
@@ -511,13 +512,12 @@ class HyperOptimizer(object):
         If try_model is True, we will just try this model:
             if this model can work, then return True.
         """
-        # init time and setting
-        _time = time.localtime()
-        _format = '%Y-%m-%d %H-%M-%S'
-        _run_time = time.strftime(_format, _time)
+        # init time
+        exp_start_run_time = self._get_run_time()
 
         # build the setting of the experiment
-        _setting = self.build_setting(self.root_path, _args, _time, _format, self.custom_test_time, _try_model)
+        exp_setting = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
+                                         self.custom_test_time, _try_model)
 
         # get the experiment type
         self._init_experiment(_args.task_name)
@@ -528,7 +528,7 @@ class HyperOptimizer(object):
             exp = self.Exp(self.root_path, _args, try_model=True, save_process=False)
 
             # validate the model
-            valid = exp.train(_setting, check_folder=True)
+            valid = exp.train(exp_setting, check_folder=True)
 
             # return the results
             return valid
@@ -545,12 +545,14 @@ class HyperOptimizer(object):
             # print_args(_args, exp.print_content)
 
             # start training
-            exp.print_content('>>>>>>>({}) start training: {}<<<<<<<'.format(_run_time, _setting))
-            stop_epochs = exp.train(_setting, check_folder=_check_folder)
+            exp_train_run_time = self._get_run_time()
+            exp.print_content('>>>>>>>({}) start training: {}<<<<<<<'.format(exp_train_run_time, exp_setting))
+            stop_epochs = exp.train(exp_setting, check_folder=_check_folder)
 
             # start testing
-            exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
-            _eva_config = exp.test(_setting, check_folder=_check_folder)
+            exp_test_run_time = self._get_run_time()
+            exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(exp_test_run_time, exp_setting))
+            eva_config = exp.test(exp_setting, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()
@@ -566,18 +568,22 @@ class HyperOptimizer(object):
             # print_args(_args, exp.print_content)
 
             # start testing
-            exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(_run_time, _setting))
-            stop_epochs = exp.train(_setting, check_folder=_check_folder, only_init=True)
-            _eva_config = exp.test(_setting, test=True, check_folder=_check_folder)
+            exp_test_run_time = self._get_run_time()
+            exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(exp_test_run_time, exp_setting))
+            stop_epochs = exp.train(exp_setting, check_folder=_check_folder, only_init=True)
+            eva_config = exp.test(exp_setting, test=True, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()
 
-        return _eva_config, _run_time, _setting, stop_epochs
+        return eva_config, exp_start_run_time, exp_setting, stop_epochs
+
+    def _get_run_time(self):
+        return time.strftime(self.time_format, time.localtime())
 
     def _save_experiment(self, config, _experiment_result):
         # unpack the experiment result
-        eva_config, run_time, setting, stop_epochs = _experiment_result
+        eva_config, exp_start_run_time, setting, stop_epochs = _experiment_result
 
         # phase criteria and save data
         if eva_config is not None:
@@ -603,7 +609,7 @@ class HyperOptimizer(object):
 
             # load setting and run time
             config['setting'] = setting
-            config['run_time'] = run_time
+            config['run_time'] = exp_start_run_time
             config['stop_epochs'] = stop_epochs
 
             _csv_file_path = self.get_csv_file_path(config['task_name'])
