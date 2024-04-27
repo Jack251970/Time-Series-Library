@@ -515,6 +515,7 @@ class HyperOptimizer(object):
         """
         # start time
         exp_start_time, exp_start_run_time = self._get_run_time()
+        print('>>>>>>>({}) start experiment<<<<<<<'.format(exp_start_run_time))
 
         # build the setting of the experiment
         exp_setting = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
@@ -577,12 +578,11 @@ class HyperOptimizer(object):
             # clean cuda cache
             torch.cuda.empty_cache()
 
-        # end time
+        # end experiment
         exp_end_time, exp_end_run_time = self._get_run_time()
         exp_time = self._get_diff_time(exp_start_time, exp_end_time)
-        exp.print_content('total cost time: {}'.format(exp_time))
-        exp.print_content('>>>>>>>({}) end experiment: {}<<<<<<<'.format(exp_end_run_time, exp_setting))
-
+        print('total cost time: {} ({} to {})'.format(exp_time, exp_start_run_time, exp_end_run_time))
+        print('>>>>>>>({}) end experiment<<<<<<<'.format(exp_end_run_time))
         print('\n')
 
         return eva_config, exp_start_run_time, exp_setting, stop_epochs
