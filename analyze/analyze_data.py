@@ -3,28 +3,32 @@ import os
 import pandas as pd
 
 import warnings
+
 warnings.filterwarnings('ignore')
 
-root_path = os.path.join('..', 'data')
-
+root_path = '.'
+data_dir = 'data'
+data_folder = os.path.join(root_path, data_dir)
 file = os.path.join('probability_forecast', 'data_baseline_paper.csv')
 
 
 def get_csv_data(path):
-    global root_path
-    _path = os.path.join(root_path, path)
+    global data_folder
+    _path = os.path.join(data_folder, path)
     return pd.read_csv(_path)
 
 
 baseline_data = get_csv_data(file)
+
+
 # print(baseline_data.columns)
 
 
 def update_data(_baseline_data, checked_columns, target_columns):
-    global root_path
+    global data_folder
     # 扫描所有数据文件
     file_paths = []
-    for root, dirs, files in os.walk(root_path):
+    for root, dirs, files in os.walk(data_folder):
         for _file in files:
             if _file == 'jump_data.csv':
                 continue
@@ -84,12 +88,14 @@ def update_data(_baseline_data, checked_columns, target_columns):
                 if not pd.isna(_baseline_value) and _value < _baseline_value:
                     _baseline_data.loc[index, _column] = _value
                     _update_number += 1
-                    print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
+                    print(
+                        f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
             elif _method == 'max':
                 if not pd.isna(_baseline_value) and _value > _baseline_value:
                     _baseline_data.loc[index, _column] = _value
                     _update_number += 1
-                    print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
+                    print(
+                        f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
             else:
                 raise ValueError(f"unknown method: {_method}")
 
