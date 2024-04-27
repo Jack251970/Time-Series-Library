@@ -48,6 +48,7 @@ class HyperOptimizer(object):
         self.save_process = True  # whether to save process
         self.add_tags = []  # added tags in the model id
         self.time_format = '%Y-%m-%d %H-%M-%S'  # time format in data and process
+        self.diff_time_format = '%H:%M:%S'  # diff time format in data and process
         self.custom_test_time = None  # time of a custom model when testing
 
         # init experiment and parameters
@@ -512,8 +513,8 @@ class HyperOptimizer(object):
         If try_model is True, we will just try this model:
             if this model can work, then return True.
         """
-        # init time
-        exp_start_run_time = self._get_run_time()
+        # start time
+        exp_start_time, exp_start_run_time = self._get_run_time()
 
         # build the setting of the experiment
         exp_setting = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
@@ -545,12 +546,12 @@ class HyperOptimizer(object):
             # print_args(_args, exp.print_content)
 
             # start training
-            exp_train_run_time = self._get_run_time()
+            _, exp_train_run_time = self._get_run_time()
             exp.print_content('>>>>>>>({}) start training: {}<<<<<<<'.format(exp_train_run_time, exp_setting))
             stop_epochs = exp.train(exp_setting, check_folder=_check_folder)
 
             # start testing
-            exp_test_run_time = self._get_run_time()
+            _, exp_test_run_time = self._get_run_time()
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(exp_test_run_time, exp_setting))
             eva_config = exp.test(exp_setting, check_folder=_check_folder)
 
@@ -568,7 +569,7 @@ class HyperOptimizer(object):
             # print_args(_args, exp.print_content)
 
             # start testing
-            exp_test_run_time = self._get_run_time()
+            _, exp_test_run_time = self._get_run_time()
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(exp_test_run_time, exp_setting))
             stop_epochs = exp.train(exp_setting, check_folder=_check_folder, only_init=True)
             eva_config = exp.test(exp_setting, test=True, check_folder=_check_folder)
@@ -576,10 +577,21 @@ class HyperOptimizer(object):
             # clean cuda cache
             torch.cuda.empty_cache()
 
+        # end time
+        exp_end_time, exp_end_run_time = self._get_run_time()
+        exp_time = self._get_diff_time(exp_start_time, exp_end_time)
+        exp.print_content('cost time: {}'.format(exp_time))
+        exp.print_content('>>>>>>>({}) end testing: {}<<<<<<<'.format(exp_end_run_time, exp_setting))
+
         return eva_config, exp_start_run_time, exp_setting, stop_epochs
 
     def _get_run_time(self):
-        return time.strftime(self.time_format, time.localtime())
+        current_time = time.localtime()
+        run_time = time.strftime(self.time_format, current_time)
+        return current_time, run_time
+
+    def _get_diff_time(self, start_time, end_time):
+        return time.strftime(self.diff_time_format, time.gmtime(time.mktime(end_time) - time.mktime(start_time)))
 
     def _save_experiment(self, config, _experiment_result):
         # unpack the experiment result
