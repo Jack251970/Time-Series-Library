@@ -80,10 +80,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        # 'pred_len': {'_type': 'single', '_value': 16},
-        # 'pred_len': {'_type': 'single', '_value': 32},
         'pred_len': {'_type': 'single', '_value': 96},
-        # 'pred_len': {'_type': 'single', '_value': 192},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -122,7 +119,8 @@ def get_search_space():
         'sample_times': {'_type': 'single', '_value': 99},
 
         # Config the target parameter here!
-        # 2024-04-23 10-33-28: Electricity, 96_0_96
+        # 2024-04-23 10-33-28: Electricity, 96_0_16
+        'pred_len': {'_type': 'single', '_value': 16},
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
         'lstm_layers': {'_type': 'single', '_value': 3},
         'n_heads': {'_type': 'single', '_value': 1},
