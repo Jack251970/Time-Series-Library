@@ -204,6 +204,3 @@ h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='..', data_csv_file='data_parameter_16_4.csv', scan_all_csv=False,
                             try_model=False, force_exp=False)
-
-if __name__ == "__main__":
-    h.start_search(0)
