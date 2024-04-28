@@ -581,7 +581,7 @@ class HyperOptimizer(object):
         # end experiment
         exp_end_time, exp_end_run_time = self._get_run_time()
         exp_time = self._get_diff_time(exp_start_time, exp_end_time)
-        print('total cost time: {} ({} to {})'.format(exp_time, exp_start_run_time, exp_end_run_time))
+        print('total cost time: {}'.format(exp_time))
         print('>>>>>>>({}) end experiment<<<<<<<'.format(exp_end_run_time))
         print('\n')
 
