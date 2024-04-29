@@ -360,7 +360,7 @@ class HyperOptimizer(object):
             finish_time = finish_time + 1
             _time = _time + 1
 
-        print(f"We have finished {finish_time} times, {total_times} times in total!")
+        print(f"We have finished {finish_time} times, {total_times} times in total!\n")
 
         # shutdown after done
         if shutdown_after_done:
@@ -583,7 +583,6 @@ class HyperOptimizer(object):
         exp_time = self._get_diff_time(exp_start_time, exp_end_time)
         print('total cost time: {}'.format(exp_time))
         print('>>>>>>>({}) end experiment<<<<<<<'.format(exp_end_run_time))
-        print('\n')
 
         return eva_config, exp_start_run_time, exp_setting, stop_epochs
 
