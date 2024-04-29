@@ -1,6 +1,6 @@
 import os
 
-from optimizer_script.run_optimizer_transformer import h
+from optimizers.optimizer_transformer import h
 
 
 def contact_data_to_file(core_process_file, other_process_files):

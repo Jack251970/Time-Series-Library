@@ -48,13 +48,18 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 5
         _config['dec_in'] = 5
         _config['c_out'] = 5
+    _pred_len = _config['pred_len']
+    if _pred_len == 16 or _pred_len == 32:
+        _config['label_len'] = 16
+    elif _pred_len == 96 or _pred_len == 192:
+        _config['label_len'] = 48
     return _config
 
 
 # noinspection DuplicatedCode
 def get_search_space():
     default_config = {
-        'task_name': {'_type': 'single', '_value': 'probability_forecast'},
+        'task_name': {'_type': 'single', '_value': 'long_term_forecast'},
         'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
@@ -66,14 +71,15 @@ def get_search_space():
     dataset_config = {
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
-        'root_path': {'_type': 'single', '_value': '../dataset/'},
+        'root_path': {'_type': 'single', '_value': './dataset/'},
         'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
                                                     'weather/weather.csv']},
+        'pin_memory': {'_type': 'single', '_value': False},
     }
 
     learning_config = {
-        'learning_rate': {'_type': 'single', '_value': 0.0001},
-        'train_epochs': {'_type': 'single', '_value': 3},
+        'learning_rate': {'_type': 'single', '_value': 0.00005},
+        'train_epochs': {'_type': 'single', '_value': 10},
     }
 
     period_config = {
@@ -84,33 +90,20 @@ def get_search_space():
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
-    qsqf_config = {
-        'label_len': {'_type': 'single', '_value': 0},
-        'lag': {'_type': 'single', '_value': 3},
-        'dropout': {'_type': 'single', '_value': 0},
-
-        'learning_rate': {'_type': 'single', '_value': 0.001},
-        'train_epochs': {'_type': 'single', '_value': 50},
-
-        'num_spline': {'_type': 'single', '_value': 20},
-        'sample_times': {'_type': 'single', '_value': 99},
-
+    transformer_config = {
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
-
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 2},
     }
 
     model_configs = {
-        'QSQF-C': qsqf_config,
+        'Transformer': transformer_config,
+        'Autoformer': transformer_config,
+        'Informer': transformer_config,
+        'Reformer': transformer_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(script_mode=False, models=['QSQF-C'],
+h = HyperOptimizer(script_mode=False, models=['Transformer', 'Informer', 'Reformer', 'Autoformer'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=False)
-
-if __name__ == "__main__":
-    h.start_search(0)
+h.config_optimizer_settings(root_path='.', scan_all_csv=True, try_model=False, force_exp=False)
