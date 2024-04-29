@@ -75,7 +75,7 @@ def get_search_space():
     dataset_config = {
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
-        'root_path': {'_type': 'single', '_value': '../dataset/'},
+        'root_path': {'_type': 'single', '_value': './dataset/'},
 
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
@@ -239,5 +239,5 @@ def get_search_space():
 
 h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                    get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', data_csv_file='data_parameter_16_3.csv', scan_all_csv=False,
+h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_16_3.csv', scan_all_csv=False,
                             try_model=False, force_exp=False)
