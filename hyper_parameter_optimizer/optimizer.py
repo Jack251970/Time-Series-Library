@@ -12,7 +12,7 @@ from exp.exp_imputation import Exp_Imputation
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_probability_forecasting import Exp_Probability_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
-from hyper_optimizer import basic_settings
+from hyper_parameter_optimizer import basic_settings
 from itertools import product
 from tqdm import tqdm
 # from utils.print_args import print_args
@@ -215,7 +215,7 @@ class HyperParameterOptimizer(object):
                 if not os.path.exists(script_file):
                     with open(script_file, 'w') as f:
                         # write the header of the script
-                        f.write(f'# This script is created by hyper_optimizer at {_run_time}.\n')
+                        f.write(f'# This script is created by hyper-parameter optimizer at {_run_time}.\n')
                         f.write('\n')
                         f.write('export CUDA_VISIBLE_DEVICES=1\n')
                         f.write('\n')
@@ -265,7 +265,7 @@ class HyperParameterOptimizer(object):
         # run directly under script mode
         if self.script_mode:
             # print info
-            print('Hyper-Parameter optimizer starts searching under script mode!')
+            print('Hyper-parameter optimizer starts searching under script mode!')
             if shutdown_after_done:
                 print(Fore.RED + 'Warning: System will shutdown after done!')
             print()
@@ -289,7 +289,7 @@ class HyperParameterOptimizer(object):
             return
 
         # print info
-        print('Hyper-Parameter optimizer starts searching under non-script mode!')
+        print('Hyper-parameter optimizer starts searching under non-script mode!')
         print(f'Process index: {process_index}, Inverse experiments: {inverse_exp}.')
         if shutdown_after_done:
             print(Fore.RED + 'Warning: System will shutdown after done!')

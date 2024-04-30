@@ -3,7 +3,7 @@ import os
 import shutil
 
 from exp.exp_basic import Exp_Basic
-from hyper_optimizer import basic_settings
+from hyper_parameter_optimizer import basic_settings
 
 root_path = '.'
 data_dir = 'data'

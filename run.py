@@ -1,4 +1,4 @@
-from hyper_optimizer.optimizer import HyperParameterOptimizer
+from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 
 h = HyperParameterOptimizer(script_mode=True)
 h.config_optimizer_settings(root_path='.',

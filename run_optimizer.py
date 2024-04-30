@@ -1,4 +1,4 @@
-from hyper_optimizer.optimizer import HyperParameterOptimizer
+from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 
 
 def check_jump_experiment(_parameter):
