@@ -12,3 +12,4 @@ torch>=1.7.1
 tqdm>=4.64.1
 seaborn>=0.12.2
 properscoring>=0.1
+colorama>=0.4.4

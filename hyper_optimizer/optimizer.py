@@ -5,6 +5,7 @@ import random
 import time
 import torch
 
+from colorama import init, Fore
 from exp.exp_anomaly_detection import Exp_Anomaly_Detection
 from exp.exp_classification import Exp_Classification
 from exp.exp_imputation import Exp_Imputation
@@ -76,6 +77,9 @@ class HyperOptimizer(object):
             # non script mode functions
             self.check_jump_experiment = check_jump_experiment  # check if we need to jump the experiment
             self.link_fieldnames_data = link_fieldnames_data  # link data of fieldnames with other fieldnames
+
+        # colorama init
+        init(autoreset=True)
 
     def _check_required_fieldnames(self, fieldnames):
         for model in self.models:
@@ -260,6 +264,12 @@ class HyperOptimizer(object):
     def start_search(self, process_index=0, inverse_exp=False, shutdown_after_done=False):
         # run directly under script mode
         if self.script_mode:
+            # print info
+            print('HyperOptimizer starts searching under script mode!')
+            if shutdown_after_done:
+                print(Fore.RED + 'Warning: System will shutdown after done!')
+            print()
+
             # parse launch parameters and load default config
             args = self.prepare_config(None, True)
 
@@ -277,6 +287,13 @@ class HyperOptimizer(object):
                 self._shutdown()
 
             return
+
+        # print info
+        print('HyperOptimizer starts searching under non-script mode!')
+        print(f'Process index: {process_index}, Inverse experiments: {inverse_exp}.')
+        if shutdown_after_done:
+            print(Fore.RED + 'Warning: System will shutdown after done!')
+        print()
 
         # check the index of the process
         if process_index > self.max_process_index or process_index < 0:
