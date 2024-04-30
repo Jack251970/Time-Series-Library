@@ -18,7 +18,7 @@ from tqdm import tqdm
 # from utils.print_args import print_args
 
 
-class HyperOptimizer(object):
+class HyperParameterOptimizer(object):
     def __init__(self, script_mode, models=None, get_search_space=None, prepare_config=None, build_setting=None,
                  build_config_dict=None, set_args=None, get_fieldnames=None, get_model_id_tags=None,
                  check_jump_experiment=None, link_fieldnames_data=None):
@@ -265,7 +265,7 @@ class HyperOptimizer(object):
         # run directly under script mode
         if self.script_mode:
             # print info
-            print('HyperOptimizer starts searching under script mode!')
+            print('Hyper-Parameter optimizer starts searching under script mode!')
             if shutdown_after_done:
                 print(Fore.RED + 'Warning: System will shutdown after done!')
             print()
@@ -289,7 +289,7 @@ class HyperOptimizer(object):
             return
 
         # print info
-        print('HyperOptimizer starts searching under non-script mode!')
+        print('Hyper-Parameter optimizer starts searching under non-script mode!')
         print(f'Process index: {process_index}, Inverse experiments: {inverse_exp}.')
         if shutdown_after_done:
             print(Fore.RED + 'Warning: System will shutdown after done!')

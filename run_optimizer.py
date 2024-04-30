@@ -1,4 +1,4 @@
-from hyper_optimizer.optimizer import HyperOptimizer
+from hyper_optimizer.optimizer import HyperParameterOptimizer
 
 
 def check_jump_experiment(_parameter):
@@ -87,17 +87,17 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(script_mode=False,
-                   models=['Transformer'],
-                   get_search_space=get_search_space,
-                   prepare_config=None,
-                   build_setting=None,
-                   build_config_dict=None,
-                   set_args=None,
-                   get_fieldnames=None,
-                   get_model_id_tags=get_model_id_tags,
-                   check_jump_experiment=check_jump_experiment,
-                   link_fieldnames_data=link_fieldnames_data)
+h = HyperParameterOptimizer(script_mode=False,
+                            models=['Transformer'],
+                            get_search_space=get_search_space,
+                            prepare_config=None,
+                            build_setting=None,
+                            build_config_dict=None,
+                            set_args=None,
+                            get_fieldnames=None,
+                            get_model_id_tags=get_model_id_tags,
+                            check_jump_experiment=check_jump_experiment,
+                            link_fieldnames_data=link_fieldnames_data)
 # Uncomment the following line to output the script
 # h.output_script('Electricity')
 h.config_optimizer_settings(root_path='.',

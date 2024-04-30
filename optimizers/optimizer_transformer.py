@@ -1,4 +1,4 @@
-from hyper_optimizer.optimizer import HyperOptimizer
+from hyper_optimizer.optimizer import HyperParameterOptimizer
 
 
 # noinspection DuplicatedCode
@@ -104,6 +104,6 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(script_mode=False, models=['Transformer', 'Informer', 'Reformer', 'Autoformer'],
-                   get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
+h = HyperParameterOptimizer(script_mode=False, models=['Transformer', 'Informer', 'Reformer', 'Autoformer'],
+                            get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', scan_all_csv=True, try_model=False, force_exp=False)

@@ -1,4 +1,4 @@
-from hyper_optimizer.optimizer import HyperOptimizer
+from hyper_optimizer.optimizer import HyperParameterOptimizer
 
 
 # noinspection DuplicatedCode
@@ -112,7 +112,7 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperOptimizer(script_mode=False, models=['LSTM-CQ', 'QSQF-C', 'RNN-SF'], get_search_space=get_search_space)
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-CQ', 'QSQF-C', 'RNN-SF'], get_search_space=get_search_space)
 # 2024-04-02 12-15-46: standard and best
 # 2024-04-08 16-49-40, 2024-04-08 21-29-59, 2024-04-09 11-29-40: remove strange lines
 # 2024-04-09 20-20-21: 1+2 algorithm, 1e-4

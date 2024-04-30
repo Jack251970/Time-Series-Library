@@ -1,6 +1,6 @@
-from hyper_optimizer.optimizer import HyperOptimizer
+from hyper_optimizer.optimizer import HyperParameterOptimizer
 
-h = HyperOptimizer(script_mode=True)
+h = HyperParameterOptimizer(script_mode=True)
 h.config_optimizer_settings(root_path='.',
                             data_dir='data',
                             jump_csv_file='jump_data.csv',

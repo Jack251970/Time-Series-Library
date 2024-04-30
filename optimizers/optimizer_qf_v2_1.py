@@ -1,4 +1,4 @@
-from hyper_optimizer.optimizer import HyperOptimizer
+from hyper_optimizer.optimizer import HyperParameterOptimizer
 
 
 # noinspection DuplicatedCode
@@ -237,7 +237,7 @@ def get_search_space():
 #     return [separator.join(filter(None, combo)) for combo in combinations]
 
 
-h = HyperOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
-                   get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
+                            get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_16_3.csv', scan_all_csv=False,
                             try_model=False, force_exp=False)
