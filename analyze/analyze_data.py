@@ -6,7 +6,7 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-root_path = '.'
+root_path = '..'
 data_dir = 'data'
 data_folder = os.path.join(root_path, data_dir)
 file = os.path.join('probability_forecast', 'data_baseline_paper.csv')
