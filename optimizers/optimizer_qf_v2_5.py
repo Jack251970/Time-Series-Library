@@ -25,8 +25,8 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 8
         _config['c_out'] = 8
 
-        # _config['n_heads'] = 8
-        # _config['d_model'] = 64
+        _config['n_heads'] = 4
+        _config['d_model'] = 64
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -43,8 +43,8 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 21
         _config['c_out'] = 21
 
-        # _config['n_heads'] = 8
-        # _config['d_model'] = 64
+        _config['n_heads'] = 4
+        _config['d_model'] = 40
     elif _data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
@@ -78,7 +78,7 @@ def get_search_space():
         'root_path': {'_type': 'single', '_value': './dataset/'},
 
         # 1
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -100,8 +100,8 @@ def get_search_space():
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'weather/weather.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'weather/weather.csv']},
     }
 
     learning_config = {
