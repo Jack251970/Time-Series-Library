@@ -112,7 +112,7 @@ baseline_data = update_data(baseline_data, checked_fieldnames, target_fieldnames
 
 
 def get_latex_table_data(_data, row_label, column_label, value_label, replace_label=None, rearrange_column_label=None,
-                         add_table_appendix=True, replace_nan=True, replace_regex=None):
+                         combine_column_label=False, add_table_appendix=True, replace_nan=True, replace_regex=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -138,7 +138,8 @@ def get_latex_table_data(_data, row_label, column_label, value_label, replace_la
         table_data.sort_index(axis=1, level=0, inplace=True)
 
     # 合并多层列标签
-    # table_data.columns = [' '.join(col).strip() for col in table_data.columns.values]
+    if combine_column_label:
+        table_data.columns = [' '.join(col).strip() for col in table_data.columns.values]
 
     # 将表格数据转换为latex格式，数字仅仅取出小数点后3位
     table_data = table_data.to_latex(float_format='%.4f')
@@ -176,6 +177,7 @@ latex_text = get_latex_table_data(baseline_data,
                                   replace_label=[(['mse', 'amse'], False),
                                                  (['mae', 'bmae'], False)],
                                   rearrange_column_label=['model', None],
+                                  combine_column_label=False,
                                   add_table_appendix=True,
                                   replace_nan=True,
                                   replace_regex=[['electricity/electricity.csv', 'Electricity'],
@@ -194,6 +196,7 @@ latex_text = get_latex_table_data(baseline_data,
                                   column_label=['model'],
                                   value_label=['crps', 'pinaw'],
                                   rearrange_column_label=['model', None],
+                                  combine_column_label=False,
                                   add_table_appendix=True,
                                   replace_nan=True,
                                   replace_regex=[['electricity/electricity.csv', 'Electricity'],
