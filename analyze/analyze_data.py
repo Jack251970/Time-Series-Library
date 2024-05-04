@@ -24,7 +24,7 @@ baseline_data = get_csv_data(file)
 # print(baseline_data.columns)
 
 
-def update_data(_baseline_data, checked_columns, target_columns):
+def update_data(_baseline_data, checked_columns, target_columns, _core_target_fieldname):
     global data_folder
     # 扫描所有数据文件
     file_paths = []
@@ -45,6 +45,8 @@ def update_data(_baseline_data, checked_columns, target_columns):
 
     # 检查标准数据中是否需要更新：若MSE,NAE,CRPS,PINAW中有指标可以更小，则更新
     _update_number = 0
+    _core_update_number = 0
+    _baseline_source_data = _baseline_data.copy()
     for index, row in _baseline_data.iterrows():
         _model = row['model']
         _dataset = row['data_path']
@@ -87,12 +89,18 @@ def update_data(_baseline_data, checked_columns, target_columns):
             if _method == 'min':
                 if not pd.isna(_baseline_value) and _value < _baseline_value:
                     _baseline_data.loc[index, _column] = _value
+                    if _column == _core_target_fieldname:
+                        _baseline_source_data.loc[index] = row
+                        _core_update_number += 1
                     _update_number += 1
                     print(
                         f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
             elif _method == 'max':
                 if not pd.isna(_baseline_value) and _value > _baseline_value:
                     _baseline_data.loc[index, _column] = _value
+                    if _column == _core_target_fieldname:
+                        _baseline_source_data.loc[index] = row
+                        _core_update_number += 1
                     _update_number += 1
                     print(
                         f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: {_baseline_value} -> {_value}")
@@ -100,15 +108,19 @@ def update_data(_baseline_data, checked_columns, target_columns):
                 raise ValueError(f"unknown method: {_method}")
 
     print(f'update {_update_number} cells')
+    print(f'update {_core_update_number} source rows')
 
-    return _baseline_data
+    return _baseline_data, _baseline_source_data
 
 
 # 更新最佳数据
 checked_fieldnames = ['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
                       'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse']
 target_fieldnames = [('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')]
-baseline_data = update_data(baseline_data, checked_fieldnames, target_fieldnames)
+core_target_fieldname = 'mse'
+baseline_data, baseline_source_data = update_data(baseline_data, checked_fieldnames, target_fieldnames,
+                                                  core_target_fieldname)
+baseline_source_data.to_csv('baseline_source_data.csv', index=False)
 
 
 def get_latex_table_data(_data, row_label, column_label, value_label, replace_label=None, rearrange_column_label=None,
