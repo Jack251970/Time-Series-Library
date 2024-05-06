@@ -8,7 +8,7 @@ from optimizers.optimizer_qf_v2_4 import h as h4
 process_index = 0
 
 if __name__ == "__main__":
-    ht.start_search(process_index=process_index)
+    ht.start_search(process_index=process_index, force_test=True)
 
     h1.start_search(process_index=process_index)
     h2.start_search(process_index=process_index)

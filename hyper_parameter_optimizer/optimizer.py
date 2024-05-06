@@ -261,7 +261,7 @@ class HyperParameterOptimizer(object):
         self._task_names = task_names
         return task_names
 
-    def start_search(self, process_index=0, inverse_exp=False, shutdown_after_done=False):
+    def start_search(self, process_index=0, force_test=False, inverse_exp=False, shutdown_after_done=False):
         # run directly under script mode
         if self.script_mode:
             # print info
@@ -367,7 +367,7 @@ class HyperParameterOptimizer(object):
             args = self.set_args(args, config)
 
             # start experiment
-            experiment_result = self._start_experiment(args, parameter, config, False,
+            experiment_result = self._start_experiment(args, parameter, config, False, force_test,
                                                        (process_index == 0 and _time == 1))
 
             # phase criteria and save data
@@ -525,7 +525,7 @@ class HyperParameterOptimizer(object):
         elif task_name == 'classification':
             self.Exp = Exp_Classification
 
-    def _start_experiment(self, _args, _parameter, _config, _try_model, _check_folder):
+    def _start_experiment(self, _args, _parameter, _config, _try_model, _force_test, _check_folder):
         """
         If try_model is True, we will just try this model:
             if this model can work, then return True.
@@ -571,7 +571,7 @@ class HyperParameterOptimizer(object):
             # start testing
             _, exp_test_run_time = self._get_run_time()
             exp.print_content('>>>>>>>({}) start testing: {}<<<<<<<'.format(exp_test_run_time, exp_setting))
-            eva_config = exp.test(exp_setting, check_folder=_check_folder)
+            eva_config = exp.test(exp_setting, test=_force_test, check_folder=_check_folder)
 
             # clean cuda cache
             torch.cuda.empty_cache()
