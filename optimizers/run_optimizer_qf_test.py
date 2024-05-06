@@ -140,14 +140,6 @@ def get_search_space():
         # 'n_heads': {'_type': 'single', '_value': 4},
         # 'd_model': {'_type': 'single', '_value': 24},
 
-        # 2024-05-02 23-51-22: Electricity, 96_0_192
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        # 'pred_len': {'_type': 'single', '_value': 192},
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 3},
-        # 'n_heads': {'_type': 'single', '_value': 4},
-        # 'd_model': {'_type': 'single', '_value': 40},
-
         # 2024-04-24 17-16-19: Exchange, 96_0_96
         'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         'pred_len': {'_type': 'single', '_value': 96},
@@ -155,6 +147,14 @@ def get_search_space():
         'lstm_layers': {'_type': 'single', '_value': 1},
         'n_heads': {'_type': 'single', '_value': 2},
         'd_model': {'_type': 'single', '_value': 64},
+
+        # 2024-05-02 23-51-22: Electricity, 96_0_192
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'pred_len': {'_type': 'single', '_value': 192},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        # 'lstm_layers': {'_type': 'single', '_value': 3},
+        # 'n_heads': {'_type': 'single', '_value': 4},
+        # 'd_model': {'_type': 'single', '_value': 40},
 
         # 2024-05-02 01-37-55: Exchange, 96_0_192
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
