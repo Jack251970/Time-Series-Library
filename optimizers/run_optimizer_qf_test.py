@@ -99,6 +99,14 @@ def get_search_space():
 
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
         'lstm_layers': {'_type': 'single', '_value': 2},
+
+        # 2024-04-22 23-30-41: Electricity, 96_0_96
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'pred_len': {'_type': 'single', '_value': 96},
+
+        # 2024-04-24 17-16-19: Exchange, 96_0_96
+        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
+        # 'pred_len': {'_type': 'single', '_value': 96},
     }
 
     lstm_ed_cq_config = {
@@ -116,7 +124,6 @@ def get_search_space():
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        # Config the target parameter here!
         # 2024-04-23 10-33-28: Electricity, 96_0_16
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'pred_len': {'_type': 'single', '_value': 16},
@@ -162,15 +169,16 @@ def get_search_space():
 
     model_configs = {
         'LSTM-ED-CQ': lstm_ed_cq_config,
+        'QSQF-C': qsqf_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
+h = HyperParameterOptimizer(script_mode=False, models=['QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='..', scan_all_csv=True, try_model=False, force_exp=True,
-                            custom_test_time='2024-04-24 17-16-19')
+                            custom_test_time='2024-04-22 23-30-41')
 
 if __name__ == "__main__":
     h.start_search(process_index=0)

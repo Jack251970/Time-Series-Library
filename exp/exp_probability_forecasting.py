@@ -317,6 +317,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, self.args.seq_len)
                           .to(self.device))
+        attention_flag = True
 
         self.model.eval()
         with (torch.no_grad()):
@@ -394,7 +395,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                 preds.append(pred)
                 trues.append(true)
 
-                attention_maps[i] = attention_map
+                if attention_map is not None and attention_flag:
+                    attention_maps[i] = attention_map
+                else:
+                    attention_flag = False
 
             summary = final_metrics(metrics, self.args.pred_len)
 
@@ -539,53 +543,54 @@ class Exp_Probability_Forecast(Exp_Basic):
                                 probability_range,
                                 os.path.join(_path, f'prediction {j}.png'))
 
-            # attention map
-            # move to cpu and covert to numpy for plotting
-            attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
+            if attention_flag:
+                # attention map
+                # move to cpu and covert to numpy for plotting
+                attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
 
-            # save results in npy
-            np.save(folder_path + 'attention_maps.npy', attention_maps)
+                # save results in npy
+                np.save(folder_path + 'attention_maps.npy', attention_maps)
 
-            # draw attention map
-            print('drawing attention map')
-            for i in tqdm(range(loader_length)):
-                _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
-                if not os.path.exists(_path):
-                    os.makedirs(_path)
+                # draw attention map
+                print('drawing attention map')
+                for i in tqdm(range(loader_length)):
+                    _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
+                    if not os.path.exists(_path):
+                        os.makedirs(_path)
 
-                attention_map = attention_maps[i]
-                attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
-                                                      self.args.seq_len)
-                for j in range(batch_size):
-                    _ = attention_map[j]
-                    draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+                    attention_map = attention_maps[i]
+                    attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
+                                                          self.args.seq_len)
+                    for j in range(batch_size):
+                        _ = attention_map[j]
+                        draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
 
-            for i in tqdm(range(pred_length)):
-                _path = os.path.join(folder_path, f'attention_map', f'step {i}')
-                if not os.path.exists(_path):
-                    os.makedirs(_path)
+                for i in tqdm(range(pred_length)):
+                    _path = os.path.join(folder_path, f'attention_map', f'step {i}')
+                    if not os.path.exists(_path):
+                        os.makedirs(_path)
 
-                attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
-                attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1,
-                                                      self.args.seq_len)
-                # [15616, 8, 1, 96]
+                    attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
+                    attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1,
+                                                          self.args.seq_len)
+                    # [15616, 8, 1, 96]
 
-                interval = 96
-                num = math.floor(loader_length * batch_size / interval)
-                for j in range(num):
-                    if j * interval >= data_length:
-                        continue
+                    interval = 96
+                    num = math.floor(loader_length * batch_size / interval)
+                    for j in range(num):
+                        if j * interval >= data_length:
+                            continue
 
-                    _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
-                    _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, self.args.seq_len)
-                    # [8, 96, 96]
-                    draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
+                        _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
+                        _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, self.args.seq_len)
+                        # [8, 96, 96]
+                        draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
 
         # draw demo data for overall structure
         # draw_demo(0, 19, pred_value, true_value, high_value, low_value, folder_path, probability_range)
 
         # convert to float
-        crps = float(ss_metric['CRPS_Mean'].item())
+        crps = float(ss_metric['CRPS'].item())
         mre = float(ss_metric['mre'].item())
         pinaw = float(ss_metric['pinaw'].item())
 
