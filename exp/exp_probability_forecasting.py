@@ -310,6 +310,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         probability_range_len = len(probability_range)
 
+        seq_length = self.args.seq_len
         pred_length = self.args.pred_len
         batch_size = self.args.batch_size
         data_length = len(test_data)
@@ -319,13 +320,13 @@ class Exp_Probability_Forecast(Exp_Basic):
         high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
         low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
 
-        attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, self.args.seq_len)
+        attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
                           .to(self.device))
         attention_flag = True
 
         self.model.eval()
         with (torch.no_grad()):
-            metrics = init_metrics(self.args.pred_len, self.device)
+            metrics = init_metrics(pred_length, self.device)
 
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)  # [256, 96, 17]
@@ -335,7 +336,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 batch_y_mark = batch_y_mark.float().to(self.device)  # [256, 16, 5]
 
                 # decoder input
-                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float().to(self.device)  # [256, 16, 17]
+                dec_inp = torch.zeros_like(batch_y[:, -pred_length:, :]).float().to(self.device)  # [256, 16, 17]
                 if self.args.label_len != 0:
                     dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float()
 
@@ -359,12 +360,12 @@ class Exp_Probability_Forecast(Exp_Basic):
                 samples, sample_mu, sample_std, samples_high, samples_low, attention_map = outputs
                 # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16], [16, 256, 8, 1, 96]
 
-                samples = samples[:, :, -self.args.pred_len:]
-                sample_mu = sample_mu[:, -self.args.pred_len:, :]
-                sample_std = sample_std[:, -self.args.pred_len:, :]
-                samples_high = samples_high[:, :, -self.args.pred_len:]
-                samples_low = samples_low[:, :, -self.args.pred_len:]
-                attention_map = attention_map[-self.args.pred_len:, :, :, :, :]
+                samples = samples[:, :, -pred_length:]
+                sample_mu = sample_mu[:, -pred_length:, :]
+                sample_std = sample_std[:, -pred_length:, :]
+                samples_high = samples_high[:, :, -pred_length:]
+                samples_low = samples_low[:, :, -pred_length:]
+                attention_map = attention_map[-pred_length:, :, :, :, :]
 
                 pred = sample_mu[:, :, -1].transpose(0, 1).squeeze()
                 pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
@@ -376,18 +377,18 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
                 else:
-                    batch = torch.cat((batch_x, batch_y[:, self.args.label_len:, :]), dim=1)
+                    batch = torch.cat((batch_x, batch_y[:, -pred_length:, :]), dim=1)
 
-                labels = batch[:, -self.args.pred_len, -1]  # [256, 112, 1]
-                metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
+                labels = batch[:, -pred_length, -1]  # [256, 112, 1]
+                metrics = update_metrics(metrics, samples, labels, pred_length)
                 labels = labels.unsqueeze(-1)  # [256, 112, 1]
 
                 true = batch_y[:, :, -1].transpose(0, 1).squeeze()
                 true_value[:, i * batch_size: (i + 1) * batch_size] = true
 
                 f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = sample_mu[:, -self.args.pred_len:, :]  # [256, 16, 1]
-                batch_y = labels[:, -self.args.pred_len:, :]  # [256, 16, 1]
+                outputs = sample_mu[:, -pred_length:, :]  # [256, 16, 1]
+                batch_y = labels[:, -pred_length:, :]  # [256, 16, 1]
 
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()
@@ -411,7 +412,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     attention_flag = False
 
-            summary = final_metrics(metrics, self.args.pred_len)
+            summary = final_metrics(metrics, pred_length)
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -429,11 +430,11 @@ class Exp_Probability_Forecast(Exp_Basic):
         self.print_content('mse:{}, mae:{}'.format(mse, mae))
 
         strings = '\nCRPS: ' + str(summary['CRPS'])
-        for i in range(self.args.pred_len):
+        for i in range(pred_length):
             strings += '\nCRPS_' + str(i) + ': ' + str(summary[f'CRPS_{i}'])
         strings += '\nmre:' + str(summary['mre'].abs().max(dim=1)[0].mean().item())
         strings += '\nPINAW:' + str(summary['pinaw'].item())
-        for i in range(self.args.pred_len):
+        for i in range(pred_length):
             strings += '\nPINAW_' + str(i) + ': ' + str(summary[f'pinaw_{i}'].item())
         self.print_content('Full test metrics: ' + strings)
 
@@ -442,16 +443,16 @@ class Exp_Probability_Forecast(Exp_Basic):
             'mre': summary['mre'].abs().mean().detach().cpu(),
             'pinaw': summary['pinaw'].detach().cpu()
         }
-        for i in range(self.args.pred_len):
+        for i in range(pred_length):
             ss_metric[f'CRPS_{i}'] = summary[f'CRPS_{i}'].mean().detach().cpu()
             ss_metric[f'pinaw_{i}'] = summary[f'pinaw_{i}'].detach().cpu()
 
         prob_metrics = np.array([ss_metric['CRPS']])
-        for i in range(self.args.pred_len):
+        for i in range(pred_length):
             prob_metrics = np.append(prob_metrics, ss_metric[f'CRPS_{i}'])
         prob_metrics = np.append(prob_metrics, ss_metric['mre'])
         prob_metrics = np.append(prob_metrics, ss_metric['pinaw'])
-        for i in range(self.args.pred_len):
+        for i in range(pred_length):
             prob_metrics = np.append(prob_metrics, ss_metric[f'pinaw_{i}'])
         np.save(folder_path + 'prob_metrics.npy', prob_metrics)
 
@@ -570,8 +571,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                         os.makedirs(_path)
 
                     attention_map = attention_maps[i]
-                    attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length,
-                                                          self.args.seq_len)
+                    attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length, seq_length)
                     for j in range(batch_size):
                         _ = attention_map[j]
                         draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
@@ -582,8 +582,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                         os.makedirs(_path)
 
                     attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
-                    attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1,
-                                                          self.args.seq_len)
+                    attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1, seq_length)
                     # [15616, 8, 1, 96]
 
                     interval = 96
@@ -593,7 +592,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                             continue
 
                         _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
-                        _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, self.args.seq_len)
+                        _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, seq_length)
                         # [8, 96, 96]
                         draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
 

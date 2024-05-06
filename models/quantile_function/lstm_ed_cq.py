@@ -27,6 +27,7 @@ class Model(nn.Module):
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline
         self.pred_start = params.seq_len
+        self.pred_len = params.pred_len
         self.pred_steps = params.pred_len
         self.lag = params.lag
         self.train_window = self.pred_steps + self.pred_start
@@ -242,7 +243,7 @@ class Model(nn.Module):
                 if not lag:
                     self.cov_index.append(i)
 
-        batch = torch.cat((x_enc, y_enc[:, self.args.label_len:, :]), dim=1)
+        batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
 
         # s = seq_len
         if self.enc_feature == 'A':
