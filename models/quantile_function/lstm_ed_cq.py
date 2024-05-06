@@ -242,7 +242,7 @@ class Model(nn.Module):
                 if not lag:
                     self.cov_index.append(i)
 
-        batch = torch.cat((x_enc, y_enc), dim=1)
+        batch = torch.cat((x_enc, y_enc[:, self.args.label_len:, :]), dim=1)
 
         # s = seq_len
         if self.enc_feature == 'A':
