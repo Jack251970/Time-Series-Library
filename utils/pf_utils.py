@@ -179,11 +179,14 @@ matplotlib.use('Agg')
 
 def init_metrics(pred_len, device):
     metrics = {}
-    shape_param = pred_len
     metrics['num'] = torch.zeros(1, device=device)
-    metrics['CRPS'] = torch.zeros(shape_param, device=device)
-    metrics['mre'] = torch.zeros((19, shape_param), device=device)
-    metrics['pinaw'] = torch.zeros(shape_param, device=device)
+    metrics['CRPS'] = torch.zeros(pred_len, device=device)
+    for i in range(pred_len):
+        metrics[f'CRPS_{i}'] = torch.zeros(1, device=device)
+    metrics['mre'] = torch.zeros((19, pred_len), device=device)
+    metrics['pinaw'] = torch.zeros(pred_len, device=device)
+    for i in range(pred_len):
+        metrics[f'pinaw_{i}'] = torch.zeros(1, device=device)
     return metrics
 
 
@@ -191,18 +194,26 @@ def update_metrics(metrics, samples, labels, seq_len):
     df = labels[:, seq_len:]
     batch_size = samples.shape[1]
     metrics['num'] = metrics['num'] + batch_size
-    metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, df)
+    metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, df)  # [99, 256, 96], [256, 96]
+    for i in range(seq_len):
+        metrics[f'CRPS_{i}'] = metrics[f'CRPS_{i}'] + accuracy_CRPS(samples[:, :, i].unsqueeze(-1), df[:, i].unsqueeze(-1))
     metrics['mre'] = metrics['mre'] + accuracy_MRE(samples, df)
     metrics['pinaw'] = metrics['pinaw'] + accuracy_PINAW(samples)
+    for i in range(seq_len):
+        metrics[f'pinaw_{i}'] = metrics[f'pinaw_{i}'] + accuracy_PINAW(samples[:, :, i].unsqueeze(-1))
     return metrics
 
 
-def final_metrics(metrics):
+def final_metrics(metrics, seq_len):
     summary = {}
     summary['CRPS'] = metrics['CRPS'] / metrics['num']
+    for i in range(seq_len):
+        summary[f'CRPS_{i}'] = metrics[f'CRPS_{i}'] / metrics['num']
     summary['mre'] = metrics['mre'] / metrics['num']
     summary['mre'] = summary['mre'].T - torch.arange(0.05, 1, 0.05, device=metrics['mre'].device)
     summary['pinaw'] = (metrics['pinaw'] / metrics['num']).mean()
+    for i in range(seq_len):
+        summary[f'pinaw_{i}'] = (metrics[f'pinaw_{i}'] / metrics['num']).mean()
     return summary
 
 

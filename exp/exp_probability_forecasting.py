@@ -396,7 +396,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 attention_maps[i] = attention_map
 
-            summary = final_metrics(metrics)
+            summary = final_metrics(metrics, self.args.pred_len)
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -413,16 +413,32 @@ class Exp_Probability_Forecast(Exp_Basic):
         mae, mse, rmse, mape, mspe = metric(preds, trues)
         self.print_content('mse:{}, mae:{}'.format(mse, mae))
 
-        strings = '\nCRPS: ' + str(summary['CRPS']) + \
-                  '\nmre:' + str(summary['mre'].abs().max(dim=1)[0].mean().item()) + \
-                  '\nPINAW:' + str(summary['pinaw'].item())
+        strings = '\nCRPS: ' + str(summary['CRPS'])
+        for i in range(self.args.pred_len):
+            strings += '\nCRPS_' + str(i) + ': ' + str(summary[f'CRPS_{i}'])
+        strings += '\nmre:' + str(summary['mre'].abs().max(dim=1)[0].mean().item())
+        strings += '\nPINAW:' + str(summary['pinaw'].item())
+        for i in range(self.args.pred_len):
+            strings += '\nPINAW_' + str(i) + ': ' + str(summary[f'pinaw_{i}'].item())
         self.print_content('Full test metrics: ' + strings)
 
-        ss_metric = {'CRPS_Mean': summary['CRPS'].mean(), 'mre': summary['mre'].abs().mean(), 'pinaw': summary['pinaw']}
-        for i, crps in enumerate(summary['CRPS']):
-            ss_metric[f'CRPS_{i}'] = crps
-        for i, mre in enumerate(summary['mre'].mean(dim=0)):
-            ss_metric[f'mre_{i}'] = mre
+        ss_metric = {
+            'CRPS': summary['CRPS'].mean().detach().cpu(),
+            'mre': summary['mre'].abs().mean().detach().cpu(),
+            'pinaw': summary['pinaw'].detach().cpu()
+        }
+        for i in range(self.args.pred_len):
+            ss_metric[f'CRPS_{i}'] = summary[f'CRPS_{i}'].mean().detach().cpu()
+            ss_metric[f'pinaw_{i}'] = summary[f'pinaw_{i}'].detach().cpu()
+
+        prob_metrics = np.array([ss_metric['CRPS']])
+        for i in range(self.args.pred_len):
+            prob_metrics = np.append(prob_metrics, ss_metric[f'CRPS_{i}'])
+        prob_metrics = np.append(prob_metrics, ss_metric['mre'])
+        prob_metrics = np.append(prob_metrics, ss_metric['pinaw'])
+        for i in range(self.args.pred_len):
+            prob_metrics = np.append(prob_metrics, ss_metric[f'pinaw_{i}'])
+        np.save(folder_path + 'prob_metrics.npy', prob_metrics)
 
         # save results in txt
         # f = open("result_probability_forecast.txt", 'a')
@@ -496,6 +512,12 @@ class Exp_Probability_Forecast(Exp_Basic):
             true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
             high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
             low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
+
+            # save results in npy
+            np.save(folder_path + 'pred_value_inverse.npy', pred_value)
+            np.save(folder_path + 'true_value_inverse.npy', true_value)
+            np.save(folder_path + 'high_value_inverse.npy', high_value)
+            np.save(folder_path + 'low_value_inverse.npy', low_value)
 
             # draw figures
             print('drawing probabilistic figure')
