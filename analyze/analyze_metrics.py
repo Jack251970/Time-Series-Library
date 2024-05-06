@@ -8,8 +8,8 @@ pred_len = 96
 root_path = '../results/'
 
 # Electricity 96
-lstm_aq_ele_96 = 'probability_forecast_OT_96_96_LSTM-ED-CQ_custom_ftMS_sl96_ll0_pl96_dm64_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-24 17-16-19'
-qsqf_c_ele_96 = 'pro1'
+lstm_aq_ele_96 = 'probability_forecast_OT_96_96_LSTM-ED-CQ_custom_ftMS_sl96_ll0_pl96_dm24_nh4_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-23 17-32-45'
+qsqf_c_ele_96 = 'probability_forecast_OT_96_96_QSQF-C_custom_ftMS_sl96_ll0_pl96_dm512_nh8_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-22 23-30-41'
 
 
 def read_data(path):
