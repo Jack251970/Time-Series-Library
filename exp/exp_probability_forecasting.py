@@ -379,16 +379,16 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     batch = torch.cat((batch_x, batch_y[:, -pred_length:, :]), dim=1)
 
-                labels = batch[:, -pred_length, -1]  # [256, 112, 1]
+                labels = batch[:, -pred_length:, -1]  # [256, 96, 1]
                 metrics = update_metrics(metrics, samples, labels, pred_length)
-                labels = labels.unsqueeze(-1)  # [256, 112, 1]
+                labels = labels.unsqueeze(-1)  # [256, 96, 1]
 
-                true = batch_y[:, :, -1].transpose(0, 1).squeeze()
+                true = batch_y[:, -pred_length:, -1].transpose(0, 1).squeeze()
                 true_value[:, i * batch_size: (i + 1) * batch_size] = true
 
                 f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = sample_mu[:, -pred_length:, :]  # [256, 16, 1]
-                batch_y = labels[:, -pred_length:, :]  # [256, 16, 1]
+                outputs = sample_mu  # [256, 16, 1]
+                batch_y = labels  # [256, 16, 1]
 
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()

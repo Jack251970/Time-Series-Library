@@ -16,7 +16,7 @@ def init_metrics(pred_len, device):
 
 
 def update_metrics(metrics, samples, labels, pred_len):
-    df = labels[:, pred_len:]
+    df = labels[:, -pred_len:]
     batch_size = samples.shape[1]
     metrics['num'] = metrics['num'] + batch_size
     metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, df)  # [99, 256, 96], [256, 96]

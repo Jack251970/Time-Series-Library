@@ -4,12 +4,33 @@ from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 # noinspection DuplicatedCode
 def link_fieldnames_data(_config):
     _data_path = _config['data_path']
+    _model = _config['model']
+    _pred_len = _config['pred_len']
     if _data_path == 'electricity/electricity.csv':
         # electricity dataset
         _config['reindex_tolerance'] = 0.80
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+        if _model == 'LSTM-ED-CQ':
+            if _pred_len == 16:
+                _config['label_len'] = 2
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 1
+                _config['d_model'] = 24
+            elif _pred_len == 32:
+                _config['label_len'] = 4
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 2
+                _config['d_model'] = 24
+            elif _pred_len == 96:
+                _config['label_len'] = 12
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 4
+                _config['d_model'] = 24
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
           _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -21,6 +42,25 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+        if _model == 'LSTM-ED-CQ':
+            if _pred_len == 16:
+                _config['label_len'] = 2
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 64
+            elif _pred_len == 32:
+                _config['label_len'] = 4
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 1
+                _config['d_model'] = 40
+            elif _pred_len == 96:
+                _config['label_len'] = 12
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 64
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -78,7 +118,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 96},
+        'pred_len': {'_type': 'single', '_value': 16},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -99,19 +139,10 @@ def get_search_space():
 
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
         'lstm_layers': {'_type': 'single', '_value': 2},
-
-        # 2024-04-22 23-30-41: Electricity, 96_0_96
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        'pred_len': {'_type': 'single', '_value': 96},
-
-        # 2024-04-24 17-16-19: Exchange, 96_0_96
-        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        # 'pred_len': {'_type': 'single', '_value': 96},
     }
 
     lstm_ed_cq_config = {
         # model
-        'label_len': {'_type': 'single', '_value': 16},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
@@ -123,46 +154,6 @@ def get_search_space():
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
-
-        # 2024-04-23 10-33-28: Electricity, 96_0_16
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        # 'pred_len': {'_type': 'single', '_value': 16},
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 3},
-        # 'n_heads': {'_type': 'single', '_value': 1},
-        # 'd_model': {'_type': 'single', '_value': 24},
-
-        # 2024-04-23 17-32-45: Electricity, 96_0_96
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        # 'pred_len': {'_type': 'single', '_value': 96},
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 1},
-        # 'n_heads': {'_type': 'single', '_value': 4},
-        # 'd_model': {'_type': 'single', '_value': 24},
-
-        # 2024-04-24 17-16-19: Exchange, 96_0_96
-        'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        'pred_len': {'_type': 'single', '_value': 96},
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 1},
-        'n_heads': {'_type': 'single', '_value': 2},
-        'd_model': {'_type': 'single', '_value': 64},
-
-        # 2024-05-02 23-51-22: Electricity, 96_0_192
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        # 'pred_len': {'_type': 'single', '_value': 192},
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 3},
-        # 'n_heads': {'_type': 'single', '_value': 4},
-        # 'd_model': {'_type': 'single', '_value': 40},
-
-        # 2024-05-02 01-37-55: Exchange, 96_0_192
-        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
-        # 'pred_len': {'_type': 'single', '_value': 192},
-        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        # 'lstm_layers': {'_type': 'single', '_value': 1},
-        # 'n_heads': {'_type': 'single', '_value': 4},
-        # 'd_model': {'_type': 'single', '_value': 64},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label'},
     }
