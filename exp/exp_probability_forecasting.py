@@ -376,9 +376,9 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
                 else:
-                    batch = torch.cat((batch_x, batch_y[:, :self.args.label_len, :]), dim=1)
+                    batch = torch.cat((batch_x, batch_y[:, self.args.label_len:, :]), dim=1)
 
-                labels = batch[:, :, -1]  # [256, 112, 1]
+                labels = batch[:, -self.args.pred_len, -1]  # [256, 112, 1]
                 metrics = update_metrics(metrics, samples, labels, self.args.seq_len)
                 labels = labels.unsqueeze(-1)  # [256, 112, 1]
 
