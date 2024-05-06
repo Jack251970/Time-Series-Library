@@ -55,7 +55,7 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -111,7 +111,7 @@ def get_search_space():
 
     lstm_ed_cq_config = {
         # model
-        'label_len': {'_type': 'single', '_value': 0},
+        'label_len': {'_type': 'single', '_value': 16},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
@@ -164,7 +164,7 @@ def get_search_space():
         # 'n_heads': {'_type': 'single', '_value': 4},
         # 'd_model': {'_type': 'single', '_value': 64},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label'},
     }
 
     model_configs = {

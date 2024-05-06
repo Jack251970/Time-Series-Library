@@ -115,8 +115,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                                                       'custom loss function!')
                 elif isinstance(outputs, tuple):
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
-                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+                    # outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
+                    # batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+                    outputs = tuple([output[:, :, f_dim:] for output in outputs])  # [256, 16, 1]
+                    batch_y = batch_y[:, :, f_dim:].to(self.device)  # [256, 16, 1]
                     loss = criterion(outputs, batch_y)
                 else:
                     f_dim = -1 if self.args.features == 'MS' else 0
@@ -256,8 +258,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                     loss = loss.detach().cpu()
                 elif isinstance(outputs, tuple):
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
-                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+                    # outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
+                    # batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+                    outputs = tuple([output[:, :, f_dim:] for output in outputs])  # [256, 16, 1]
+                    batch_y = batch_y[:, :, f_dim:].to(self.device)  # [256, 16, 1]
 
                     outputs = tuple([output.detach().cpu() for output in outputs])
                     batch_y = batch_y.detach().cpu()
@@ -354,6 +358,13 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 samples, sample_mu, sample_std, samples_high, samples_low, attention_map = outputs
                 # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16], [16, 256, 8, 1, 96]
+
+                samples = samples[:, :, -self.args.pred_len:]
+                sample_mu = sample_mu[:, -self.args.pred_len:, :]
+                sample_std = sample_std[:, -self.args.pred_len:, :]
+                samples_high = samples_high[:, :, -self.args.pred_len:]
+                samples_low = samples_low[:, :, -self.args.pred_len:]
+                attention_map = attention_map[-self.args.pred_len:, :, :, :, :]
 
                 pred = sample_mu[:, :, -1].transpose(0, 1).squeeze()
                 pred_value[:, i * batch_size: (i + 1) * batch_size] = pred

@@ -86,6 +86,9 @@ class Model(nn.Module):
             custom_params.pop(0)
         else:
             self.use_norm = False
+        if len(custom_params) > 0 and custom_params[0] == 'label':
+            self.pred_steps = params.pred_len + params.label_len
+            custom_params.pop(0)
         if len(custom_params) > 0:
             raise ValueError(f"Cannot parse these custom_params: {custom_params}")
 
@@ -241,6 +244,7 @@ class Model(nn.Module):
 
         batch = torch.cat((x_enc, y_enc), dim=1)
 
+        # s = seq_len
         if self.enc_feature == 'A':
             enc_in = batch[:, :self.pred_start, :]
         elif self.enc_feature == 'C':
@@ -254,16 +258,16 @@ class Model(nn.Module):
         else:
             raise ValueError("enc_feature must be 'A', 'C', or 'L'")
 
+        # s = label_len + pred_len
         if self.dec_feature == 'A':
-            dec_in = batch[:, self.pred_start:, :-1]
+            dec_in = batch[:, -self.pred_steps:, :-1]
         elif self.dec_feature == 'C':
-            dec_in = batch[:, self.pred_start:, self.cov_index]
+            dec_in = batch[:, -self.pred_steps:, self.cov_index]
         elif self.dec_feature == 'L':
-            dec_in = batch[:, self.pred_start:, self.lag_index]
+            dec_in = batch[:, -self.pred_steps:, self.lag_index]
         else:
             raise ValueError("dec_feature must be 'A', 'C', or 'L'")
-
-        labels = batch[:, self.pred_start:, -1]
+        labels = batch[:, -self.pred_steps:, -1]
 
         return enc_in, dec_in, labels
 
