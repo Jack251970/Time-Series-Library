@@ -475,6 +475,8 @@ class Model(nn.Module):
             samples_high = samples_low.clone()  # [3, 256, 16]
             samples = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, device=device)  # [99, 256, 12]
 
+            label_len = self.pred_steps - self.pred_len
+
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
                 x_dec_clone = x_dec.clone()  # [16, 256, 7]
@@ -509,9 +511,10 @@ class Model(nn.Module):
                     else:
                         samples[j - probability_range_len * 2, :, t] = pred
 
-                    for lag in range(self.lag):
-                        if t < self.pred_steps - lag - 1:
-                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
+                    if t >= label_len:
+                        for lag in range(self.lag):
+                            if t < self.pred_steps - lag - 1:
+                                x_dec_clone[t + 1, :, self.lag_index[0]] = pred
 
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
@@ -545,9 +548,10 @@ class Model(nn.Module):
                 pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
                 samples_mu1[:, t, 0] = pred
 
-                for lag in range(self.lag):
-                    if t < self.pred_steps - lag - 1:
-                        x_dec_clone[t + 1, :, self.lag_index[0]] = pred
+                if t >= label_len:
+                    for lag in range(self.lag):
+                        if t < self.pred_steps - lag - 1:
+                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
 
             if not sample:
                 # use integral to calculate the mean
