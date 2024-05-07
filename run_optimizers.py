@@ -9,6 +9,6 @@ process_index = 0
 if __name__ == "__main__":
     h1.start_search(process_index=process_index)
     h2.start_search(process_index=process_index)
-    # h3.start_search(process_index=process_index)
-    # h4.start_search(process_index=process_index)
+    h3.start_search(process_index=process_index)
+    h4.start_search(process_index=process_index)
     ht.start_search(process_index=process_index, force_test=True)
