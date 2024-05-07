@@ -105,6 +105,7 @@ def get_search_space():
         'embed': {'_type': 'single', '_value': 'timeF'},
         'freq': {'_type': 'single', '_value': 't'},
         'batch_size': {'_type': 'single', '_value': 256},
+        'pin_memory': {'_type': 'single', '_value': False},
     }
 
     dataset_config = {

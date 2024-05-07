@@ -16,7 +16,7 @@ if __name__ == "__main__":
     h3.start_search(process_index=process_index)
     h4.start_search(process_index=process_index)
 
-    hf.start_search(process_index=process_index)
-    hc.start_search(process_index=process_index)
+    # hf.start_search(process_index=process_index)
+    # hc.start_search(process_index=process_index)
 
     ht.start_search(process_index=process_index, force_test=True)
