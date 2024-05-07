@@ -526,30 +526,30 @@ def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_mode
                     if latest_time.strftime(_format) == _custom_time:
                         if not _try_model:
                             print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
-                        return '{}_{}'.format(prefix, latest_time.strftime(_format))
+                        return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
                 elif isinstance(_custom_time, datetime.datetime):
                     if latest_time == _custom_time:
                         if not _try_model:
                             print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
-                        return '{}_{}'.format(prefix, latest_time.strftime(_format))
+                        return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
                 elif isinstance(_custom_time, list):
                     if latest_time.strftime(_format) in _custom_time or latest_time == _custom_time:
                         if not _try_model:
                             print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
-                        return '{}_{}'.format(prefix, latest_time.strftime(_format))
+                        return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
 
         if latest_time is not None:
             if not _try_model:
                 print(f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
-            return '{}_{}'.format(prefix, latest_time.strftime(_format))
+            return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
 
         if not _try_model:
             print(f'Generate a new model to test in the time: {_run_time}!')
-        return '{}_{}'.format(prefix, _run_time)
+        return '{}_{}'.format(prefix, _run_time), _run_time
 
     if not _try_model:
         print(f'Generate a new model to train in the time: {_run_time}!')
-    return '{}_{}'.format(prefix, _run_time)
+    return '{}_{}'.format(prefix, _run_time), _run_time
 
 
 # noinspection DuplicatedCode

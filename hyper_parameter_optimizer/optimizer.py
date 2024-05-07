@@ -15,6 +15,8 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 from hyper_parameter_optimizer import basic_settings
 from itertools import product
 from tqdm import tqdm
+
+
 # from utils.print_args import print_args
 
 
@@ -535,8 +537,8 @@ class HyperParameterOptimizer(object):
         print('>>>>>>>({}) start experiment<<<<<<<'.format(exp_start_run_time))
 
         # build the setting of the experiment
-        exp_setting = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
-                                         self.custom_test_time, _try_model)
+        exp_setting, exp_train_time = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
+                                                         self.custom_test_time, _try_model)
 
         # get the experiment type
         self._init_experiment(_args.task_name)
@@ -601,7 +603,7 @@ class HyperParameterOptimizer(object):
         print('total cost time: {}'.format(exp_time))
         print('>>>>>>>({}) end experiment<<<<<<<'.format(exp_end_run_time))
 
-        return eva_config, exp_start_run_time, exp_setting, stop_epochs
+        return eva_config, exp_train_time, exp_setting, stop_epochs
 
     def _get_run_time(self):
         current_time = time.localtime()
