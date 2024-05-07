@@ -26,6 +26,11 @@ def link_fieldnames_data(_config):
             elif _pred_len == 96:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
+            elif _pred_len == 96:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
                 _config['n_heads'] = 4
                 _config['d_model'] = 24
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
@@ -55,6 +60,11 @@ def link_fieldnames_data(_config):
                 _config['lstm_layers'] = 1
                 _config['n_heads'] = 2
                 _config['d_model'] = 64
+            elif _pred_len == 96:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 2
+                _config['d_model'] = 24
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -112,7 +122,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'choice', '_value': 16},
-        'pred_len': {'_type': 'choice', '_value': [16, 32, 96]},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
