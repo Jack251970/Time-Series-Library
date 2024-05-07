@@ -494,7 +494,8 @@ class HyperParameterOptimizer(object):
             # check if the model of this experiment can work
             if _process_index == 0 and try_model:
                 # check if the parameters of this experiment is improper
-                model_can_work = self._start_experiment(args, parameter, config, _try_model=True, _check_folder=False)
+                model_can_work = self._start_experiment(args, parameter, config, _try_model=True, _force_test=False,
+                                                        _check_folder=False)
 
                 # if the model cannot work, and then add it to the jump data file
                 if not model_can_work:
@@ -534,7 +535,8 @@ class HyperParameterOptimizer(object):
         """
         # start time
         exp_start_time, exp_start_run_time = self._get_run_time()
-        print('>>>>>>>({}) start experiment<<<<<<<'.format(exp_start_run_time))
+        if not _try_model:
+            print('>>>>>>>({}) start experiment<<<<<<<'.format(exp_start_run_time))
 
         # build the setting of the experiment
         exp_setting, exp_train_time = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
