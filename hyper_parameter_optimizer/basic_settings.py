@@ -522,10 +522,21 @@ def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_mode
                 checkpoint_time = datetime.datetime.strptime(checkpoint_time, _format)
                 if latest_time is None or checkpoint_time > latest_time:
                     latest_time = checkpoint_time
-                if latest_time.strftime(_format) == _custom_time:
-                    if not _try_model:
-                        print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
-                    return '{}_{}'.format(prefix, latest_time.strftime(_format))
+                if isinstance(_custom_time, str):
+                    if latest_time.strftime(_format) == _custom_time:
+                        if not _try_model:
+                            print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                        return '{}_{}'.format(prefix, latest_time.strftime(_format))
+                elif isinstance(_custom_time, datetime.datetime):
+                    if latest_time == _custom_time:
+                        if not _try_model:
+                            print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                        return '{}_{}'.format(prefix, latest_time.strftime(_format))
+                elif isinstance(_custom_time, list):
+                    if latest_time in _custom_time:
+                        if not _try_model:
+                            print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                        return '{}_{}'.format(prefix, latest_time.strftime(_format))
 
         if latest_time is not None:
             if not _try_model:
