@@ -98,5 +98,6 @@ def clean_unrelated_folder(_folders):
     print(f"Cleaned {clean_number} unrelated folders")
 
 
-clean_unrelated_folder([checkpoints_folder, process_folder])
+clean_unrelated_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
+                        prob_results_folder])
 print('\n')
