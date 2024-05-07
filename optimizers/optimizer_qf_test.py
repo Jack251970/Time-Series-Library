@@ -123,7 +123,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'choice', '_value': 16},
-        'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 64]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -174,7 +174,23 @@ def get_search_space():
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ', 'QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=False,
-                            custom_test_time=['2024-04-23 10-33-28', '2024-04-28 05-04-11',
-                                              '2024-05-06 23-47-33', '2024-04-24 11-34-20',
-                                              '2024-05-07 02-02-08', '2024-05-07 05-34-41',
-                                              '2024-04-23 17-32-45', '2024-04-24 17-16-19'])
+                            custom_test_time=[
+                                # LSTM-AQ
+                                '2024-04-23 10-33-28',  # Electric_16
+                                '2024-04-28 05-04-11',  # Exchange_16
+                                '2024-05-06 23-47-33',  # Electric_32
+                                '2024-04-24 11-34-20',  # Exchange_32
+                                '2024-05-07 02-02-08',  # Electric_64
+                                '2024-05-07 05-34-41',  # Exchange_64
+                                '2024-04-23 17-32-45',  # Electric_96
+                                '2024-04-24 17-16-19',  # Exchange_96
+                                # QSQF-C
+                                '2024-04-22 11-26-26',  # Electric_16
+                                '2024-04-22 11-43-54',  # Exchange_16
+                                '2024-04-22 22-17-10',  # Electric_32
+                                '2024-04-23 08-07-09',  # Exchange_32
+                                '2024-05-07 14-32-20',  # Electric_64
+                                '2024-05-07 15-06-46',  # Exchange_64
+                                '2024-04-22 23-30-41',  # Electric_96
+                                '2024-04-23 08-13-33',  # Exchange_96
+                            ])
