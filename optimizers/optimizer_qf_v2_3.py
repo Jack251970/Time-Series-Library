@@ -11,8 +11,8 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 321
         _config['c_out'] = 321
 
-        _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 3
+        _config['lstm_hidden_size'] = 40
+        _config['lstm_layers'] = 2
     elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
           _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -26,7 +26,7 @@ def link_fieldnames_data(_config):
         _config['c_out'] = 8
 
         _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 1
+        _config['lstm_layers'] = 2
     elif _data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
