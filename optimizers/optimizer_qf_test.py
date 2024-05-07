@@ -186,11 +186,11 @@ h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, 
                                 '2024-04-24 17-16-19',  # Exchange_96
                                 # QSQF-C
                                 '2024-04-22 11-26-26',  # Electric_16
-                                '2024-04-22 11-43-54',  # Exchange_16
+                                '2024-05-07 21-31-39',  # Exchange_16
                                 '2024-04-22 22-17-10',  # Electric_32
-                                '2024-04-23 08-07-09',  # Exchange_32
+                                '2024-05-07 21-45-02',  # Exchange_32
                                 '2024-05-07 14-32-20',  # Electric_64
-                                '2024-05-07 15-06-46',  # Exchange_64
+                                '2024-05-07 21-52-48',  # Exchange_64
                                 '2024-04-22 23-30-41',  # Electric_96
                                 '2024-04-23 08-13-33',  # Exchange_96
                             ])
