@@ -365,7 +365,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                 sample_std = sample_std[:, -pred_length:, :]
                 samples_high = samples_high[:, :, -pred_length:]
                 samples_low = samples_low[:, :, -pred_length:]
-                attention_map = attention_map[-pred_length:, :, :, :, :]
+                if attention_map is not None and attention_flag:
+                    attention_map = attention_map[-pred_length:, :, :, :, :]
+                else:
+                    attention_flag = False
 
                 pred = sample_mu[:, :, -1].transpose(0, 1).squeeze()
                 pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
@@ -407,10 +410,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                 preds.append(pred)
                 trues.append(true)
 
-                if attention_map is not None and attention_flag:
+                if attention_flag:
                     attention_maps[i] = attention_map
-                else:
-                    attention_flag = False
 
             summary = final_metrics(metrics, pred_length)
 
