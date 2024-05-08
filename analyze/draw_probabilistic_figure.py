@@ -9,7 +9,7 @@ from analyze.test_data_factory import get_all_value_inverse_path, data_folder, f
 from utils.tools import draw_figure
 
 folder_path = 'probabilistic_figure'
-exp_name = 'QSQF-C_Electricity_96'
+exp_name = 'LSTM-AQ_Electricity_96'
 exp_settings = get_exp_settings(exp_name)
 
 pred_value_path, true_value_path, high_value_path, low_value_path = get_all_value_inverse_path(exp_name)
@@ -52,19 +52,22 @@ probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 # draw figures
 print('drawing probabilistic figure')
 for i in tqdm(range(pred_length)):
-    _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
-    if not os.path.exists(_path):
-        os.makedirs(_path)
+    if i == 15 or i == 31 or i == 63 or i == 95:
+        _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
+        if not os.path.exists(_path):
+            os.makedirs(_path)
 
-    interval = 128
-    num = math.floor(data_length / interval)
-    for j in range(num):
-        if j * interval >= data_length:
-            continue
-        draw_figure(range(interval),
-                    pred_value[i, j * interval: (j + 1) * interval],
-                    true_value[i, j * interval: (j + 1) * interval],
-                    high_value[i, :, j * interval: (j + 1) * interval],
-                    low_value[i, :, j * interval: (j + 1) * interval],
-                    probability_range,
-                    os.path.join(_path, f'prediction {j}.png'))
+        interval = 128
+        num = math.floor(data_length / interval)
+        for j in range(num):
+            if j * interval >= data_length:
+                continue
+            if j == 0:
+                draw_figure(range(interval),
+                            pred_value[i, j * interval: (j + 1) * interval],
+                            true_value[i, j * interval: (j + 1) * interval],
+                            high_value[i, :, j * interval: (j + 1) * interval],
+                            low_value[i, :, j * interval: (j + 1) * interval],
+                            probability_range,
+                            os.path.join(_path, f'prediction {j}.png'),
+                            ylim=[1500, 4500])

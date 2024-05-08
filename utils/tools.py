@@ -105,7 +105,7 @@ def visual(true, preds=None, name='./pic/test.pdf'):
     plt.savefig(name, bbox_inches='tight')
 
 
-def draw_figure(x, pred, true, high, low, pred_range, path):
+def draw_figure(x, pred, true, high, low, pred_range, path, xlim=None, ylim=None):
     plt.clf()
     plt.plot(pred.squeeze(), label='Predicted Value', color='red')
     plt.plot(true.squeeze(), label='True Value', color='blue')
@@ -115,7 +115,11 @@ def draw_figure(x, pred, true, high, low, pred_range, path):
             # plt.plot(low[j, :].squeeze(), label='Low Value', color='green')
             plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
                              alpha=1-pred_range[j])
-    plt.legend('')
+    plt.legend()
+    if xlim is not None:
+        plt.xlim(xlim[0], xlim[1])
+    if ylim is not None:
+        plt.ylim(ylim[0], ylim[1])
     plt.savefig(path)
 
 
