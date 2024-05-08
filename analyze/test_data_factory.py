@@ -29,6 +29,11 @@ _exp_dict = {
                               '-CQ_custom_ftMS_sl96_ll0_pl96_dm24_nh4_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-23 17-32-45',
     'LSTM-AQ_Exchange_96': 'probability_forecast_OT_96_96_LSTM-ED'
                            '-CQ_custom_ftMS_sl96_ll0_pl96_dm64_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-24 17-16-19',
+
+    'QSQF-C_Electricity_96': 'probability_forecast_OT_96_96_QSQF'
+                             '-C_custom_ftMS_sl96_ll0_pl96_dm512_nh8_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-22 23-30-41',
+    'QSQF-C_Exchange_96': 'probability_forecast_OT_96_96_QSQF'
+                          '-C_custom_ftMS_sl96_ll0_pl96_dm512_nh8_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-05-07 23-42-11',
 }
 
 
@@ -39,3 +44,11 @@ def get_exp_settings(exp_name):
 def get_attention_map_path(exp_name):
     _exp_path = get_exp_settings(exp_name)
     return os.path.join(prob_results_folder, _exp_path, 'attention_maps.npy')
+
+
+def get_all_value_inverse_path(exp_name):
+    _exp_path = get_exp_settings(exp_name)
+    return os.path.join(prob_results_folder, _exp_path, 'pred_value_inverse.npy'), \
+        os.path.join(prob_results_folder, _exp_path, 'true_value_inverse.npy'), \
+        os.path.join(prob_results_folder, _exp_path, 'high_value_inverse.npy'), \
+        os.path.join(prob_results_folder, _exp_path, 'low_value_inverse.npy')

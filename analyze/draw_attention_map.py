@@ -10,7 +10,7 @@ from utils.tools import draw_attention_map
 
 folder_path = 'attention_map'
 exp_name = 'LSTM-AQ_Electricity_96'
-exp_settings = get_exp_settings('LSTM-AQ_Electricity_96')
+exp_settings = get_exp_settings(exp_name)
 attention_maps = np.load(get_attention_map_path(exp_name))
 
 
