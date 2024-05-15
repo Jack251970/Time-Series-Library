@@ -69,7 +69,7 @@ def get_search_space():
         'root_path': {'_type': 'single', '_value': '../dataset/'},
 
         # 1
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -91,7 +91,7 @@ def get_search_space():
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']}
     }
 
     learning_config = {
@@ -122,11 +122,17 @@ def get_search_space():
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        # Step 1: Attention
+        # Test
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 1},
-        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'single', '_value': 3},
+        'n_heads': {'_type': 'single', '_value': 1},
+        'd_model': {'_type': 'single', '_value': 24},
+
+        # Step 1: Attention
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        # 'lstm_layers': {'_type': 'single', '_value': 1},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         # Step 2: LSTM
         # 'n_heads': {'_type': 'single', '_value': 4},
@@ -147,7 +153,7 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', data_csv_file='data.csv', scan_all_csv=False,
+h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr .csv', scan_all_csv=False,
                             try_model=False, force_exp=False)
 
 if __name__ == '__main__':
