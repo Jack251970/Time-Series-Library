@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, PowerTransformer
 from sktime.datasets import load_from_tsfile_to_dataframe
 from torch.utils.data import Dataset
 
@@ -46,6 +46,8 @@ class Dataset_ETT_hour(Dataset):
                 self.scaler = MinMaxScaler()  # normalize to [0, 1]
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
+            elif scaler == 'BoxCox':
+                self.scaler = PowerTransformer(method='yeo-johnson', standardize=False)  # box-cox transformation
             else:
                 raise NotImplementedError
         else:
@@ -158,6 +160,8 @@ class Dataset_ETT_minute(Dataset):
                 self.scaler = MinMaxScaler()  # normalize to [0, 1]
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
+            elif scaler == 'BoxCox':
+                self.scaler = PowerTransformer(method='yeo-johnson', standardize=False)  # box-cox transformation
             else:
                 raise NotImplementedError
         else:
@@ -274,6 +278,8 @@ class Dataset_Custom(Dataset):
                 self.scaler = MinMaxScaler()  # normalize to [0, 1]
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
+            elif scaler == 'BoxCox':
+                self.scaler = PowerTransformer(method='yeo-johnson', standardize=False)  # box-cox transformation
             else:
                 raise NotImplementedError
         else:
