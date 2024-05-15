@@ -109,6 +109,7 @@ class Exp_Basic(object):
             'RNN-SF': lstm_cq.loss_fn,
             'LSTM-CQ': lstm_cq.loss_fn,
             'LSTM-ED-CQ': lstm_cq.loss_fn,
+            'LSTM-YJQR': lstm_yjqr.loss_fn,
         }
 
         loss = self.args.loss

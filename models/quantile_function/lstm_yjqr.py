@@ -4,7 +4,7 @@ import torch.nn as nn
 from layers.AutoCorrelation import AutoCorrelation
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
+from models.quantile_function.lstm_cq import ConvLayer
 
 
 class Model(nn.Module):
@@ -22,7 +22,7 @@ class Model(nn.Module):
         self.batch_size = params.batch_size
         self.lstm_hidden_size = params.lstm_hidden_size
         self.enc_lstm_layers = params.lstm_layers
-        self.dec_lstm_layers = 1  # TODO: Check self.enc_lstm_layers!!
+        self.dec_lstm_layers = 1
         self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline
@@ -166,25 +166,20 @@ class Model(nn.Module):
                 self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
                 self.out_norm = nn.LayerNorm([self.L_dec, self.H, out_size])
 
-        # QSQM
+        # YJQM
         if self.attention_projection is not None and self.dec_hidden_separate:
             self.qsqm_input_size = self.d_model
         else:
             self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
-        self._lambda = -1e-3  # make sure all data is not on the left point
-        if self.algorithm_type == '2':
-            self.linear_gamma = nn.Linear(self.qsqm_input_size, 1)
-        elif self.algorithm_type == '1+2':
-            self.linear_gamma = nn.Linear(self.qsqm_input_size, self.num_spline)
-        elif self.algorithm_type == '1':
-            self.linear_gamma = nn.Linear(self.qsqm_input_size, self.num_spline)
-        else:
-            raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-        self.linear_eta_k = nn.Linear(self.qsqm_input_size, self.num_spline)
-        self.soft_plus = nn.Softplus()  # make sure parameter is positive
-        device = torch.device("cuda" if params.use_gpu else "cpu")
-        y = torch.ones(self.num_spline) / self.num_spline
-        self.alpha_prime_k = y.repeat(self.batch_size, 1).to(device)  # [256, 20]
+        self.pre_lamda = nn.Linear(self.qsqm_input_size, 1)
+        self.pre_mu = nn.Linear(self.qsqm_input_size, 1)
+        self.pre_sigma = nn.Linear(self.qsqm_input_size, 1)
+
+        self.lamda = nn.LeakyReLU(negative_slope=0.5)  # TODO
+
+        self.mu = nn.Sigmoid()
+
+        # self.sigma = nn.ReLU()
 
         # Reindex
         self.new_index = None
@@ -345,15 +340,17 @@ class Model(nn.Module):
 
         return hidden_permute
 
-    def get_qsqm_parameter(self, hidden_permute):
-        candidate_gamma = self.linear_gamma(hidden_permute)  # [256, 1]
-        gamma = self.soft_plus(candidate_gamma)  # [256, 1]
-        if self.algorithm_type == '1':
-            return gamma, None
+    def get_yjqm_parameter(self, hidden_permute):
+        pre_lamda = self.pre_lamda(hidden_permute)
+        lamda = pre_lamda
 
-        candidate_eta_k = self.linear_eta_k(hidden_permute)  # [256, 20]
-        eta_k = self.soft_plus(candidate_eta_k)  # [256, 20]
-        return gamma, eta_k
+        pre_mu = self.pre_mu(hidden_permute)
+        mu = self.mu(pre_mu)
+
+        pre_sigma = self.pre_sigma(hidden_permute)
+        sigma = pre_sigma
+
+        return lamda, mu, sigma
 
     # noinspection DuplicatedCode
     def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False,
@@ -456,9 +453,9 @@ class Model(nn.Module):
                     loss_list.clear()
                     stop_flag = True
                     break
-                gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]
+                lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)  # [256, 1], [256, 1], [256, 1]
                 y = labels[t].clone()  # [256,]
-                loss_list.append((self.alpha_prime_k, self._lambda, gamma, eta_k, y, self.algorithm_type))
+                loss_list.append((lamda, mu, sigma, y))
 
             return loss_list, stop_flag
         else:
@@ -488,9 +485,9 @@ class Model(nn.Module):
                 for t in range(self.pred_steps):
                     x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
                     hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                        hidden, cell, enc_hidden_attn)
+                                                                     hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
-                    gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
+                    lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)
 
                     if j < probability_range_len:
                         pred_alpha = low_alpha[:, j].unsqueeze(-1)  # [256, 1]
@@ -503,7 +500,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_alpha = uniform.sample(torch.Size([self.batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
+                    pred = sample_qsqm(lamda, mu, sigma, pred_alpha)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -543,9 +540,9 @@ class Model(nn.Module):
                 if self.use_attn:
                     attention_map[t] = attn
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
-                gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
+                lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)
 
-                pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
+                pred = sample_qsqm(lamda, mu, sigma, None)
                 samples_mu1[:, t, 0] = pred
 
                 if t >= label_len:
@@ -559,3 +556,26 @@ class Model(nn.Module):
             else:
                 # use uniform samples to calculate the mean
                 return samples, samples_mu, samples_std, samples_high, samples_low, attention_map
+
+
+def loss_fn(tuple_param):
+    lamda, mu, sigma, labels = tuple_param
+
+    loss = torch.zeros_like(labels, device=labels.device)  # [256, ]
+
+    # TODO: 在此处计算损失！
+
+    return loss
+
+
+def sample_qsqm(lamda, mu, sigma, alpha):
+    if alpha is not None:
+        # TODO: 如果输入分位数值，则直接计算对应分位数的预测值
+        pred = None
+
+        return pred
+    else:
+        # TODO: 如果未输入分位数值，则从积分值获取预测值的平均
+        mean_pred = None
+
+        return mean_pred
