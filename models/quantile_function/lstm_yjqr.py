@@ -455,7 +455,8 @@ class Model(nn.Module):
                     break
                 lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)  # [256, 1], [256, 1], [256, 1]
                 y = labels[t].clone()  # [256,]
-                loss_list.append((lamda, mu, sigma, y))
+                # lamba,mu，sigma->(256,)
+                loss_list.append((lamda.squeeze(), mu.squeeze(), sigma.squeeze(), y))
 
             return loss_list, stop_flag
         else:
@@ -595,13 +596,16 @@ def loss_fn(tuple_param):
 
 
 def sample_qsqm(lamda, mu, sigma, alpha):
+    device = mu.device
+
     if alpha is not None:
         # 如果输入分位数值，则直接计算对应分位数的预测值
         log_sigma = sigma
 
         from scipy.stats import norm
-        alpha_new = 10 * norm.ppf(alpha)  # TODO 参数10可以调整
-        pred_cdf = alpha_new * torch.ones(lamda.shape[0])
+        alpha_new = 10 * norm.ppf(alpha.cpu())  # TODO 参数10可以调整
+        alpha_new = torch.from_numpy(alpha_new).to(device)
+        pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
         y_deal = (mu + torch.exp(log_sigma) * pred_cdf.T).T.squeeze()
         pred = pred_output(y_deal, lamda, mu)
         # pred=(256,)
@@ -612,10 +616,9 @@ def sample_qsqm(lamda, mu, sigma, alpha):
         log_sigma = sigma
         batch_size = lamda.shape[0]
 
-        mean_pred = None
         uniform = torch.distributions.uniform.Uniform(
-            torch.tensor([0.0], device=mu.device),
-            torch.tensor([30], device=mu.device))
+            torch.tensor([0.0], device=device),
+            torch.tensor([30], device=device))
         pred_cdf = uniform.sample([batch_size]) - 15
         y_deal = (mu + torch.exp(log_sigma) * pred_cdf.T).T.squeeze()
 
