@@ -604,10 +604,11 @@ def sample_qsqm(lamda, mu, sigma, alpha):
 
         from scipy.stats import norm
         alpha_new = 10 * norm.ppf(alpha.cpu())  # TODO 参数10可以调整
-        alpha_new = torch.from_numpy(alpha_new).to(device)
-        pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
-        y_deal = (mu + torch.exp(log_sigma) * pred_cdf.T).T.squeeze()
-        pred = pred_output(y_deal, lamda, mu)
+        pred_cdf = torch.from_numpy(alpha_new).to(device)
+        # pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
+        y_deal = (mu + torch.exp(log_sigma) * pred_cdf) # TODO log_sigma太大了，导致y_deal失控，y_deal应该在0-1之间
+        pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
+
         # pred=(256,)
         return pred
     else:
@@ -620,9 +621,9 @@ def sample_qsqm(lamda, mu, sigma, alpha):
             torch.tensor([0.0], device=device),
             torch.tensor([30], device=device))
         pred_cdf = uniform.sample([batch_size]) - 15
-        y_deal = (mu + torch.exp(log_sigma) * pred_cdf.T).T.squeeze()
+        y_deal = (mu + torch.exp(log_sigma) * pred_cdf)
 
-        mean_pred = pred_output(y_deal, lamda, mu)
+        mean_pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
         # mena_pred=(256,)
         return mean_pred
 
