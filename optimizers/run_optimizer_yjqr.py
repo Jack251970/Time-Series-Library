@@ -55,7 +55,7 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -153,8 +153,8 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr .csv', scan_all_csv=False,
-                            try_model=False, force_exp=False)
+h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr.csv', scan_all_csv=False,
+                            try_model=False, force_exp=True)
 
 if __name__ == '__main__':
     h.start_search()
