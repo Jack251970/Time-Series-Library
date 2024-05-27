@@ -5,6 +5,7 @@ from layers.AutoCorrelation import AutoCorrelation
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import ConvLayer
+from models.quantile_function.lstm_yjqr import sample_yjqr
 
 
 class Model(nn.Module):
@@ -553,93 +554,3 @@ class Model(nn.Module):
             else:
                 # use uniform samples to calculate the mean
                 return samples, samples_mu, samples_std, samples_high, samples_low, attention_map
-
-
-def loss_fn(tuple_param):
-    lamda, mu, log_sigma, labels = tuple_param
-
-    # 计算损失函数
-    # lambda,mu,log_sigma,labels=(256,)
-    batch_size = labels.shape[0]
-    trans_y = torch.zeros_like(labels, device=mu.device)
-    y = labels.squeeze()
-
-    # 使用 torch 的条件语句进行批处理
-    mask_y_ge_0 = (y >= 0).squeeze()
-    mask_y_lt_0 = (~mask_y_ge_0).squeeze()
-    mask_lamda_ne_0 = (lamda != 0)
-    mask_lamda_ne_2 = (lamda != 2)
-
-    # 计算 trans_y
-    k = mask_y_ge_0 & mask_lamda_ne_0
-    trans_y[mask_y_ge_0 & mask_lamda_ne_0] = ((y[mask_y_ge_0 & mask_lamda_ne_0] + 1).pow(
-        lamda[mask_y_ge_0 & mask_lamda_ne_0]) - 1) / lamda[mask_y_ge_0 & mask_lamda_ne_0]
-    trans_y[mask_y_ge_0 & ~mask_lamda_ne_0] = torch.log(y[mask_y_ge_0 & ~mask_lamda_ne_0] + 1)
-    trans_y[mask_y_lt_0 & mask_lamda_ne_2] = -(
-            (1 - y[mask_y_lt_0 & mask_lamda_ne_2]).pow(2 - lamda[mask_y_lt_0 & mask_lamda_ne_2]) - 1) / (
-                                                     2 - lamda[mask_y_lt_0 & mask_lamda_ne_2])
-    trans_y[mask_y_lt_0 & ~mask_lamda_ne_2] = -torch.log(1 - y[mask_y_lt_0 & ~mask_lamda_ne_2])
-
-    L1 = batch_size * 0.5 * torch.log(torch.tensor(2 * torch.pi))
-    L2 = batch_size * 0.5 * 2 * log_sigma
-    L3 = 0.5 * torch.exp(log_sigma).pow(-2) * (trans_y - mu).pow(2)
-    L4 = (lamda - 1) * torch.sum(torch.sign(labels) * torch.log(torch.abs(labels) + 1))
-    Ln = L4 - L1 - L2 - L3
-
-    loss = -torch.mean(Ln)
-    # loss=() 为一个数
-    return loss
-
-
-def sample_yjqr(lamda, mu, sigma, alpha):
-    device = mu.device
-
-    if alpha is not None:
-        # 如果输入分位数值，则直接计算对应分位数的预测值
-        log_sigma = sigma
-
-        from scipy.stats import norm
-        alpha_new = 10 * norm.ppf(alpha.cpu())  # TODO 参数10可以调整
-        pred_cdf = torch.from_numpy(alpha_new).to(device)
-        # pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
-        y_deal = (mu + torch.exp(log_sigma) * pred_cdf) # TODO log_sigma太大了，导致y_deal失控，y_deal应该在0-1之间
-        pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
-
-        # pred=(256,)
-        return pred
-    else:
-        # 如果未输入分位数值，则从积分值获取预测值的平均
-        # lamda=(256,).mu=(256,),sigma=(256,)
-        log_sigma = sigma
-        batch_size = lamda.shape[0]
-
-        uniform = torch.distributions.uniform.Uniform(
-            torch.tensor([0.0], device=device),
-            torch.tensor([30], device=device))
-        pred_cdf = uniform.sample([batch_size]) - 15
-        y_deal = (mu + torch.exp(log_sigma) * pred_cdf)
-
-        mean_pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
-        # mena_pred=(256,)
-        return mean_pred
-
-
-def pred_output(y_deal, lamda, mu):
-    mask_y_ge_0 = y_deal >= 0
-    mask_y_lt_0 = ~mask_y_ge_0
-    mask_lamda_ne_0 = lamda != 0
-    mask_lamda_ne_2 = lamda != 2
-
-    # 初始化 y_pred
-    y_pred = torch.zeros_like(y_deal, device=mu.device)
-
-    # 计算 y_pred
-    y_pred[mask_y_ge_0 & mask_lamda_ne_0] = ((
-            y_deal[mask_y_ge_0 & mask_lamda_ne_0] * lamda[mask_y_ge_0 & mask_lamda_ne_0] + 1).pow(
-        1 / lamda[mask_y_ge_0 & mask_lamda_ne_0])) - 1
-    y_pred[mask_y_ge_0 & ~mask_lamda_ne_0] = torch.exp(y_deal[mask_y_ge_0 & ~mask_lamda_ne_0]) - 1
-    y_pred[mask_y_lt_0 & mask_lamda_ne_2] = 1 - (
-        ((lamda[mask_y_lt_0 & mask_lamda_ne_2] - 2) * y_deal[mask_y_lt_0 & mask_lamda_ne_2] + 1).pow(
-            1 / (2 - lamda[mask_y_lt_0 & mask_lamda_ne_2])))
-    y_pred[mask_y_lt_0 & ~mask_lamda_ne_2] = 1 - torch.exp(-y_deal[mask_y_lt_0 & ~mask_lamda_ne_2])
-    return y_pred
