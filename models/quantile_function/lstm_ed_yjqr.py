@@ -256,13 +256,13 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                hidden_yjqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                  hidden, cell, enc_hidden_attn)
-                hidden_permute = self.get_hidden_permute(hidden_qsqm)
+                hidden_permute = self.get_hidden_permute(hidden_yjqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
                 # check if hidden contains NaN
-                if torch.isnan(hidden).sum() > 0 or torch.isnan(hidden_qsqm).sum() > 0:
+                if torch.isnan(hidden).sum() > 0 or torch.isnan(hidden_yjqm).sum() > 0:
                     break
 
             # get loss list
@@ -278,7 +278,7 @@ class Model(nn.Module):
                     break
                 lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)  # [256, 1], [256, 1], [256, 1]
                 y = labels[t].clone()  # [256,]
-                # lamba,mu，sigma->(256,)
+                # lambda,mu，sigma->(256,)
                 loss_list.append((lamda.squeeze(), mu.squeeze(), sigma.squeeze(), y))
 
             return loss_list, stop_flag
@@ -308,9 +308,9 @@ class Model(nn.Module):
                 # decoder
                 for t in range(self.pred_steps):
                     x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                    hidden_yjqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                      hidden, cell, enc_hidden_attn)
-                    hidden_permute = self.get_hidden_permute(hidden_qsqm)
+                    hidden_permute = self.get_hidden_permute(hidden_yjqm)
                     lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)
 
                     if j < probability_range_len:
@@ -356,10 +356,10 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                hidden_yjqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                     hidden, cell, enc_hidden_attn)
                 attention_map[t] = attn
-                hidden_permute = self.get_hidden_permute(hidden_qsqm)
+                hidden_permute = self.get_hidden_permute(hidden_yjqm)
                 lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)
 
                 pred = sample_yjqr(lamda, mu, sigma, None)
