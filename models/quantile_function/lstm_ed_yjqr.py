@@ -1,10 +1,8 @@
 import torch
 import torch.nn as nn
 
-from layers.AutoCorrelation import AutoCorrelation
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_cq import ConvLayer
 from models.quantile_function.lstm_yjqr import sample_yjqr
 
 
@@ -29,71 +27,16 @@ class Model(nn.Module):
         self.lag = params.lag
         self.train_window = self.pred_steps + self.pred_start
 
-        # phase custom_params
-        custom_params = params.custom_params
-        custom_params = custom_params.split('_')
-        if len(custom_params) > 0 and custom_params[0] == 'cnn':
-            self.use_cnn = True
-            custom_params.pop(0)
-        else:
-            self.use_cnn = False
-        if len(custom_params) > 0 and all([len(custom_params[0]) == 2, all([i in 'ACLH' for i in custom_params[0]])]):
-            features = custom_params.pop(0)
-            self.enc_feature = features[0]
-            self.dec_feature = features[1]
-            self.enc_in = params.enc_in
-            input_size = self.get_input_size(self.enc_feature, True)
-            if self.use_cnn:
-                input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
-                input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1  # take maxPool into account
-            self.enc_lstm_input_size = input_size
-            input_size = self.get_input_size(self.dec_feature, False)
-            if self.use_cnn:
-                input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1
-                input_size = (input_size + 2 * 1 - (3 - 1) - 1) // 2 + 1
-            self.dec_lstm_input_size = input_size
-        if len(custom_params) > 0 and custom_params[0] in ('attn', 'corr'):
-            self.use_attn = custom_params[0]
-            self.n_heads = params.n_heads
-            self.d_model = params.d_model
-            custom_params.pop(0)
-        else:
-            self.use_attn = None
-        if len(custom_params) > 0 and custom_params[0] == 'dhz':
-            self.dec_hidden_zero = True
-            custom_params.pop(0)
-        else:
-            self.dec_hidden_zero = False
-        if len(custom_params) > 0 and custom_params[0] == 'dhd1':
-            self.dec_hidden_difference1 = True
-            custom_params.pop(0)
-        else:
-            self.dec_hidden_difference1 = False
-        if len(custom_params) > 0 and custom_params[0] in ('ap', 'ap1', 'ap2'):
-            self.attention_projection = custom_params[0]
-            custom_params.pop(0)
-        else:
-            self.attention_projection = None
-        if len(custom_params) > 0 and custom_params[0] == 'dhs':
-            self.dec_hidden_separate = True
-            custom_params.pop(0)
-        else:
-            self.dec_hidden_separate = False
-        if len(custom_params) > 0 and custom_params[0] == 'norm':
-            self.use_norm = True
-            custom_params.pop(0)
-        else:
-            self.use_norm = False
-        if len(custom_params) > 0 and custom_params[0] == 'label':
-            self.pred_steps = params.pred_len + params.label_len
-            custom_params.pop(0)
-        if len(custom_params) > 0:
-            raise ValueError(f"Cannot parse these custom_params: {custom_params}")
+        self.enc_in = params.enc_in
+        input_size = self.enc_in + self.lag
 
-        # CNN
-        if self.use_cnn:
-            self.cnn_enc = ConvLayer(1)
-            self.cnn_dec = ConvLayer(1)
+        self.enc_lstm_input_size = input_size
+        input_size = self.enc_in + self.lag - 1
+
+        self.dec_lstm_input_size = input_size
+
+        self.n_heads = params.n_heads
+        self.d_model = params.d_model
 
         # LSTM: Encoder and Decoder
         self.lstm_enc = nn.LSTM(input_size=self.enc_lstm_input_size,
@@ -114,63 +57,35 @@ class Model(nn.Module):
         self.init_lstm(self.lstm_dec)
 
         # Attention
-        if self.use_attn is not None:
-            if self.use_attn == 'attn':
-                self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=0.1)
-            else:
-                self.attention = AutoCorrelation(mask_flag=False, output_attention=True, agg_mode='full',
-                                                 attention_dropout=0.1)
-            self.L_enc = self.pred_start
-            self.L_dec = 1
-            self.H = self.n_heads
+        self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=0.1)
+        self.L_enc = self.pred_start
+        self.L_dec = 1
+        self.H = self.n_heads
 
-            if self.attention_projection is not None:
-                if self.d_model % self.n_heads != 0:
-                    raise ValueError("d_model must be divisible by n_heads")
-                if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
-                    raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
+        if self.d_model % self.n_heads != 0:
+            raise ValueError("d_model must be divisible by n_heads")
+        if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
+            raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
 
-                self.E_enc = self.d_model // self.n_heads
-                self.E_dec = self.d_model // self.n_heads
-            else:
-                if self.enc_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
-                    raise ValueError("enc_lstm_layers * lstm_hidden_size must be divisible by n_heads")
-                self.E_enc = self.enc_lstm_layers * self.lstm_hidden_size // self.n_heads
+        self.E_enc = self.d_model // self.n_heads
+        self.E_dec = self.d_model // self.n_heads
 
-                if self.dec_lstm_layers * self.lstm_hidden_size % self.n_heads != 0:
-                    raise ValueError("dec_lstm_layers * lstm_hidden_size must be divisible by n_heads")
-                self.E_dec = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
+        self.enc_embedding = DataEmbedding(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model,
+                                           params.embed, params.freq, 0)
+        self.dec_embedding = DataEmbedding(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model,
+                                           params.embed, params.freq, 0)
+        out_size = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
+        self.out_projection = nn.Linear(self.E_dec, out_size)
 
-            out_size = self.E_dec
-            if self.attention_projection is not None:
-                if self.attention_projection == 'ap':
-                    self.enc_embedding = nn.Linear(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model)
-                    self.dec_embedding = nn.Linear(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model)
-                else:
-                    self.enc_embedding = DataEmbedding(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model,
-                                                       params.embed, params.freq, 0)
-                    self.dec_embedding = DataEmbedding(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model,
-                                                       params.embed, params.freq, 0)
-                if not self.dec_hidden_separate:
-                    out_size = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
-                    self.out_projection = nn.Linear(self.E_dec, out_size)
-                else:
-                    self.out_projection = None
-            else:
-                self.out_projection = None
-            if self.use_norm:
-                self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.E_enc])
-                self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
-                self.out_norm = nn.LayerNorm([self.L_dec, self.H, out_size])
+        self.enc_norm = nn.LayerNorm([self.L_enc, self.H, self.E_enc])
+        self.dec_norm = nn.LayerNorm([self.L_dec, self.H, self.E_dec])
+        self.out_norm = nn.LayerNorm([self.L_dec, self.H, out_size])
 
         # YJQM
-        if self.attention_projection is not None and self.dec_hidden_separate:
-            self.qsqm_input_size = self.d_model
-        else:
-            self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
-        self.pre_lamda = nn.Linear(self.qsqm_input_size, 1)
-        self.pre_mu = nn.Linear(self.qsqm_input_size, 1)
-        self.pre_sigma = nn.Linear(self.qsqm_input_size, 1)
+        self.yjqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
+        self.pre_lamda = nn.Linear(self.yjqm_input_size, 1)
+        self.pre_mu = nn.Linear(self.yjqm_input_size, 1)
+        self.pre_sigma = nn.Linear(self.yjqm_input_size, 1)
 
         self.lamda = nn.LeakyReLU(negative_slope=0.5)  # TODO
 
@@ -182,28 +97,6 @@ class Model(nn.Module):
         self.new_index = None
         self.lag_index = None
         self.cov_index = None
-
-    def get_input_size(self, feature, enc):
-        if enc:
-            if feature == 'A':
-                return self.enc_in + self.lag
-            elif feature == 'C':
-                return self.enc_in - 1
-            elif feature == 'L':
-                return self.lag
-            elif feature == 'H':
-                return self.lag + 1
-            else:
-                raise ValueError("enc_feature must be 'A', 'C', 'L', or 'H'")
-        else:
-            if feature == 'A':
-                return self.enc_in + self.lag - 1
-            elif feature == 'C':
-                return self.enc_in - 1
-            elif feature == 'L':
-                return self.lag
-            else:
-                raise ValueError("dec_feature must be 'A', 'C', or 'L'")
 
     @staticmethod
     def init_lstm(lstm):
@@ -238,28 +131,10 @@ class Model(nn.Module):
         batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
 
         # s = seq_len
-        if self.enc_feature == 'A':
-            enc_in = batch[:, :self.pred_start, :]
-        elif self.enc_feature == 'C':
-            enc_in = batch[:, :self.pred_start, self.cov_index]
-        elif self.enc_feature == 'L':
-            enc_in = batch[:, :self.pred_start, self.lag_index]
-        elif self.enc_feature == 'H':
-            _index = self.lag_index.copy()
-            _index.append(-1)
-            enc_in = batch[:, :self.pred_start, _index]
-        else:
-            raise ValueError("enc_feature must be 'A', 'C', or 'L'")
+        enc_in = batch[:, :self.pred_start, :]
 
         # s = label_len + pred_len
-        if self.dec_feature == 'A':
-            dec_in = batch[:, -self.pred_steps:, :-1]
-        elif self.dec_feature == 'C':
-            dec_in = batch[:, -self.pred_steps:, self.cov_index]
-        elif self.dec_feature == 'L':
-            dec_in = batch[:, -self.pred_steps:, self.lag_index]
-        else:
-            raise ValueError("dec_feature must be 'A', 'C', or 'L'")
+        dec_in = batch[:, -self.pred_steps:, :-1]
         labels = batch[:, -self.pred_steps:, -1]
 
         return enc_in, dec_in, labels
@@ -282,52 +157,31 @@ class Model(nn.Module):
 
     # noinspection DuplicatedCode
     def run_lstm_enc(self, x, hidden, cell):
-        if self.use_cnn:
-            x = self.cnn_enc(x)  # [96, 256, 5]
-
         _, (hidden, cell) = self.lstm_enc(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell
 
     # noinspection DuplicatedCode
     def run_lstm_dec(self, x, x_mark_dec_step, hidden, cell, enc_hidden_attn):
-        if self.use_cnn:
-            x = self.cnn_dec(x)  # [96, 256, 5]
-
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
 
-        if self.use_attn is not None:
-            if self.attention_projection is not None:
-                dec_hidden_attn = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
-                if self.attention_projection == 'ap1':
-                    dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
-                else:
-                    dec_hidden_attn = self.dec_embedding(dec_hidden_attn)
-            else:
-                dec_hidden_attn = hidden.clone()
+        dec_hidden_attn = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
+        dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
+        dec_hidden_attn = dec_hidden_attn.view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 2, 20]
 
-            dec_hidden_attn = dec_hidden_attn.view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 2, 20]
+        enc_hidden_attn = self.enc_norm(enc_hidden_attn)
+        dec_hidden_attn = self.dec_norm(dec_hidden_attn)
 
-            if self.use_norm:
-                enc_hidden_attn = self.enc_norm(enc_hidden_attn)
-                dec_hidden_attn = self.dec_norm(dec_hidden_attn)
+        y, attn = self.attention(dec_hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
 
-            y, attn = self.attention(dec_hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
+        if self.out_projection is not None:
+            y = self.out_projection(y)
 
-            if self.out_projection is not None:
-                y = self.out_projection(y)
+        y = self.out_norm(y)
 
-            if self.use_norm:
-                y = self.out_norm(y)
+        y = y.view(self.dec_lstm_layers, self.batch_size, -1)
 
-            y = y.view(self.dec_lstm_layers, self.batch_size, -1)
-
-            if self.dec_hidden_separate:
-                return y, hidden, cell, attn
-            else:
-                return y, y, cell, attn
-        else:
-            return hidden, hidden, cell, None
+        return y, y, cell, attn
 
     @staticmethod
     def get_hidden_permute(hidden):
@@ -383,46 +237,18 @@ class Model(nn.Module):
             enc_cell[t] = cell
 
         # only select the last hidden state
-        if self.use_attn:
-            if self.dec_hidden_difference1:
-                enc_hidden_1_n = enc_hidden  # [96, 1, 256, 40]
-                enc_hidden_0_1n = torch.concat(
-                    (torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
-                     enc_hidden[:-1]), dim=0)
-                enc_hidden = enc_hidden_1_n - enc_hidden_0_1n  # [96, 1, 256, 40]
-                cell_hidden_1_n = enc_cell  # [96, 1, 256, 40]
-                cell_hidden_0_1n = torch.concat(
-                    (torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
-                     enc_cell[:-1]), dim=0)
-                enc_cell = cell_hidden_1_n - cell_hidden_0_1n  # [96, 1, 256, 40]
+        # embedding encoder
+        enc_hidden = enc_hidden.view(self.batch_size, self.pred_start,
+                                     self.enc_lstm_layers * self.lstm_hidden_size)
+        enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
+        enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
-            # embedding encoder
-            if self.attention_projection is not None:
-                enc_hidden = enc_hidden.view(self.batch_size, self.pred_start,
-                                             self.enc_lstm_layers * self.lstm_hidden_size)
-                if self.attention_projection == 'ap1':
-                    enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
-                else:
-                    enc_hidden = self.enc_embedding(enc_hidden)
-                enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
-            else:
-                enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
-
-            if self.dec_hidden_zero:
-                dec_hidden = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
-                dec_cell = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
-            else:
-                dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
-                dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
-        else:
-            enc_hidden_attn = None
-
-            dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
-            dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
+        dec_hidden = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
+        dec_cell = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps, self.qsqm_input_size, device=device)
+            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps, self.yjqm_input_size, device=device)
 
             # initialize hidden and cell
             hidden, cell = dec_hidden.clone(), dec_cell.clone()
@@ -515,11 +341,8 @@ class Model(nn.Module):
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
             # get attention map using integral to calculate the pred value
-            if self.use_attn:
-                attention_map = torch.zeros(self.pred_steps, self.batch_size, self.H, self.L_dec, self.L_enc,
-                                            device=device)
-            else:
-                attention_map = None
+            attention_map = torch.zeros(self.pred_steps, self.batch_size, self.H, self.L_dec, self.L_enc,
+                                        device=device)
 
             # clone test batch
             x_dec_clone = x_dec.clone()  # [16, 256, 7]
@@ -535,8 +358,7 @@ class Model(nn.Module):
                 x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
                 hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                     hidden, cell, enc_hidden_attn)
-                if self.use_attn:
-                    attention_map[t] = attn
+                attention_map[t] = attn
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)
 
