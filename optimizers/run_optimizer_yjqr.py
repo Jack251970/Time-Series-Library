@@ -55,7 +55,7 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -164,15 +164,34 @@ def get_search_space():
         'sample_times': {'_type': 'single', '_value': 99}
     }
 
+    qsqf_config = {
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'scaler': {'_type': 'single', '_value': 'BoxCox'},
+        'reindex': {'_type': 'single', '_value': 0},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        'train_epochs': {'_type': 'single', '_value': 50},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99},
+
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
+    }
+
     model_configs = {
         'LSTM-ED-YJQR': lstm_ed_yjqr_config,
-        'LSTM-YJQR': lstm_yjqr_config
+        'LSTM-YJQR': lstm_yjqr_config,
+        'QSQF-C': qsqf_config
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR', 'LSTM-ED-YJQR'],
+h = HyperParameterOptimizer(script_mode=False, models=['QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr.csv', scan_all_csv=False,
                             try_model=False, force_exp=True)
