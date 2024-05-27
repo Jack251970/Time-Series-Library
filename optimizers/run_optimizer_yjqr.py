@@ -152,6 +152,9 @@ def get_search_space():
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
 
+        'scaler': {'_type': 'single', '_value': 'BoxCox'},
+        'reindex': {'_type': 'single', '_value': 0},
+
         'learning_rate': {'_type': 'single', '_value': 0.001},
         # 'train_epochs': {'_type': 'single', '_value': 20},
         'train_epochs': {'_type': 'single', '_value': 50},
