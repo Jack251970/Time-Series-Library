@@ -14,8 +14,8 @@ class Model(nn.Module):
         self.task_name = params.task_name
         input_size = params.enc_in + params.lag - 1  # take lag into account
         self.lstm_input_size = input_size
-        self.lstm_hidden_dim = 40
-        self.lstm_layers = 2
+        self.lstm_hidden_dim = params.lstm_hidden_size
+        self.lstm_layers = params.lstm_layers
         self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline

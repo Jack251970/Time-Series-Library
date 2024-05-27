@@ -6,7 +6,7 @@ from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
                     Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
                     FreTS)
-from models.quantile_function import qsqf_c, rnn_sf, lstm_cq, lstm_ed_cq, lstm_yjqr
+from models.quantile_function import qsqf_c, rnn_sf, lstm_cq, lstm_ed_cq, lstm_yjqr, lstm_ed_yjqr
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 
@@ -59,7 +59,8 @@ class Exp_Basic(object):
             'RNN-SF': rnn_sf,
             'LSTM-CQ': lstm_cq,
             'LSTM-ED-CQ': lstm_ed_cq,
-            'LSTM-YJQR': lstm_yjqr
+            'LSTM-YJQR': lstm_yjqr,
+            'LSTM-ED-YJQR': lstm_ed_yjqr,
         }
         model = model_dict[self.args.model].Model(self.args).float()
         # use multi gpus if enabled
@@ -109,7 +110,8 @@ class Exp_Basic(object):
             'RNN-SF': lstm_cq.loss_fn,
             'LSTM-CQ': lstm_cq.loss_fn,
             'LSTM-ED-CQ': lstm_cq.loss_fn,
-            'LSTM-YJQR': lstm_yjqr.loss_fn,
+            'LSTM-YJQR': lstm_ed_yjqr.loss_fn,
+            'LSTM-ED-YJQR': lstm_ed_yjqr.loss_fn,
         }
 
         loss = self.args.loss

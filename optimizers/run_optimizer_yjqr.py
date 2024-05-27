@@ -68,8 +68,10 @@ def get_search_space():
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': '../dataset/'},
 
+        'data_path': {'_type': 'single', '_value': 'wind/Zone1/Zone1.csv'},
+
         # 1
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -107,7 +109,7 @@ def get_search_space():
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
-    lstm_yjqr_config = {
+    lstm_ed_yjqr_config = {
         # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
@@ -117,7 +119,7 @@ def get_search_space():
         'reindex': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        'train_epochs': {'_type': 'single', '_value': 50},
+        'train_epochs': {'_type': 'choice', '_value': [5, 10, 15, 20, 25]},
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
@@ -144,7 +146,26 @@ def get_search_space():
         # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
+    lstm_yjqr_config = {
+        # model
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        # 'train_epochs': {'_type': 'single', '_value': 20},
+        'train_epochs': {'_type': 'single', '_value': 50},
+        # 'train_epochs': {'_type': 'choice', '_value': [20, 50]},
+
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99}
+    }
+
     model_configs = {
+        'LSTM-ED-YJQR': lstm_ed_yjqr_config,
         'LSTM-YJQR': lstm_yjqr_config
     }
 
