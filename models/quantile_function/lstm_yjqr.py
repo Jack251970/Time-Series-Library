@@ -51,6 +51,7 @@ class Model(nn.Module):
 
         self.mu = nn.Sigmoid()
 
+        self.sigma = nn.Sigmoid()
         # self.sigma = nn.ReLU()
 
         # Reindex
@@ -102,7 +103,7 @@ class Model(nn.Module):
         mu = self.mu(pre_mu)
 
         pre_sigma = self.pre_sigma(hidden_permute)
-        sigma = pre_sigma
+        sigma = self.sigma(pre_sigma)
 
         return lamda, mu, sigma
 
@@ -238,7 +239,7 @@ class Model(nn.Module):
 
 
 def loss_fn(tuple_param):
-    lamda, mu, log_sigma, labels = tuple_param
+    lamda, mu, sigma, labels = tuple_param
 
     # 计算损失函数
     # lambda,mu,log_sigma,labels=(256,)
@@ -263,8 +264,8 @@ def loss_fn(tuple_param):
 
     # 计算损失
     L1 = batch_size * 0.5 * torch.log(torch.tensor(2 * torch.pi))
-    L2 = batch_size * 0.5 * 2 * log_sigma
-    L3 = 0.5 * torch.exp(log_sigma).pow(-2) * (trans_y - mu).pow(2)
+    L2 = batch_size * 0.5 * 2 * torch.log(sigma)
+    L3 = 0.5 * sigma.pow(-2) * (trans_y - mu).pow(2)
     L4 = (lamda - 1) * torch.sum(torch.sign(labels) * torch.log(torch.abs(labels) + 1))
     Ln = L1 + L2 + L3 - L4
 
@@ -278,13 +279,11 @@ def sample_yjqr(lamda, mu, sigma, alpha):
 
     if alpha is not None:
         # 如果输入分位数值，则直接计算对应分位数的预测值
-        log_sigma = sigma
-
         normal_dist = torch.distributions.Normal(0, 1)
-        pred_cdf = 10 * normal_dist.icdf(alpha).to(device)  # TODO 参数10可以调整
+        pred_cdf = normal_dist.icdf(alpha).to(device)  # TODO 参数10可以调整
 
         # pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
-        y_deal = (mu + torch.exp(log_sigma) * pred_cdf)  # TODO log_sigma太大了，导致y_deal失控，y_deal应该在0-1之间
+        y_deal = (mu + sigma * pred_cdf)  # TODO log_sigma太大了，导致y_deal失控，y_deal应该在0-1之间
         pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
 
         # pred=(256,)
