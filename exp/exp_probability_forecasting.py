@@ -370,7 +370,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     attention_flag = False
 
-                pred = sample_mu[:, :, -1].transpose(0, 1).squeeze()
+                pred = sample_mu[:, :, -1].transpose(0, 1)
                 pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
                 high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
                 high_value[:, :, i * batch_size: (i + 1) * batch_size] = high
@@ -386,7 +386,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 metrics = update_metrics(metrics, samples, labels, pred_length)
                 labels = labels.unsqueeze(-1)  # [256, 96, 1]
 
-                true = batch_y[:, -pred_length:, -1].transpose(0, 1).squeeze()
+                true = batch_y[:, -pred_length:, -1].transpose(0, 1)
                 true_value[:, i * batch_size: (i + 1) * batch_size] = true
 
                 f_dim = -1 if self.args.features == 'MS' else 0
