@@ -193,8 +193,8 @@ class Model(nn.Module):
                     else:
                         # pred alpha is a uniform distribution
                         uniform = torch.distributions.uniform.Uniform(
-                            torch.tensor([0.0], device=device),
-                            torch.tensor([1.0], device=device))
+                            torch.tensor([0.0001], device=device),
+                            torch.tensor([0.9999], device=device))
                         pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
                     pred = sample_yjqr(lamda, mu, sigma, pred_alpha)
@@ -280,9 +280,9 @@ def sample_yjqr(lamda, mu, sigma, alpha):
         # 如果输入分位数值，则直接计算对应分位数的预测值
         log_sigma = sigma
 
-        from scipy.stats import norm
-        alpha_new = 10 * norm.ppf(alpha.cpu())  # TODO 参数10可以调整
-        pred_cdf = torch.from_numpy(alpha_new).to(device)
+        normal_dist = torch.distributions.Normal(0, 1)
+        pred_cdf = 10 * normal_dist.icdf(alpha).to(device)  # TODO 参数10可以调整
+
         # pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
         y_deal = (mu + torch.exp(log_sigma) * pred_cdf)  # TODO log_sigma太大了，导致y_deal失控，y_deal应该在0-1之间
         pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
