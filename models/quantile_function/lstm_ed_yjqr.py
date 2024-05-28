@@ -319,8 +319,8 @@ class Model(nn.Module):
                     else:
                         # pred alpha is a uniform distribution
                         uniform = torch.distributions.uniform.Uniform(
-                            torch.tensor([0.0], device=device),
-                            torch.tensor([1.0], device=device))
+                            torch.tensor([0.0001], device=device),
+                            torch.tensor([0.9999], device=device))
                         pred_alpha = uniform.sample(torch.Size([self.batch_size]))  # [256, 1]
 
                     pred = sample_yjqr(lamda, mu, sigma, pred_alpha)
