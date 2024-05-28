@@ -152,6 +152,8 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             else:
                 self.model.load_state_dict(torch.load(best_model_path))
 
+        if stop_epochs == 0:
+            stop_epochs = self.args.train_epochs
         return stop_epochs
 
     def vali(self, train_loader, vali_loader, criterion):

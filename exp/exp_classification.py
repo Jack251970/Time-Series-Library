@@ -146,6 +146,8 @@ class Exp_Classification(Exp_Basic):
 
         self.print_content("", True)
 
+        if stop_epochs == 0:
+            stop_epochs = self.args.train_epochs
         return stop_epochs
 
     def vali(self, vali_data, vali_loader, criterion):
