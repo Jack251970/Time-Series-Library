@@ -191,7 +191,7 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['QSQF-C'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr.csv', scan_all_csv=False,
                             try_model=False, force_exp=True)

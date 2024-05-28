@@ -7,12 +7,11 @@ from models.quantile_function.lstm_yjqr import sample_yjqr
 
 
 class Model(nn.Module):
-    def __init__(self, params, algorithm_type="1+2"):
+    def __init__(self, params):
         """
         LSTM-ED-YJQR
         """
         super(Model, self).__init__()
-        self.algorithm_type = algorithm_type
         self.task_name = params.task_name
         self.batch_size = params.batch_size
         self.lstm_hidden_size = params.lstm_hidden_size
