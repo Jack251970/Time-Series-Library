@@ -107,7 +107,7 @@ class Model(nn.Module):
         return lamda, mu, sigma
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, train_batch, labels_batch=None, sample=False,
+    def probability_forecast(self, train_batch, labels_batch=None, sample=True,
                              probability_range=None):  # [256, 112, 7], [256, 112,]
         if probability_range is None:
             probability_range = [0.5]
@@ -253,7 +253,6 @@ def loss_fn(tuple_param):
     mask_lamda_ne_2 = (lamda != 2)
 
     # 计算 trans_y
-    k = mask_y_ge_0 & mask_lamda_ne_0
     trans_y[mask_y_ge_0 & mask_lamda_ne_0] = ((y[mask_y_ge_0 & mask_lamda_ne_0] + 1).pow(
         lamda[mask_y_ge_0 & mask_lamda_ne_0]) - 1) / lamda[mask_y_ge_0 & mask_lamda_ne_0]
     trans_y[mask_y_ge_0 & ~mask_lamda_ne_0] = torch.log(y[mask_y_ge_0 & ~mask_lamda_ne_0] + 1)
@@ -262,14 +261,15 @@ def loss_fn(tuple_param):
                                                      2 - lamda[mask_y_lt_0 & mask_lamda_ne_2])
     trans_y[mask_y_lt_0 & ~mask_lamda_ne_2] = -torch.log(1 - y[mask_y_lt_0 & ~mask_lamda_ne_2])
 
+    # 计算损失
     L1 = batch_size * 0.5 * torch.log(torch.tensor(2 * torch.pi))
     L2 = batch_size * 0.5 * 2 * log_sigma
     L3 = 0.5 * torch.exp(log_sigma).pow(-2) * (trans_y - mu).pow(2)
     L4 = (lamda - 1) * torch.sum(torch.sign(labels) * torch.log(torch.abs(labels) + 1))
-    Ln = L4 - L1 - L2 - L3
+    Ln = L1 + L2 + L3 - L4
 
-    loss = -torch.mean(Ln)
     # loss=() 为一个数
+    loss = torch.mean(Ln)
     return loss
 
 
@@ -291,19 +291,7 @@ def sample_yjqr(lamda, mu, sigma, alpha):
         return pred
     else:
         # 如果未输入分位数值，则从积分值获取预测值的平均
-        # lamda=(256,).mu=(256,),sigma=(256,)
-        log_sigma = sigma
-        batch_size = lamda.shape[0]
-
-        uniform = torch.distributions.uniform.Uniform(
-            torch.tensor([0.0], device=device),
-            torch.tensor([30], device=device))
-        pred_cdf = uniform.sample([batch_size]) - 15
-        y_deal = (mu + torch.exp(log_sigma) * pred_cdf)
-
-        mean_pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
-        # mena_pred=(256,)
-        return mean_pred
+        raise NotImplementedError
 
 
 def pred_output(y_deal, lamda, mu):

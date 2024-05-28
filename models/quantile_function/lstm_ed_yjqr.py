@@ -203,7 +203,7 @@ class Model(nn.Module):
         return lamda, mu, sigma
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False,
+    def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=True,
                              probability_range=None):
         # [256, 96, 4], [256, 12, 7], [256, 12,]
         if probability_range is None:
