@@ -55,7 +55,7 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 1},
+        'is_training': {'_type': 'single', '_value': 0},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -161,7 +161,10 @@ def get_search_space():
         'lstm_layers': {'_type': 'single', '_value': 2},
 
         'num_spline': {'_type': 'single', '_value': 20},
-        'sample_times': {'_type': 'single', '_value': 99}
+        'sample_times': {'_type': 'single', '_value': 99},
+
+        # 'custom_param': {'_type': 'single', '_value': 'use_sigma_sigmoid'},
+        # 'custom_param': {'_type': 'single', '_value': 'use_sigma_sigmoid_without_×10'},
     }
 
     qsqf_config = {
@@ -191,7 +194,7 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-YJQR'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr.csv', scan_all_csv=False,
                             try_model=False, force_exp=True)

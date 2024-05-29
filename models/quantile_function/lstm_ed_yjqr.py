@@ -90,6 +90,7 @@ class Model(nn.Module):
 
         self.mu = nn.Sigmoid()
 
+        self.sigma = nn.Sigmoid()
         # self.sigma = nn.ReLU()
 
         # Reindex
@@ -198,7 +199,7 @@ class Model(nn.Module):
         mu = self.mu(pre_mu)
 
         pre_sigma = self.pre_sigma(hidden_permute)
-        sigma = pre_sigma
+        sigma = self.sigma(pre_sigma)
 
         return lamda, mu, sigma
 
@@ -361,8 +362,9 @@ class Model(nn.Module):
                 hidden_permute = self.get_hidden_permute(hidden_yjqm)
                 lamda, mu, sigma = self.get_yjqm_parameter(hidden_permute)
 
-                pred = sample_yjqr(lamda, mu, sigma, None)
-                samples_mu1[:, t, 0] = pred
+                if not sample:
+                    pred = sample_yjqr(lamda, mu, sigma, None)
+                    samples_mu1[:, t, 0] = pred
 
                 if t >= label_len:
                     for lag in range(self.lag):
