@@ -68,10 +68,10 @@ def get_search_space():
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': '../dataset/'},
 
-        'data_path': {'_type': 'single', '_value': 'wind/Zone1/Zone1.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'wind/Zone1/Zone1.csv'},
 
         # 1
-        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -153,8 +153,8 @@ def get_search_space():
         'reindex': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        # 'train_epochs': {'_type': 'single', '_value': 20},
         'train_epochs': {'_type': 'single', '_value': 30},
+        # 'train_epochs': {'_type': 'single', '_value': 30},
         # 'train_epochs': {'_type': 'choice', '_value': [20, 50]},
 
         'lstm_hidden_size': {'_type': 'single', '_value': 40},
@@ -162,9 +162,6 @@ def get_search_space():
 
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
-
-        # 'custom_param': {'_type': 'single', '_value': 'use_sigma_sigmoid'},
-        # 'custom_param': {'_type': 'single', '_value': 'use_sigma_sigmoid_without_×10'},
     }
 
     qsqf_config = {
@@ -194,7 +191,7 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-YJQR'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr.csv', scan_all_csv=False,
                             try_model=False, force_exp=True)

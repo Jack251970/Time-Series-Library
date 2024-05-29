@@ -51,7 +51,8 @@ class Model(nn.Module):
 
         self.mu = nn.Sigmoid()
 
-        self.sigma = nn.Sigmoid()
+        self.sigma = nn.Softplus()
+        # self.sigma = nn.Sigmoid()
         # self.sigma = nn.ReLU()
 
         # Reindex
@@ -280,10 +281,10 @@ def sample_yjqr(lamda, mu, sigma, alpha):
     if alpha is not None:
         # 如果输入分位数值，则直接计算对应分位数的预测值
         normal_dist = torch.distributions.Normal(0, 1)
-        pred_cdf = normal_dist.icdf(alpha).to(device)  # TODO 参数10可以调整
+        pred_cdf = normal_dist.icdf(alpha).to(device)  # TODO: 增加一个放大因子
 
         # pred_cdf = alpha_new * torch.ones(lamda.shape[0], device=device)
-        y_deal = (mu + sigma * pred_cdf)  # TODO log_sigma太大了，导致y_deal失控，y_deal应该在0-1之间
+        y_deal = (mu + sigma * pred_cdf)
         pred = pred_output(y_deal.squeeze(), lamda.squeeze(), mu.squeeze())
 
         # pred=(256,)

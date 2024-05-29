@@ -90,7 +90,8 @@ class Model(nn.Module):
 
         self.mu = nn.Sigmoid()
 
-        self.sigma = nn.Sigmoid()
+        self.sigma = nn.Softplus()
+        # self.sigma = nn.Sigmoid()
         # self.sigma = nn.ReLU()
 
         # Reindex
@@ -366,10 +367,10 @@ class Model(nn.Module):
                     pred = sample_yjqr(lamda, mu, sigma, None)
                     samples_mu1[:, t, 0] = pred
 
-                if t >= label_len:
-                    for lag in range(self.lag):
-                        if t < self.pred_steps - lag - 1:
-                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
+                    if t >= label_len:
+                        for lag in range(self.lag):
+                            if t < self.pred_steps - lag - 1:
+                                x_dec_clone[t + 1, :, self.lag_index[0]] = pred
 
             if not sample:
                 # use integral to calculate the mean
