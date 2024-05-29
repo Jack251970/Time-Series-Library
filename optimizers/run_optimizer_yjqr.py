@@ -55,7 +55,7 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
