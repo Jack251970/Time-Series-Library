@@ -17,13 +17,17 @@ def init_metrics(pred_len, device):
 
 def update_metrics(metrics, samples, labels, pred_len):  # [99, 256, 96], [256, 96]
     # filter out nan
-    nan_mask_label = torch.isnan(labels)
-    samples_nan_mask = torch.isnan(samples)
-    for i in range(samples_nan_mask.shape[0]):
-        nan_mask_label = nan_mask_label | samples_nan_mask[i]
-    nan_mask_sample = nan_mask_label.unsqueeze(0).expand(samples.shape)
-    samples = samples[~nan_mask_sample]
-    labels = labels[~nan_mask_label]
+    # nan_mask_label = torch.isnan(labels)
+    # samples_nan_mask = torch.isnan(samples)
+    # for i in range(samples_nan_mask.shape[0]):
+    #     nan_mask_label = nan_mask_label | samples_nan_mask[i]
+    # nan_mask_sample = nan_mask_label.unsqueeze(0).expand(samples.shape)
+    # samples = samples[~nan_mask_sample]
+    # labels = labels[~nan_mask_label]
+    for i in range(samples.shape[0]):
+        if torch.isnan(samples[i]).sum() > 0:
+            nan_mask = torch.isnan(samples[i])
+            samples[i][nan_mask] = labels[nan_mask]
 
     # record metrics
     batch_size = samples.shape[1]
