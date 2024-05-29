@@ -15,14 +15,24 @@ def init_metrics(pred_len, device):
     return metrics
 
 
-def update_metrics(metrics, samples, labels, pred_len):
-    df = labels[:, -pred_len:]
+def update_metrics(metrics, samples, labels, pred_len):  # [99, 256, 96], [256, 96]
+    # filter out nan
+    nan_mask_label = torch.isnan(labels)
+    samples_nan_mask = torch.isnan(samples)
+    for i in range(samples_nan_mask.shape[0]):
+        nan_mask_label = nan_mask_label | samples_nan_mask[i]
+    nan_mask_sample = nan_mask_label.unsqueeze(0).expand(samples.shape)
+    samples = samples[~nan_mask_sample]
+    labels = labels[~nan_mask_label]
+
+    # record metrics
     batch_size = samples.shape[1]
     metrics['num'] = metrics['num'] + batch_size
-    metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, df)
+    metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, labels)
     for i in range(pred_len):
-        metrics[f'CRPS_{i}'] = metrics[f'CRPS_{i}'] + accuracy_CRPS(samples[:, :, i].unsqueeze(-1), df[:, i].unsqueeze(-1))
-    metrics['mre'] = metrics['mre'] + accuracy_MRE(samples, df)
+        metrics[f'CRPS_{i}'] = metrics[f'CRPS_{i}'] + accuracy_CRPS(samples[:, :, i].unsqueeze(-1),
+                                                                    labels[:, i].unsqueeze(-1))
+    metrics['mre'] = metrics['mre'] + accuracy_MRE(samples, labels)
     metrics['pinaw'] = metrics['pinaw'] + accuracy_PINAW(samples)
     for i in range(pred_len):
         metrics[f'pinaw_{i}'] = metrics[f'pinaw_{i}'] + accuracy_PINAW(samples[:, :, i].unsqueeze(-1))
