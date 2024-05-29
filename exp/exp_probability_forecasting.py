@@ -364,7 +364,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 samples = samples[:, :, -pred_length:]
                 sample_mu = sample_mu[:, -pred_length:, :]
-                sample_std = sample_std[:, -pred_length:, :]
+                # sample_std = sample_std[:, -pred_length:, :]
                 samples_high = samples_high[:, :, -pred_length:]
                 samples_low = samples_low[:, :, -pred_length:]
                 if attention_map is not None and attention_flag:
