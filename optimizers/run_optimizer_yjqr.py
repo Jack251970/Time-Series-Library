@@ -55,7 +55,7 @@ def link_fieldnames_data(_config):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 1},
+        'is_training': {'_type': 'single', '_value': 0},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -68,10 +68,10 @@ def get_search_space():
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': '../dataset/'},
 
-        # 'data_path': {'_type': 'single', '_value': 'wind/Zone1/Zone1.csv'},
+        'data_path': {'_type': 'single', '_value': 'wind/Zone1/Zone1.csv'},
 
         # 1
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
 
@@ -191,9 +191,9 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-YJQR'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-YJQR', 'LSTM-YJQR', 'QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr.csv', scan_all_csv=False,
+h.config_optimizer_settings(root_path='..', data_csv_file='data_yjqr1.csv', scan_all_csv=False,
                             try_model=False, force_exp=True)
 
 if __name__ == '__main__':
