@@ -12,11 +12,11 @@ def CORR(pred, true):
 
 
 def MAE(pred, true):
-    return np.mean(np.abs(pred - true))
+    return np.nanmean(np.abs(pred - true))
 
 
 def MSE(pred, true):
-    return np.mean((pred - true) ** 2)
+    return np.nanmean((pred - true) ** 2)
 
 
 def RMSE(pred, true):
@@ -24,11 +24,11 @@ def RMSE(pred, true):
 
 
 def MAPE(pred, true):
-    return np.mean(np.abs((pred - true) / true))
+    return np.nanmean(np.abs((pred - true) / true))
 
 
 def MSPE(pred, true):
-    return np.mean(np.square((pred - true) / true))
+    return np.nanmean(np.square((pred - true) / true))
 
 
 def metric(pred, true):
