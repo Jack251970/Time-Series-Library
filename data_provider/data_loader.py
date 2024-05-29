@@ -47,7 +47,7 @@ class Dataset_ETT_hour(Dataset):
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
             elif scaler == 'BoxCox':
-                self.scaler = PowerTransformer(method='yeo-johnson', standardize=False)  # box-cox transformation
+                self.scaler = PowerTransformer(method='yeo-johnson')  # box-cox transformation
             else:
                 raise NotImplementedError
         else:
@@ -161,7 +161,7 @@ class Dataset_ETT_minute(Dataset):
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
             elif scaler == 'BoxCox':
-                self.scaler = PowerTransformer(method='yeo-johnson', standardize=False)  # box-cox transformation
+                self.scaler = PowerTransformer(method='yeo-johnson')  # box-cox transformation
             else:
                 raise NotImplementedError
         else:
@@ -279,7 +279,7 @@ class Dataset_Custom(Dataset):
             elif scaler == 'MaxAbsScaler':
                 self.scaler = MaxAbsScaler()  # normalize to [-1, 1]
             elif scaler == 'BoxCox':
-                self.scaler = PowerTransformer(method='yeo-johnson', standardize=False)  # box-cox transformation
+                self.scaler = PowerTransformer(method='yeo-johnson')  # box-cox transformation
             else:
                 raise NotImplementedError
         else:
