@@ -10,7 +10,7 @@ from tqdm import tqdm
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
 from utils.pf_utils import init_metrics, update_metrics, final_metrics
-from utils.tools import EarlyStopping, adjust_learning_rate, draw_figure, draw_attention_map
+from utils.tools import EarlyStopping, adjust_learning_rate, draw_figure, draw_attention_map, draw_density_figure
 
 warnings.filterwarnings('ignore')
 
@@ -322,6 +322,16 @@ class Exp_Probability_Forecast(Exp_Basic):
         high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
         low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
 
+        # sample value on certain time steps
+        samples_number = 4
+        samples_index = []
+        for i in range(samples_number):
+            samples_index.append(i * pred_length // samples_number)
+        if samples_index[-1] != pred_length-1:
+            samples_index.append(pred_length-1)
+            samples_number += 1
+        samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
+
         attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
                           .to(self.device))
         attention_flag = True
@@ -372,6 +382,9 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     attention_flag = False
 
+                pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
+                pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
+                samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
                 pred = sample_mu[:, :, -1].transpose(0, 1)
                 pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
                 high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
@@ -480,24 +493,31 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             # pred value, true value & probability range
             # move to cpu and covert to numpy for plotting
+            samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
             pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
             true_value = true_value.detach().cpu().numpy()  # [16, 15616]
             high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
             low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
 
             # save results in npy
+            # np.save(folder_path + 'samples_value.npy', samples_value)
             np.save(folder_path + 'pred_value.npy', pred_value)
             np.save(folder_path + 'true_value.npy', true_value)
             np.save(folder_path + 'high_value.npy', high_value)
             np.save(folder_path + 'low_value.npy', low_value)
 
             # integrate different probability range data
+            samples_value = samples_value.reshape(-1)  # [99 * 5 * 15616]
             pred_value = pred_value.reshape(-1)  # [16 * 15616]
             true_value = true_value.reshape(-1)  # [16 * 15616]
             high_value = high_value.reshape(-1)  # [16 * 46848]
             low_value = low_value.reshape(-1)  # [16 * 46848]
 
             # convert to shape: (sample, feature) for inverse transform
+            new_shape = (self.args.sample_times * samples_number * data_length, self.args.enc_in)
+            _ = np.zeros(new_shape)
+            _[:, -1] = samples_value
+            samples_value = _
             new_shape = (pred_length * data_length, self.args.enc_in)
             _ = np.zeros(new_shape)
             _[:, -1] = pred_value
@@ -515,30 +535,44 @@ class Exp_Probability_Forecast(Exp_Basic):
 
             # perform inverse transform
             dataset = test_data
+            samples_value = dataset.inverse_transform(samples_value)
             pred_value = dataset.inverse_transform(pred_value)
             true_value = dataset.inverse_transform(true_value)
             high_value = dataset.inverse_transform(high_value)
             low_value = dataset.inverse_transform(low_value)
 
             # get the original data
+            samples_value = samples_value[:, -1].squeeze()  # [99 * 5 * 15616]
             pred_value = pred_value[:, -1].squeeze()  # [16 * 15616]
             true_value = true_value[:, -1].squeeze()  # [16 * 15616]
             high_value = high_value[:, -1].squeeze()  # [16 * 46848]
             low_value = low_value[:, -1].squeeze()  # [16 * 46848]
 
             # restore different probability range data
+            samples_value = samples_value.reshape(self.args.sample_times, samples_number, data_length)  # [99, 5, 15616]
             pred_value = pred_value.reshape(pred_length, data_length)  # [16, 15616]
             true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
             high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
             low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
 
             # save results in npy
+            # np.save(folder_path + 'samples_value_inverse.npy', samples_value)
             np.save(folder_path + 'pred_value_inverse.npy', pred_value)
             np.save(folder_path + 'true_value_inverse.npy', true_value)
             np.save(folder_path + 'high_value_inverse.npy', high_value)
             np.save(folder_path + 'low_value_inverse.npy', low_value)
 
             # draw figures
+            print('drawing probabilistic density figure')
+            for i in tqdm(range(samples_number)):
+                _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
+                if not os.path.exists(_path):
+                    os.makedirs(_path)
+
+                for j in range(data_length):
+                    draw_density_figure(samples_value[:, i, j], true_value[i, j],
+                                        os.path.join(_path, f'prediction {j}.png'))
+
             print('drawing probabilistic figure')
             for i in tqdm(range(pred_length)):
                 _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')

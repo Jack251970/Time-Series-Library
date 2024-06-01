@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import torch
+import seaborn as sns
 
 plt.switch_backend('agg')
 
@@ -114,12 +115,29 @@ def draw_figure(x, pred, true, high, low, pred_range, path, xlim=None, ylim=None
             # plt.plot(high[j, :].squeeze(), label='High Value', color='green')
             # plt.plot(low[j, :].squeeze(), label='Low Value', color='green')
             plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
-                             alpha=1-pred_range[j])
+                             alpha=1 - pred_range[j])
     plt.legend()
     if xlim is not None:
         plt.xlim(xlim[0], xlim[1])
     if ylim is not None:
         plt.ylim(ylim[0], ylim[1])
+    plt.savefig(path)
+
+
+def draw_density_figure(samples, true, path):  # [99], []
+    plt.clf()
+
+    # Plotting the density plot of the samples
+    sns.kdeplot(samples.squeeze(), fill=True, label='Probability Density')
+
+    # Adding a vertical line for the true value
+    plt.axvline(true.squeeze(), color='r', linestyle='--', label='True Value')
+
+    # Adding labels and legend
+    plt.xlabel('Value')
+    plt.ylabel('Density')
+    plt.legend()
+
     plt.savefig(path)
 
 
