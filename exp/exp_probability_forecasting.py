@@ -323,13 +323,8 @@ class Exp_Probability_Forecast(Exp_Basic):
         low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
 
         # sample value on certain time steps
-        samples_number = 4
-        samples_index = []
-        for i in range(samples_number):
-            samples_index.append(i * pred_length // samples_number)
-        if samples_index[-1] != pred_length-1:
-            samples_index.append(pred_length-1)
-            samples_number += 1
+        samples_index = [15, 31, 63, 95]
+        samples_number = len(samples_index)
         samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
 
         attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
