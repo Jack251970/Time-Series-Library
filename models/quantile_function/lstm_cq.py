@@ -264,7 +264,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
+                    pred = sample_pred(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -299,7 +299,7 @@ class Model(nn.Module):
                     hidden_permute = self.get_hidden_permute(hidden)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
-                    pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
+                    pred = sample_pred(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
                     samples_mu[:, t, 0] = pred
 
                     # predict value at t-1 is as a covars for t,t+1,...,t+lag
@@ -431,7 +431,7 @@ def get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
 
 
 # noinspection DuplicatedCode
-def sample_qsqm(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
+def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
     """
     Formula
     2:

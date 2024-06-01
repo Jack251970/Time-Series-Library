@@ -4,7 +4,7 @@ import torch.nn as nn
 from layers.AutoCorrelation import AutoCorrelation
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_cq import ConvLayer, sample_qsqm
+from models.quantile_function.lstm_cq import ConvLayer, sample_pred
 
 
 class Model(nn.Module):
@@ -503,7 +503,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_alpha = uniform.sample(torch.Size([self.batch_size]))  # [256, 1]
 
-                    pred = sample_qsqm(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
+                    pred = sample_pred(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -545,7 +545,7 @@ class Model(nn.Module):
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
-                pred = sample_qsqm(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
+                pred = sample_pred(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
                 samples_mu1[:, t, 0] = pred
 
                 if t >= label_len:

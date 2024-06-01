@@ -175,7 +175,7 @@ h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ', 'QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=False, save_process=False,
                             custom_test_time=[
-                                # LSTM-AQ
+                                # LSTM-ED-CQ
                                 '2024-04-23 10-33-28',  # Electric_16
                                 '2024-04-28 05-04-11',  # Exchange_16
                                 '2024-05-06 23-47-33',  # Electric_32
