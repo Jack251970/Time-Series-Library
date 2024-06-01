@@ -31,6 +31,9 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 862
         _config['dec_in'] = 862
         _config['c_out'] = 862
+
+        # _config['lstm_hidden_size'] = 24
+        # _config['lstm_layers'] = 3
     elif _data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
@@ -82,8 +85,7 @@ def get_search_space():
         #               '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv', 'pvod/station00.csv']},
 
         # 4
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'wind/Zone1/Zone1.csv', 'weather/weather.csv']},
+        'data_path': {'_type': 'choice', '_value': ['traffic/traffic.csv']},
 
         # 6
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
@@ -91,7 +93,7 @@ def get_search_space():
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        #'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
     }
 
     learning_config = {
@@ -102,7 +104,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 64},
+        'pred_len': {'_type': 'single', '_value': 96},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -191,5 +193,5 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_64_2.csv', scan_all_csv=False,
+h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_96_2.csv', scan_all_csv=True,
                             try_model=False, force_exp=False)

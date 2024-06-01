@@ -104,7 +104,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 64},
+        'pred_len': {'_type': 'single', '_value': 16},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -190,5 +190,5 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_64_2.csv', scan_all_csv=True,
+h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_16_2.csv', scan_all_csv=True,
                             try_model=False, force_exp=False)
