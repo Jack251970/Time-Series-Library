@@ -233,7 +233,7 @@ class Model(nn.Module):
             samples_mu1 = torch.zeros(batch_size, self.pred_steps, 1, device=device)
 
             # initialize parameters
-            samples_lambda, samples_gamma, samples_eta_k = self.initialize_sample_parameters(device)
+            samples_lambda, samples_gamma, samples_eta_k = self.initialize_sample_parameters(batch_size, device)
 
             # initialize hidden and cell
             hidden, cell = hidden_init, cell_init
