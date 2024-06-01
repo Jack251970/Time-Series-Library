@@ -286,7 +286,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         return total_loss
 
     def test(self, setting, test=False, check_folder=False,
-             probabilistic_flag=True, sample_flag=False, attention_flag=False, parameter_flag=False):
+             probabilistic_flag=True, sample_flag=True, attention_flag=True, parameter_flag=True):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
