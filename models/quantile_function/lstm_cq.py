@@ -311,7 +311,7 @@ class Model(nn.Module):
                         if t < self.pred_steps - lag - 1:
                             test_batch[self.pred_start + t + 1, :, self.new_index[0]] = pred
 
-            return samples, samples_mu, samples_std, samples_high, samples_low, None
+            return samples, samples_mu, samples_std, samples_high, samples_low, None, None
 
 
 def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type):

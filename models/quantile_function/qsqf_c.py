@@ -107,6 +107,24 @@ class Model(nn.Module):
         return gamma, eta_k
 
     # noinspection DuplicatedCode
+    def initialize_sample_parameters(self, batch_size, device):
+        samples_lambda = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+        if self.algorithm_type == '2':
+            samples_gamma = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+            samples_eta_k = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+        elif self.algorithm_type == '1+2':
+            samples_lambda = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+            samples_gamma = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+            samples_eta_k = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+        elif self.algorithm_type == '1':
+            samples_lambda = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+            samples_gamma = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+            samples_eta_k = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+        else:
+            raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+        return samples_lambda, samples_gamma, samples_eta_k
+
+    # noinspection DuplicatedCode
     def probability_forecast(self, train_batch, labels_batch=None, sample=False,
                              probability_range=None):  # [256, 112, 7], [256, 112,]
         if probability_range is None:
@@ -211,26 +229,37 @@ class Model(nn.Module):
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
 
-            # use integral to calculate the mean
+            # sample
+            samples_mu1 = torch.zeros(batch_size, self.pred_steps, 1, device=device)
+
+            # initialize parameters
+            samples_lambda, samples_gamma, samples_eta_k = self.initialize_sample_parameters(device)
+
+            # initialize hidden and cell
+            hidden, cell = hidden_init, cell_init
+
+            # prediction range
+            test_batch = train_batch
+            for t in range(self.pred_steps):
+                hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
+                hidden_permute = self.get_hidden_permute(hidden)
+                gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
+
+                pred = sample_pred(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
+                samples_lambda[t] = self._lambda
+                samples_gamma[t] = gamma
+                samples_eta_k[t] = eta_k
+                samples_mu1[:, t, 0] = pred
+
+                for lag in range(self.lag):
+                    if t < self.pred_steps - lag - 1:
+                        test_batch[self.pred_start + t + 1, :, self.new_index[0]] = pred
+
             if not sample:
-                # sample
-                samples_mu = torch.zeros(batch_size, self.pred_steps, 1, device=device)
-
-                # initialize hidden and cell
-                hidden, cell = hidden_init, cell_init
-
-                # prediction range
-                test_batch = train_batch
-                for t in range(self.pred_steps):
-                    hidden, cell = self.run_lstm(test_batch[self.pred_start + t].unsqueeze(0), hidden, cell)
-                    hidden_permute = self.get_hidden_permute(hidden)
-                    gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
-
-                    pred = sample_pred(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
-                    samples_mu[:, t, 0] = pred
-
-                    for lag in range(self.lag):
-                        if t < self.pred_steps - lag - 1:
-                            test_batch[self.pred_start + t + 1, :, self.new_index[0]] = pred
-
-            return samples, samples_mu, samples_std, samples_high, samples_low, None
+                # use integral to calculate the mean
+                return (samples, samples_mu1, samples_std, samples_high, samples_low, None,
+                        (samples_lambda, samples_gamma, samples_eta_k))
+            else:
+                # use uniform samples to calculate the mean
+                return (samples, samples_mu, samples_std, samples_high, samples_low, None,
+                        (samples_lambda, samples_gamma, samples_eta_k))

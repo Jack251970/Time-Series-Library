@@ -356,12 +356,31 @@ class Model(nn.Module):
         return gamma, eta_k
 
     # noinspection DuplicatedCode
+    def initialize_sample_parameters(self, batch_size, device):
+        samples_lambda = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+        if self.algorithm_type == '2':
+            samples_gamma = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+            samples_eta_k = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+        elif self.algorithm_type == '1+2':
+            samples_lambda = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+            samples_gamma = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+            samples_eta_k = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+        elif self.algorithm_type == '1':
+            samples_lambda = torch.zeros(self.pred_steps, batch_size, 1, device=device)
+            samples_gamma = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+            samples_eta_k = torch.zeros(self.pred_steps, batch_size, self.num_spline, device=device)
+        else:
+            raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+        return samples_lambda, samples_gamma, samples_eta_k
+
+    # noinspection DuplicatedCode
     def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False,
                              probability_range=None):
         # [256, 96, 4], [256, 12, 7], [256, 12,]
         if probability_range is None:
             probability_range = [0.5]
 
+        batch_size = x_enc.shape[0]  # 256
         device = x_enc.device
 
         assert isinstance(probability_range, list)
@@ -374,14 +393,14 @@ class Model(nn.Module):
             labels = labels.permute(1, 0)  # [12, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size,
+        hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
                              device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        cell = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         # run encoder
-        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size,
+        enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
                                  device=device)  # [96, 1, 256, 40]
-        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, self.batch_size, self.lstm_hidden_size,
+        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
                                device=device)  # [96, 1, 256, 40]
         for t in range(self.pred_start):
             hidden, cell = self.run_lstm_enc(x_enc[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
@@ -393,30 +412,30 @@ class Model(nn.Module):
             if self.dec_hidden_difference1:
                 enc_hidden_1_n = enc_hidden  # [96, 1, 256, 40]
                 enc_hidden_0_1n = torch.concat(
-                    (torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
+                    (torch.zeros(1, 1, batch_size, self.lstm_hidden_size, device=device),
                      enc_hidden[:-1]), dim=0)
                 enc_hidden = enc_hidden_1_n - enc_hidden_0_1n  # [96, 1, 256, 40]
                 cell_hidden_1_n = enc_cell  # [96, 1, 256, 40]
                 cell_hidden_0_1n = torch.concat(
-                    (torch.zeros(1, 1, self.batch_size, self.lstm_hidden_size, device=device),
+                    (torch.zeros(1, 1, batch_size, self.lstm_hidden_size, device=device),
                      enc_cell[:-1]), dim=0)
                 enc_cell = cell_hidden_1_n - cell_hidden_0_1n  # [96, 1, 256, 40]
 
             # embedding encoder
             if self.attention_projection is not None:
-                enc_hidden = enc_hidden.view(self.batch_size, self.pred_start,
+                enc_hidden = enc_hidden.view(batch_size, self.pred_start,
                                              self.enc_lstm_layers * self.lstm_hidden_size)
                 if self.attention_projection == 'ap1':
                     enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
                 else:
                     enc_hidden = self.enc_embedding(enc_hidden)
-                enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
+                enc_hidden_attn = enc_hidden.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
             else:
-                enc_hidden_attn = enc_hidden.view(self.batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
+                enc_hidden_attn = enc_hidden.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
             if self.dec_hidden_zero:
-                dec_hidden = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
-                dec_cell = torch.zeros(self.dec_lstm_layers, self.batch_size, self.lstm_hidden_size, device=device)
+                dec_hidden = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+                dec_cell = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
             else:
                 dec_hidden = enc_hidden[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
                 dec_cell = enc_cell[-1, -self.dec_lstm_layers:, :, :]  # [1, 256, 40]
@@ -428,7 +447,7 @@ class Model(nn.Module):
 
         if labels is not None:
             # train mode or validate mode
-            hidden_permutes = torch.zeros(self.batch_size, self.pred_steps, self.qsqm_input_size, device=device)
+            hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.qsqm_input_size, device=device)
 
             # initialize hidden and cell
             hidden, cell = dec_hidden.clone(), dec_cell.clone()
@@ -466,14 +485,14 @@ class Model(nn.Module):
             # initialize alpha range
             alpha_low = (1 - probability_range) / 2  # [3]
             alpha_high = 1 - (1 - probability_range) / 2  # [3]
-            low_alpha = alpha_low.unsqueeze(0).expand(self.batch_size, -1)  # [256, 3]
-            high_alpha = alpha_high.unsqueeze(0).expand(self.batch_size, -1)  # [256, 3]
+            low_alpha = alpha_low.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
+            high_alpha = alpha_high.unsqueeze(0).expand(batch_size, -1)  # [256, 3]
 
             # initialize samples
-            samples_low = torch.zeros(probability_range_len, self.batch_size, self.pred_steps,
+            samples_low = torch.zeros(probability_range_len, batch_size, self.pred_steps,
                                       device=device)  # [3, 256, 16]
             samples_high = samples_low.clone()  # [3, 256, 16]
-            samples = torch.zeros(self.sample_times, self.batch_size, self.pred_steps, device=device)  # [99, 256, 12]
+            samples = torch.zeros(self.sample_times, batch_size, self.pred_steps, device=device)  # [99, 256, 12]
 
             label_len = self.pred_steps - self.pred_len
 
@@ -501,7 +520,7 @@ class Model(nn.Module):
                         uniform = torch.distributions.uniform.Uniform(
                             torch.tensor([0.0], device=device),
                             torch.tensor([1.0], device=device))
-                        pred_alpha = uniform.sample(torch.Size([self.batch_size]))  # [256, 1]
+                        pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
                     pred = sample_pred(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
                     if j < probability_range_len:
@@ -521,7 +540,7 @@ class Model(nn.Module):
 
             # get attention map using integral to calculate the pred value
             if self.use_attn:
-                attention_map = torch.zeros(self.pred_steps, self.batch_size, self.H, self.L_dec, self.L_enc,
+                attention_map = torch.zeros(self.pred_steps, batch_size, self.H, self.L_dec, self.L_enc,
                                             device=device)
             else:
                 attention_map = None
@@ -530,7 +549,10 @@ class Model(nn.Module):
             x_dec_clone = x_dec.clone()  # [16, 256, 7]
 
             # sample
-            samples_mu1 = torch.zeros(self.batch_size, self.pred_steps, 1, device=device)
+            samples_mu1 = torch.zeros(batch_size, self.pred_steps, 1, device=device)
+
+            # initialize parameters
+            samples_lambda, samples_gamma, samples_eta_k = self.initialize_sample_parameters(batch_size, device)
 
             # initialize hidden and cell
             hidden, cell = dec_hidden.clone(), dec_cell.clone()
@@ -546,6 +568,9 @@ class Model(nn.Module):
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
                 pred = sample_pred(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
+                samples_lambda[t] = self._lambda
+                samples_gamma[t] = gamma
+                samples_eta_k[t] = eta_k
                 samples_mu1[:, t, 0] = pred
 
                 if t >= label_len:
@@ -555,7 +580,9 @@ class Model(nn.Module):
 
             if not sample:
                 # use integral to calculate the mean
-                return samples, samples_mu1, samples_std, samples_high, samples_low, attention_map
+                return (samples, samples_mu1, samples_std, samples_high, samples_low, attention_map,
+                        (samples_lambda, samples_gamma, samples_eta_k))
             else:
                 # use uniform samples to calculate the mean
-                return samples, samples_mu, samples_std, samples_high, samples_low, attention_map
+                return (samples, samples_mu, samples_std, samples_high, samples_low, attention_map,
+                        (samples_lambda, samples_gamma, samples_eta_k))

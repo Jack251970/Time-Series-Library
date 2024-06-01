@@ -374,7 +374,7 @@ class Model(nn.Module):
 
             if not sample:
                 # use integral to calculate the mean
-                return samples, samples_mu1, samples_std, samples_high, samples_low, attention_map
+                return samples, samples_mu1, samples_std, samples_high, samples_low, attention_map, None
             else:
                 # use uniform samples to calculate the mean
-                return samples, samples_mu, samples_std, samples_high, samples_low, attention_map
+                return samples, samples_mu, samples_std, samples_high, samples_low, attention_map, None

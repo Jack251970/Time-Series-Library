@@ -327,9 +327,26 @@ class Exp_Probability_Forecast(Exp_Basic):
         samples_number = len(samples_index)
         samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
 
+        # attention map
         attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
                           .to(self.device))
         attention_flag = True
+
+        # parameters
+        parameter_flag = False
+        samples_lambda = None
+        samples_gamma = None
+        samples_eta_k = None
+        if self.args.model == 'QSQF-C':
+            parameter_flag = True
+            samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
+            samples_gamma = torch.zeros(pred_length, data_length, 1).to(self.device)
+            samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
+        elif self.args.model == 'LSTM-ED-CQ':
+            parameter_flag = True
+            samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
+            samples_gamma = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
+            samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
 
         self.model.eval()
         with (torch.no_grad()):
@@ -364,8 +381,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                         outputs = self.model.predict(batch_x, batch_x_mark, dec_inp, batch_y, batch_y_mark,
                                                      probability_range=probability_range)
 
-                samples, sample_mu, sample_std, samples_high, samples_low, attention_map = outputs
-                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16], [16, 256, 8, 1, 96]
+                samples, sample_mu, sample_std, samples_high, samples_low, attention_map, parameters = outputs
+                # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16], [16, 256, 8, 1, 96], ()
 
                 samples = samples[:, :, -pred_length:]
                 sample_mu = sample_mu[:, -pred_length:, :]
@@ -376,6 +393,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                     attention_map = attention_map[-pred_length:, :, :, :, :]
                 else:
                     attention_flag = False
+                if parameters is not None and parameter_flag:
+                    pass
+                else:
+                    parameter_flag = False
 
                 pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
                 pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
@@ -422,6 +443,11 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 if attention_flag:
                     attention_maps[i] = attention_map
+
+                if parameter_flag:
+                    samples_lambda[:, i * batch_size: (i + 1) * batch_size, :] = parameters[0]
+                    samples_gamma[:, i * batch_size: (i + 1) * batch_size, :] = parameters[1]
+                    samples_eta_k[:, i * batch_size: (i + 1) * batch_size, :] = parameters[2]
 
             summary = final_metrics(metrics, pred_length)
 
@@ -587,14 +613,14 @@ class Exp_Probability_Forecast(Exp_Basic):
                                 probability_range,
                                 os.path.join(_path, f'prediction {j}.png'))
 
+            # attention map
+            # move to cpu and covert to numpy for plotting
+            attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
+
+            # save results in npy
+            np.save(folder_path + 'attention_maps.npy', attention_maps)
+
             if attention_flag:
-                # attention map
-                # move to cpu and covert to numpy for plotting
-                attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
-
-                # save results in npy
-                np.save(folder_path + 'attention_maps.npy', attention_maps)
-
                 # draw attention map
                 print('drawing attention map')
                 for i in tqdm(range(loader_length)):
@@ -627,6 +653,17 @@ class Exp_Probability_Forecast(Exp_Basic):
                         _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, seq_length)
                         # [8, 96, 96]
                         draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
+
+            if parameter_flag:
+                # move to cpu and covert to numpy for plotting
+                samples_lambda = samples_lambda.detach().cpu().numpy()
+                samples_gamma = samples_gamma.detach().cpu().numpy()
+                samples_eta_k = samples_eta_k.detach().cpu().numpy()
+
+                # save results in npy
+                np.save(folder_path + 'samples_lambda.npy', samples_lambda)
+                np.save(folder_path + 'samples_gamma.npy', samples_gamma)
+                np.save(folder_path + 'samples_eta_k.npy', samples_eta_k)
 
         # draw demo data for overall structure
         # draw_demo(0, 19, pred_value, true_value, high_value, low_value, folder_path, probability_range)
