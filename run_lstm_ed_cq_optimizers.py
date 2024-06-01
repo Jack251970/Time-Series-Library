@@ -7,9 +7,6 @@ from optimizers.optimizer_qf_v2_6 import h as h6
 from optimizers.optimizer_qf_v2_7 import h as h7
 from optimizers.optimizer_qf_v2_8 import h as h8
 
-from optimizers.optimizer_transformer import h as hf
-from optimizers.optimizer_qsqf_c import h as hc
-
 process_index = 0
 
 if __name__ == "__main__":
@@ -21,6 +18,3 @@ if __name__ == "__main__":
     # h6.start_search(process_index=process_index)
     # h7.start_search(process_index=process_index)
     # h8.start_search(process_index=process_index)
-
-    # hf.start_search(process_index=process_index)
-    # hc.start_search(process_index=process_index)
