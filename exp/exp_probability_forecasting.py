@@ -285,7 +285,8 @@ class Exp_Probability_Forecast(Exp_Basic):
         self.model.train()
         return total_loss
 
-    def test(self, setting, test=False, check_folder=False):
+    def test(self, setting, test=False, check_folder=False,
+             probabilistic_flag=True, sample_flag=False, attention_flag=False, parameter_flag=False):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
@@ -317,36 +318,63 @@ class Exp_Probability_Forecast(Exp_Basic):
         batch_size = self.args.batch_size
         data_length = len(test_data)
         loader_length = len(test_loader)
-        pred_value = torch.zeros(pred_length, data_length).to(self.device)
-        true_value = torch.zeros(pred_length, data_length).to(self.device)
-        high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
-        low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
+
+        if not test:
+            probabilistic_flag = False
+            sample_flag = False
+            attention_flag = False
+            parameter_flag = False
+
+        # probabilistic forecast
+        if probabilistic_flag:
+            pred_value = torch.zeros(pred_length, data_length).to(self.device)
+            true_value = torch.zeros(pred_length, data_length).to(self.device)
+            high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
+            low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
+        else:
+            pred_value = None
+            true_value = None
+            high_value = None
+            low_value = None
 
         # sample value on certain time steps
-        samples_index = [15, 31, 63, 95]
-        samples_number = len(samples_index)
-        samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
+        if sample_flag:
+            samples_index = [15, 31, 63, 95]
+            samples_number = len(samples_index)
+            samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
+        else:
+            samples_index = None
+            samples_number = None
+            samples_value = None
 
         # attention map
-        attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
-                          .to(self.device))
-        attention_flag = True
+        if attention_flag:
+            attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
+                              .to(self.device))
+        else:
+            attention_maps = None
 
         # parameters
-        parameter_flag = False
-        samples_lambda = None
-        samples_gamma = None
-        samples_eta_k = None
-        if self.args.model == 'QSQF-C':
-            parameter_flag = True
-            samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
-            samples_gamma = torch.zeros(pred_length, data_length, 1).to(self.device)
-            samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
-        elif self.args.model == 'LSTM-ED-CQ':
-            parameter_flag = True
-            samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
-            samples_gamma = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
-            samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
+        if parameter_flag:
+            if self.args.model == 'QSQF-C':
+                parameter_flag = True
+                samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
+                samples_gamma = torch.zeros(pred_length, data_length, 1).to(self.device)
+                samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
+            elif self.args.model == 'LSTM-ED-CQ':
+                parameter_flag = True
+                samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
+                samples_gamma = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
+                samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
+            else:
+                parameter_flag = False
+                samples_lambda = None
+                samples_gamma = None
+                samples_eta_k = None
+        else:
+            samples_lambda = None
+            samples_gamma = None
+            samples_eta_k = None
 
         self.model.eval()
         with (torch.no_grad()):
@@ -389,6 +417,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 # sample_std = sample_std[:, -pred_length:, :]
                 samples_high = samples_high[:, :, -pred_length:]
                 samples_low = samples_low[:, :, -pred_length:]
+
                 if attention_map is not None and attention_flag:
                     attention_map = attention_map[-pred_length:, :, :, :, :]
                 else:
@@ -398,15 +427,19 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     parameter_flag = False
 
-                pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
-                pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
-                samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
-                pred = sample_mu[:, :, -1].transpose(0, 1)
-                pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
-                high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
-                high_value[:, :, i * batch_size: (i + 1) * batch_size] = high
-                low = samples_low.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
-                low_value[:, :, i * batch_size: (i + 1) * batch_size] = low
+                if sample_flag:
+                    pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
+                    pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
+                    samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
+                if probabilistic_flag:
+                    pred = sample_mu[:, :, -1].transpose(0, 1)
+                    pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
+                    high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
+                    high_value[:, :, i * batch_size: (i + 1) * batch_size] = high
+                    low = samples_low.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
+                    low_value[:, :, i * batch_size: (i + 1) * batch_size] = low
+                    true = batch_y[:, -pred_length:, -1].transpose(0, 1)
+                    true_value[:, i * batch_size: (i + 1) * batch_size] = true
 
                 if self.args.label_len == 0:
                     batch = torch.cat((batch_x, batch_y), dim=1).float()  # [256, 112, 17]
@@ -416,9 +449,6 @@ class Exp_Probability_Forecast(Exp_Basic):
                 labels = batch[:, -pred_length:, -1]  # [256, 96, 1]
                 metrics = update_metrics(metrics, samples, labels, pred_length)
                 labels = labels.unsqueeze(-1)  # [256, 96, 1]
-
-                true = batch_y[:, -pred_length:, -1].transpose(0, 1)
-                true_value[:, i * batch_size: (i + 1) * batch_size] = true
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = sample_mu  # [256, 16, 1]
@@ -513,115 +543,130 @@ class Exp_Probability_Forecast(Exp_Basic):
                 os.makedirs(folder_path)
 
             # pred value, true value & probability range
-            # move to cpu and covert to numpy for plotting
-            samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
-            pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
-            true_value = true_value.detach().cpu().numpy()  # [16, 15616]
-            high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
-            low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
+            if probabilistic_flag:
+                # move to cpu and covert to numpy for plotting
+                pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
+                true_value = true_value.detach().cpu().numpy()  # [16, 15616]
+                high_value = high_value.detach().cpu().numpy()  # [16, 3, 15616]
+                low_value = low_value.detach().cpu().numpy()  # [16, 3, 15616]
 
-            # save results in npy
-            # np.save(folder_path + 'samples_value.npy', samples_value)
-            np.save(folder_path + 'pred_value.npy', pred_value)
-            np.save(folder_path + 'true_value.npy', true_value)
-            np.save(folder_path + 'high_value.npy', high_value)
-            np.save(folder_path + 'low_value.npy', low_value)
+                # save results in npy
+                np.save(folder_path + 'pred_value.npy', pred_value)
+                np.save(folder_path + 'true_value.npy', true_value)
+                np.save(folder_path + 'high_value.npy', high_value)
+                np.save(folder_path + 'low_value.npy', low_value)
 
-            # integrate different probability range data
-            samples_value = samples_value.reshape(-1)  # [99 * 5 * 15616]
-            pred_value = pred_value.reshape(-1)  # [16 * 15616]
-            true_value = true_value.reshape(-1)  # [16 * 15616]
-            high_value = high_value.reshape(-1)  # [16 * 46848]
-            low_value = low_value.reshape(-1)  # [16 * 46848]
+                # integrate different probability range data
+                pred_value = pred_value.reshape(-1)  # [16 * 15616]
+                true_value = true_value.reshape(-1)  # [16 * 15616]
+                high_value = high_value.reshape(-1)  # [16 * 46848]
+                low_value = low_value.reshape(-1)  # [16 * 46848]
 
-            # convert to shape: (sample, feature) for inverse transform
-            new_shape = (self.args.sample_times * samples_number * data_length, self.args.enc_in)
-            _ = np.zeros(new_shape)
-            _[:, -1] = samples_value
-            samples_value = _
-            new_shape = (pred_length * data_length, self.args.enc_in)
-            _ = np.zeros(new_shape)
-            _[:, -1] = pred_value
-            pred_value = _
-            _ = np.zeros(new_shape)
-            _[:, -1] = true_value
-            true_value = _
-            new_shape = (pred_length * probability_range_len * data_length, self.args.enc_in)
-            _ = np.zeros(new_shape)
-            _[:, -1] = high_value
-            high_value = _
-            _ = np.zeros(new_shape)
-            _[:, -1] = low_value
-            low_value = _
+                # convert to shape: (sample, feature) for inverse transform
+                new_shape = (pred_length * data_length, self.args.enc_in)
+                _ = np.zeros(new_shape)
+                _[:, -1] = pred_value
+                pred_value = _
+                _ = np.zeros(new_shape)
+                _[:, -1] = true_value
+                true_value = _
+                new_shape = (pred_length * probability_range_len * data_length, self.args.enc_in)
+                _ = np.zeros(new_shape)
+                _[:, -1] = high_value
+                high_value = _
+                _ = np.zeros(new_shape)
+                _[:, -1] = low_value
+                low_value = _
 
-            # perform inverse transform
-            dataset = test_data
-            samples_value = dataset.inverse_transform(samples_value)
-            pred_value = dataset.inverse_transform(pred_value)
-            true_value = dataset.inverse_transform(true_value)
-            high_value = dataset.inverse_transform(high_value)
-            low_value = dataset.inverse_transform(low_value)
+                # perform inverse transform
+                dataset = test_data
+                pred_value = dataset.inverse_transform(pred_value)
+                true_value = dataset.inverse_transform(true_value)
+                high_value = dataset.inverse_transform(high_value)
+                low_value = dataset.inverse_transform(low_value)
 
-            # get the original data
-            samples_value = samples_value[:, -1].squeeze()  # [99 * 5 * 15616]
-            pred_value = pred_value[:, -1].squeeze()  # [16 * 15616]
-            true_value = true_value[:, -1].squeeze()  # [16 * 15616]
-            high_value = high_value[:, -1].squeeze()  # [16 * 46848]
-            low_value = low_value[:, -1].squeeze()  # [16 * 46848]
+                # get the original data
+                pred_value = pred_value[:, -1].squeeze()  # [16 * 15616]
+                true_value = true_value[:, -1].squeeze()  # [16 * 15616]
+                high_value = high_value[:, -1].squeeze()  # [16 * 46848]
+                low_value = low_value[:, -1].squeeze()  # [16 * 46848]
 
-            # restore different probability range data
-            samples_value = samples_value.reshape(self.args.sample_times, samples_number, data_length)  # [99, 5, 15616]
-            pred_value = pred_value.reshape(pred_length, data_length)  # [16, 15616]
-            true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
-            high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
-            low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
+                # restore different probability range data
+                pred_value = pred_value.reshape(pred_length, data_length)  # [16, 15616]
+                true_value = true_value.reshape(pred_length, data_length)  # [16, 15616]
+                high_value = high_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
+                low_value = low_value.reshape(pred_length, probability_range_len, data_length)  # [16, 3, 15616]
 
-            # save results in npy
-            # np.save(folder_path + 'samples_value_inverse.npy', samples_value)
-            np.save(folder_path + 'pred_value_inverse.npy', pred_value)
-            np.save(folder_path + 'true_value_inverse.npy', true_value)
-            np.save(folder_path + 'high_value_inverse.npy', high_value)
-            np.save(folder_path + 'low_value_inverse.npy', low_value)
+                # save results in npy
+                np.save(folder_path + 'pred_value_inverse.npy', pred_value)
+                np.save(folder_path + 'true_value_inverse.npy', true_value)
+                np.save(folder_path + 'high_value_inverse.npy', high_value)
+                np.save(folder_path + 'low_value_inverse.npy', low_value)
 
-            # draw figures
-            print('drawing probabilistic density figure')
-            for i in tqdm(range(samples_number)):
-                _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
-                if not os.path.exists(_path):
-                    os.makedirs(_path)
+                # draw figures
+                print('drawing probabilistic figure')
+                for i in tqdm(range(pred_length)):
+                    _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
+                    if not os.path.exists(_path):
+                        os.makedirs(_path)
 
-                for j in range(data_length):
-                    draw_density_figure(samples_value[:, i, j], true_value[i, j],
-                                        os.path.join(_path, f'prediction {j}.png'))
+                    interval = 128
+                    num = math.floor(data_length / interval)
+                    for j in range(num):
+                        if j * interval >= data_length:
+                            continue
+                        draw_figure(range(interval),
+                                    pred_value[i, j * interval: (j + 1) * interval],
+                                    true_value[i, j * interval: (j + 1) * interval],
+                                    high_value[i, :, j * interval: (j + 1) * interval],
+                                    low_value[i, :, j * interval: (j + 1) * interval],
+                                    probability_range,
+                                    os.path.join(_path, f'prediction {j}.png'))
 
-            print('drawing probabilistic figure')
-            for i in tqdm(range(pred_length)):
-                _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
-                if not os.path.exists(_path):
-                    os.makedirs(_path)
+            if sample_flag:
+                # move to cpu and covert to numpy for plotting
+                samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
 
-                interval = 128
-                num = math.floor(data_length / interval)
-                for j in range(num):
-                    if j * interval >= data_length:
-                        continue
-                    draw_figure(range(interval),
-                                pred_value[i, j * interval: (j + 1) * interval],
-                                true_value[i, j * interval: (j + 1) * interval],
-                                high_value[i, :, j * interval: (j + 1) * interval],
-                                low_value[i, :, j * interval: (j + 1) * interval],
-                                probability_range,
-                                os.path.join(_path, f'prediction {j}.png'))
+                # integrate different probability range data
+                samples_value = samples_value.reshape(-1)  # [99 * 5 * 15616]
+
+                # convert to shape: (sample, feature) for inverse transform
+                new_shape = (self.args.sample_times * samples_number * data_length, self.args.enc_in)
+                _ = np.zeros(new_shape)
+                _[:, -1] = samples_value
+                samples_value = _
+
+                # perform inverse transform
+                dataset = test_data
+                samples_value = dataset.inverse_transform(samples_value)
+
+                # get the original data
+                samples_value = samples_value[:, -1].squeeze()  # [99 * 5 * 15616]
+
+                # restore different probability range data
+                samples_value = samples_value.reshape(self.args.sample_times, samples_number,
+                                                      data_length)  # [99, 5, 15616]
+
+                # draw figures
+                print('drawing probabilistic density figure')
+                for i in tqdm(range(samples_number)):
+                    _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
+                    if not os.path.exists(_path):
+                        os.makedirs(_path)
+
+                    for j in range(data_length):
+                        draw_density_figure(samples_value[:, i, j], true_value[i, j],
+                                            os.path.join(_path, f'prediction {j}.png'))
 
             # attention map
-            # move to cpu and covert to numpy for plotting
-            attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
-
-            # save results in npy
-            np.save(folder_path + 'attention_maps.npy', attention_maps)
-
             if attention_flag:
-                # draw attention map
+                # move to cpu and covert to numpy for plotting
+                attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
+
+                # save results in npy
+                np.save(folder_path + 'attention_maps.npy', attention_maps)
+
+                # draw figure
                 print('drawing attention map')
                 for i in tqdm(range(loader_length)):
                     _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
