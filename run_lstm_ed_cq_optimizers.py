@@ -10,11 +10,11 @@ from optimizers.optimizer_qf_v2_8 import h as h8
 process_index = 0
 
 if __name__ == "__main__":
-    h1.start_search(process_index=process_index)
-    h2.start_search(process_index=process_index)
-    # h3.start_search(process_index=process_index)
-    # h4.start_search(process_index=process_index)
-    # h5.start_search(process_index=process_index)
-    # h6.start_search(process_index=process_index)
-    # h7.start_search(process_index=process_index)
-    # h8.start_search(process_index=process_index)
+    # h1.start_search(process_index=process_index)
+    # h2.start_search(process_index=process_index)
+    h3.start_search(process_index=process_index)
+    h4.start_search(process_index=process_index)
+    h5.start_search(process_index=process_index)
+    h6.start_search(process_index=process_index)
+    h7.start_search(process_index=process_index)
+    h8.start_search(process_index=process_index)
