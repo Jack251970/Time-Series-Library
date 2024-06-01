@@ -24,33 +24,34 @@ data_folder = os.path.join(root_path, data_dir)
 fieldnames = basic_settings.get_fieldnames('all')
 
 # config experiment
-_exp_dict = {
+_exp_time_dict = {
     # LSTM-ED-CQ
-    'LSTM-AQ_Electricity_16': 'probability_forecast_OT_96_16_LSTM-ED'
-                              '-CQ_custom_ftMS_sl96_ll0_pl16_dm24_nh1_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-23 10-33-28',
-    'LSTM-AQ_Electricity_32': 'probability_forecast_OT_96_32_LSTM-ED'
-                              '-CQ_custom_ftMS_sl96_ll0_pl32_dm24_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-05-06 23-47-33',
-    'LSTM-AQ_Electricity_64': 'probability_forecast_OT_96_64_LSTM-ED'
-                              '-CQ_custom_ftMS_sl96_ll0_pl64_dm40_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-05-07 02-02-08',
-    'LSTM-AQ_Electricity_96': 'probability_forecast_OT_96_96_LSTM-ED'
-                              '-CQ_custom_ftMS_sl96_ll0_pl96_dm24_nh4_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-23 17-32-45',
-    'LSTM-AQ_Exchange_16': 'probability_forecast_OT_96_16_LSTM-ED'
-                           '-CQ_custom_ftMS_sl96_ll0_pl16_dm64_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-28 05-04-11',
-    'LSTM-AQ_Exchange_32': 'probability_forecast_OT_96_32_LSTM-ED'
-                           '-CQ_custom_ftMS_sl96_ll0_pl32_dm40_nh1_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-24 11-34-20',
-    'LSTM-AQ_Exchange_64': 'probability_forecast_OT_96_64_LSTM-ED'
-                           '-CQ_custom_ftMS_sl96_ll0_pl64_dm64_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-05-07 05-34-41',
-    'LSTM-AQ_Exchange_96': 'probability_forecast_OT_96_96_LSTM-ED'
-                           '-CQ_custom_ftMS_sl96_ll0_pl96_dm64_nh2_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-24 17-16-19',
+    'LSTM-AQ_Electricity_16': '2024-04-23 10-33-28',
+    'LSTM-AQ_Electricity_32': '2024-05-06 23-47-33',
+    'LSTM-AQ_Electricity_64': '2024-05-07 02-02-08',
+    'LSTM-AQ_Electricity_96': '2024-04-23 17-32-45',
+    'LSTM-AQ_Exchange_16': '2024-04-28 05-04-11',
+    'LSTM-AQ_Exchange_32': '2024-04-24 11-34-20',
+    'LSTM-AQ_Exchange_64': '2024-05-07 05-34-41',
+    'LSTM-AQ_Exchange_96': '2024-04-24 17-16-19',
     # QSQF-C
-    'QSQF-C_Electricity_96': 'probability_forecast_OT_96_96_QSQF'
-                             '-C_custom_ftMS_sl96_ll0_pl96_dm512_nh8_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-04-22 23-30-41',
-    'QSQF-C_Exchange_96': 'probability_forecast_OT_96_96_QSQF'
-                          '-C_custom_ftMS_sl96_ll0_pl96_dm512_nh8_el1_dl1_dmavg_ma25_df2048_fc1_ebtimeF_dtTrue_deExp_2024-05-07 23-42-11',
+    'QSQF-C_Electricity_96': '2024-04-22 23-30-41',
+    'QSQF-C_Exchange_96': '2024-05-07 23-42-11',
 }
+_exp_dict = {}
+
+
+def build_exp_dict():
+    exp_names = os.listdir(process_folder)
+    for exp_name, exp_time in _exp_time_dict.items():
+        for exp_name_ in exp_names:
+            if exp_name_[-len(exp_time):] == exp_time:
+                _exp_time_dict[exp_name] = exp_name_
 
 
 def get_exp_settings(exp_name):
+    if _exp_dict == {}:
+        build_exp_dict()
     return _exp_dict[exp_name]
 
 
