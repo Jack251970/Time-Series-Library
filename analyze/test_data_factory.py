@@ -148,3 +148,11 @@ def get_prob_metrics(exp_name):
     pinaw_steps = metrics_data[pred_len + 3:]
 
     return crps, crps_steps, mre, pinaw, pinaw_steps
+
+
+def get_parameter(exp_name):
+    _exp_path = get_exp_settings(exp_name)
+    lambda_path = os.path.join(prob_results_folder, _exp_path, 'samples_lambda.npy')
+    gamma_path = os.path.join(prob_results_folder, _exp_path, 'samples_gamma.npy')
+    eta_k_path = os.path.join(prob_results_folder, _exp_path, 'samples_eta_k.npy')
+    return np.load(lambda_path), np.load(gamma_path), np.load(eta_k_path)

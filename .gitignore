@@ -182,3 +182,5 @@ data_loader_all.py
 /analyze/attention_map/
 /analyze/probabilistic_figure/*
 /analyze/probabilistic_figure/
+/analyze/quantile_figure/*
+/analyze/quantile_figure/

@@ -6,6 +6,8 @@ from tqdm import tqdm
 from analyze.test_data_factory import get_all_value_inverse, get_config_row
 from utils.tools import draw_figure
 
+samples_index = [15, 31, 63, 95]
+
 folder_path = 'probabilistic_figure'
 exp_name = 'LSTM-AQ_Electricity_96'
 pred_value, true_value, high_value, low_value = get_all_value_inverse(exp_name)
@@ -18,8 +20,8 @@ probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 # draw figures
 print('drawing probabilistic figure')
 for i in tqdm(range(pred_length)):
-    if i == 15 or i == 31 or i == 63 or i == 95:
-        _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
+    if i in samples_index:
+        _path = os.path.join(folder_path, f'step {i}')
         if not os.path.exists(_path):
             os.makedirs(_path)
 
