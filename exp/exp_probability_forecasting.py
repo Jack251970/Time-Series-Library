@@ -649,12 +649,12 @@ class Exp_Probability_Forecast(Exp_Basic):
 
                 # draw figures
                 print('drawing probabilistic density figure')
-                for i in tqdm(range(samples_number)):
+                for i in range(samples_number):
                     _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
                     if not os.path.exists(_path):
                         os.makedirs(_path)
 
-                    for j in range(data_length):
+                    for j in tqdm(range(data_length), desc=f'step {samples_index[i]}'):
                         draw_density_figure(samples_value[:, i, j], true_value[i, j],
                                             os.path.join(_path, f'prediction {j}.png'))
 
