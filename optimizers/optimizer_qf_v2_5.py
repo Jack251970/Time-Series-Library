@@ -32,7 +32,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 862
         _config['c_out'] = 862
 
-        _config['n_heads'] = 4
+        _config['n_heads'] = 8
         _config['d_model'] = 64
     elif _data_path == 'weather/weather.csv':
         # weather dataset
@@ -104,13 +104,12 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 32},
+        'pred_len': {'_type': 'single', '_value': 64},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
     qsqf_config = {
-        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -128,7 +127,6 @@ def get_search_space():
     }
 
     lstm_cq_config = {
-        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -152,7 +150,6 @@ def get_search_space():
     }
 
     lstm_ed_cq_config = {
-        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -179,7 +176,6 @@ def get_search_space():
         'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
-        # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
     }
 
     model_configs = {
@@ -194,5 +190,5 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_32_1.csv', scan_all_csv=False,
+h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_64_1.csv', scan_all_csv=False,
                             try_model=False, force_exp=False)

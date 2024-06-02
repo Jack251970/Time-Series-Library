@@ -32,8 +32,8 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 862
         _config['c_out'] = 862
 
-        _config['lstm_hidden_size'] = 64
-        _config['lstm_layers'] = 2
+        # _config['lstm_hidden_size'] = 24
+        # _config['lstm_layers'] = 3
     elif _data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
@@ -93,7 +93,7 @@ def get_search_space():
         #                                             'traffic/traffic.csv', 'weather/weather.csv']},
 
         # need
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        #'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
     }
 
     learning_config = {
@@ -104,12 +104,13 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 16},
+        'pred_len': {'_type': 'single', '_value': 96},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
     qsqf_config = {
+        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -127,6 +128,7 @@ def get_search_space():
     }
 
     lstm_cq_config = {
+        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -150,6 +152,7 @@ def get_search_space():
     }
 
     lstm_ed_cq_config = {
+        # model
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -164,16 +167,16 @@ def get_search_space():
         'sample_times': {'_type': 'single', '_value': 99},
 
         # Step 1: LSTM
-        # 'n_heads': {'_type': 'single', '_value': 2},
-        # 'd_model': {'_type': 'single', '_value': 24},
-        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        'n_heads': {'_type': 'single', '_value': 2},
+        'd_model': {'_type': 'single', '_value': 24},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         # Step 2: Attention
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 2},
-        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        # 'lstm_layers': {'_type': 'single', '_value': 2},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
     }
@@ -190,5 +193,5 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_16_2.csv', scan_all_csv=True,
+h.config_optimizer_settings(root_path='.', data_csv_file='data_parameter_96_2.csv', scan_all_csv=True,
                             try_model=False, force_exp=False)
