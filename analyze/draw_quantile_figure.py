@@ -4,17 +4,22 @@ import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 
-from analyze.test_data_factory import get_parameter, get_config_row
+from analyze.test_data_factory import get_parameter, get_config_row, get_all_value
 from models.quantile_function.lstm_cq import sample_pred
 
 samples_index = [15, 31, 63, 95]
 folder_path = 'quantile_figure'
+
+select_step = 63
+select_data_length = 59
 
 lstm_aq_exp_name = 'LSTM-AQ_Electricity_96'
 lambda_lstm_aq, gamma_lstm_aq, eta_k_lstm_aq = get_parameter(lstm_aq_exp_name)  # [96, 5165, 1]
 
 qsqf_c_exp_name = 'QSQF-C_Electricity_96'
 lambda_qsqf_c, gamma_qsqf_c, eta_k_qsqf_c = get_parameter(qsqf_c_exp_name)
+
+_, true_value, _, _ = get_all_value(lstm_aq_exp_name)  # [96, 5165]
 
 config_row_lstm_aq = get_config_row(lstm_aq_exp_name)
 num_spline = int(config_row_lstm_aq['num_spline'])
@@ -63,6 +68,26 @@ y_data_qsqf_c = get_q_alpha_data(lambda_qsqf_c, gamma_qsqf_c, eta_k_qsqf_c, '2',
 y_data_lstm_aq = y_data_lstm_aq.reshape(len(samples_index), data_length, len(x_data))
 y_data_qsqf_c = y_data_qsqf_c.reshape(len(samples_index), data_length, len(x_data))
 
+# [4, 5165]
+y_data_true = true_value[samples_index, :]
+
+# [4, 5165, 101]
+y_data_true = y_data_true.reshape(len(samples_index), data_length, 1).repeat(len(x_data), 2)
+
+
+# draw selected figures
+print('drawing selected quantile figure')
+i = samples_index.index(select_step)
+j = select_data_length
+plt.clf()
+plt.plot(x_data, y_data_lstm_aq[i, j, :], label='LSTM-AQ', color='blue')
+plt.plot(x_data, y_data_qsqf_c[i, j, :], label='QSQF-C', color='red')
+plt.plot(x_data, y_data_true[i, j, :], label='True', color='green')
+plt.legend()
+plt.xlabel('alpha')
+plt.ylabel('Q(alpha)')
+plt.savefig(os.path.join(folder_path, f'quantile figure.png'))
+
 # draw figures
 print('drawing quantile figure')
 for i in range(len(samples_index)):
@@ -75,6 +100,7 @@ for i in range(len(samples_index)):
         plt.clf()
         plt.plot(x_data, y_data_lstm_aq[i, j, :], label='LSTM-AQ', color='blue')
         plt.plot(x_data, y_data_qsqf_c[i, j, :], label='QSQF-C', color='red')
+        plt.plot(x_data, y_data_true[i, j, :], label='True', color='green')
         plt.legend()
         plt.xlabel('alpha')
         plt.ylabel('Q(alpha)')

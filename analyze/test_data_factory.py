@@ -105,6 +105,15 @@ def get_attention_map(exp_name):
     return np.load(_path)
 
 
+def get_all_value(exp_name):
+    _exp_path = get_exp_settings(exp_name)
+    pred_value_path = os.path.join(prob_results_folder, _exp_path, 'pred_value.npy')
+    true_value_path = os.path.join(prob_results_folder, _exp_path, 'true_value.npy')
+    high_value_path = os.path.join(prob_results_folder, _exp_path, 'high_value.npy')
+    low_value_path = os.path.join(prob_results_folder, _exp_path, 'low_value.npy')
+    return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
+
+
 def get_all_value_inverse(exp_name):
     _exp_path = get_exp_settings(exp_name)
     pred_value_path = os.path.join(prob_results_folder, _exp_path, 'pred_value_inverse.npy')
