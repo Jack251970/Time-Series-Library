@@ -1,3 +1,4 @@
+import csv
 import os
 
 import numpy as np
@@ -71,6 +72,31 @@ def get_exp_settings(exp_name):
     if _exp_dict == {}:
         build_exp_dict()
     return _exp_dict[exp_name]
+
+
+def get_config_row(exp_name):
+    _exp_settings = get_exp_settings(exp_name)
+
+    # scan all csv files under data folder
+    file_paths = []
+    for root, dirs, files in os.walk(str(data_folder)):
+        for _file in files:
+            if _file.endswith('.csv') and _file not in file_paths:
+                _append_path = os.path.join(root, _file)
+                file_paths.append(_append_path)
+
+    # find target item
+    target_row = None
+    for file_path in file_paths:
+        with open(file_path, 'r') as csv_file:
+            reader = csv.DictReader(csv_file, fieldnames=fieldnames)
+            next(reader)  # skip the header
+            for row in reader:
+                setting = row['setting']
+                if setting == _exp_settings:
+                    target_row = row
+
+    return target_row
 
 
 def get_attention_map(exp_name):

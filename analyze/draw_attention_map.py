@@ -1,45 +1,20 @@
-import csv
 import math
 import os
 
-import numpy as np
 from tqdm import tqdm
 
-from analyze.test_data_factory import get_attention_map, data_folder, fieldnames, get_exp_settings
+from analyze.test_data_factory import get_attention_map, get_config_row
 from utils.tools import draw_attention_map
 
 folder_path = 'attention_map'
 exp_name = 'LSTM-AQ_Electricity_96'
-exp_settings = get_exp_settings(exp_name)
 attention_maps = get_attention_map(exp_name)
 
-
-def get_exp_config(_exp_settings):
-    # scan all csv files under data folder
-    file_paths = []
-    for root, dirs, files in os.walk(str(data_folder)):
-        for _file in files:
-            if _file.endswith('.csv') and _file not in file_paths:
-                _append_path = os.path.join(root, _file)
-                file_paths.append(_append_path)
-
-    # find target item
-    target_row = None
-    for file_path in file_paths:
-        with open(file_path, 'r') as csv_file:
-            reader = csv.DictReader(csv_file, fieldnames=fieldnames)
-            next(reader)  # skip the header
-            for row in reader:
-                setting = row['setting']
-                if setting == _exp_settings:
-                    target_row = row
-
-    # phase the target item
-    return int(target_row['batch_size']), int(target_row['seq_len']), int(target_row['pred_len']), \
-             int(target_row['n_heads'])
-
-
-batch_size, seq_length, pred_length, n_heads = get_exp_config(exp_settings)
+config_row = get_config_row(exp_name)
+batch_size = int(config_row['batch_size'])
+seq_length = int(config_row['seq_len'])
+pred_length = int(config_row['pred_len'])
+n_heads = int(config_row['n_heads'])
 loader_length = attention_maps.shape[0]
 
 # draw attention map
