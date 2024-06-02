@@ -1,5 +1,3 @@
-import numpy as np
-
 import matplotlib.pyplot as plt
 
 from analyze.test_data_factory import get_loss
