@@ -23,9 +23,9 @@ data_folder = os.path.join(root_path, data_dir)
 # get fieldnames
 fieldnames = basic_settings.get_fieldnames('all')
 
-# config experiment
+# config test experiments
 _exp_time_dict = {
-    # LSTM-ED-CQ
+    # LSTM-AQ
     'LSTM-AQ_Electricity_16': '2024-04-23 10-33-28',
     'LSTM-AQ_Electricity_32': '2024-05-06 23-47-33',
     'LSTM-AQ_Electricity_64': '2024-05-07 02-02-08',
@@ -35,10 +35,23 @@ _exp_time_dict = {
     'LSTM-AQ_Exchange_64': '2024-05-07 05-34-41',
     'LSTM-AQ_Exchange_96': '2024-04-24 17-16-19',
     # QSQF-C
+    'QSQF-C_Electricity_16': '2024-04-22 11-26-26',
+    'QSQF-C_Electricity_32': '2024-04-22 22-17-10',
+    'QSQF-C_Electricity_64': '2024-05-07 14-32-20',
     'QSQF-C_Electricity_96': '2024-04-22 23-30-41',
+    'QSQF-C_Exchange_16': '2024-05-07 21-31-39',
+    'QSQF-C_Exchange_32': '2024-05-07 21-45-02',
+    'QSQF-C_Exchange_64': '2024-05-07 21-52-48',
     'QSQF-C_Exchange_96': '2024-05-07 23-42-11',
 }
 _exp_dict = {}
+
+
+def build_time_list():
+    _time_list = []
+    for exp_name, exp_time in _exp_time_dict.items():
+        _time_list.append(exp_time)
+    return _time_list
 
 
 def build_exp_dict():

@@ -1,3 +1,4 @@
+from analyze.test_data_factory import build_time_list
 from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 
 
@@ -176,23 +177,4 @@ def get_search_space():
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ', 'QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=True, save_process=False,
-                            custom_test_time=[
-                                # LSTM-ED-CQ
-                                '2024-04-23 10-33-28',  # Electric_16
-                                '2024-05-06 23-47-33',  # Electric_32
-                                '2024-05-07 02-02-08',  # Electric_64
-                                '2024-04-23 17-32-45',  # Electric_96
-                                '2024-04-28 05-04-11',  # Exchange_16
-                                '2024-04-24 11-34-20',  # Exchange_32
-                                '2024-05-07 05-34-41',  # Exchange_64
-                                '2024-04-24 17-16-19',  # Exchange_96
-                                # QSQF-C
-                                '2024-04-22 11-26-26',  # Electric_16
-                                '2024-04-22 22-17-10',  # Electric_32
-                                '2024-05-07 14-32-20',  # Electric_64
-                                '2024-04-22 23-30-41',  # Electric_96
-                                '2024-05-07 21-31-39',  # Exchange_16
-                                '2024-05-07 21-45-02',  # Exchange_32
-                                '2024-05-07 21-52-48',  # Exchange_64
-                                '2024-05-07 23-42-11',  # Exchange_96
-                            ])
+                            custom_test_time=build_time_list())
