@@ -37,9 +37,9 @@ y_crps2, y_pinaw2 = phase_data(y_data2)
 
 plt.clf()
 if y_crps1 is not None:
-    plt.plot(x_data, y_crps1, 'b', alpha=0.5, linewidth=1, label='LSTM-AQ')
+    plt.plot(x_data, y_crps1, 'bo-', alpha=0.5, linewidth=1, label='LSTM-AQ')
 if y_crps2 is not None:
-    plt.plot(x_data, y_crps2, 'r', alpha=0.5, linewidth=1, label='QSQF-C')
+    plt.plot(x_data, y_crps2, 'ro-', alpha=0.5, linewidth=1, label='QSQF-C')
 
 plt.legend()
 plt.xlabel('Prediction Step')
@@ -49,9 +49,9 @@ plt.show()
 
 plt.clf()
 if y_pinaw1 is not None:
-    plt.plot(x_data, y_pinaw1, 'b', alpha=0.5, linewidth=1, label='LSTM-AQ')
+    plt.plot(x_data, y_pinaw1, 'bo-', alpha=0.5, linewidth=1, label='LSTM-AQ')
 if y_pinaw2 is not None:
-    plt.plot(x_data, y_pinaw2, 'r', alpha=0.5, linewidth=1, label='QSQF-C')
+    plt.plot(x_data, y_pinaw2, 'ro-', alpha=0.5, linewidth=1, label='QSQF-C')
 
 plt.legend()
 plt.xlabel('Prediction Step')

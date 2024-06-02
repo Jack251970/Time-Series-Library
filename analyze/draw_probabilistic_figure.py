@@ -2,22 +2,16 @@ import csv
 import math
 import os
 
-import numpy as np
 from tqdm import tqdm
 
-from analyze.test_data_factory import get_all_value_inverse_path, data_folder, fieldnames, get_exp_settings
+from analyze.test_data_factory import get_all_value_inverse, data_folder, fieldnames, get_exp_settings
 from utils.tools import draw_figure
 
 folder_path = 'probabilistic_figure'
 exp_name = 'LSTM-AQ_Electricity_96'
 exp_settings = get_exp_settings(exp_name)
 
-pred_value_path, true_value_path, high_value_path, low_value_path = get_all_value_inverse_path(exp_name)
-
-pred_value = np.load(pred_value_path)
-true_value = np.load(true_value_path)
-high_value = np.load(high_value_path)
-low_value = np.load(low_value_path)
+pred_value, true_value, high_value, low_value = get_all_value_inverse(exp_name)
 
 
 def get_exp_config(_exp_settings):

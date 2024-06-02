@@ -1,5 +1,7 @@
 import os
 
+import numpy as np
+
 from exp.exp_basic import Exp_Basic
 from hyper_parameter_optimizer import basic_settings
 
@@ -48,6 +50,7 @@ _exp_dict = {}
 
 
 def build_time_list():
+    global _exp_time_dict
     _time_list = []
     for exp_name, exp_time in _exp_time_dict.items():
         _time_list.append(exp_time)
@@ -55,33 +58,52 @@ def build_time_list():
 
 
 def build_exp_dict():
+    global _exp_time_dict
     exp_names = os.listdir(process_folder)
     for exp_name, exp_time in _exp_time_dict.items():
-        for exp_name_ in exp_names:
-            if exp_name_[-len(exp_time):] == exp_time:
-                _exp_time_dict[exp_name] = exp_name_
+        for _exp_name in exp_names:
+            if _exp_name[-len(exp_time):] == exp_time:
+                _exp_dict[exp_name] = _exp_name
 
 
 def get_exp_settings(exp_name):
+    global _exp_dict
     if _exp_dict == {}:
         build_exp_dict()
     return _exp_dict[exp_name]
 
 
-def get_attention_map_path(exp_name):
+def get_attention_map(exp_name):
     _exp_path = get_exp_settings(exp_name)
-    return os.path.join(prob_results_folder, _exp_path, 'attention_maps.npy')
+    _path = os.path.join(prob_results_folder, _exp_path, 'attention_maps.npy')
+    return np.load(_path)
 
 
-def get_all_value_inverse_path(exp_name):
+def get_all_value_inverse(exp_name):
     _exp_path = get_exp_settings(exp_name)
-    return os.path.join(prob_results_folder, _exp_path, 'pred_value_inverse.npy'), \
-        os.path.join(prob_results_folder, _exp_path, 'true_value_inverse.npy'), \
-        os.path.join(prob_results_folder, _exp_path, 'high_value_inverse.npy'), \
-        os.path.join(prob_results_folder, _exp_path, 'low_value_inverse.npy')
+    pred_value_path = os.path.join(prob_results_folder, _exp_path, 'pred_value_inverse.npy')
+    true_value_path = os.path.join(prob_results_folder, _exp_path, 'true_value_inverse.npy')
+    high_value_path = os.path.join(prob_results_folder, _exp_path, 'high_value_inverse.npy')
+    low_value_path = os.path.join(prob_results_folder, _exp_path, 'low_value_inverse.npy')
+    return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
 
 
-def get_loss_path(exp_name):
+def get_loss(exp_name):
     _exp_path = get_exp_settings(exp_name)
     files = ['train_loss.npy', 'vali_loss.npy', 'test_loss.npy']
-    return [os.path.join(process_folder, _exp_path, file) for file in files]
+    _paths = [os.path.join(process_folder, _exp_path, file) for file in files]
+
+    _train_loss = None
+    _vali_loss = None
+    _test_loss = None
+
+    for _path in _paths:
+        data = np.load(_path)
+        if 'train' in _path:
+            _train_loss = data
+        elif 'vali' in _path:
+            _vali_loss = data
+        elif 'test' in _path:
+            _test_loss = data
+
+    return _train_loss, _vali_loss, _test_loss

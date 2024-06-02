@@ -5,13 +5,13 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-from analyze.test_data_factory import get_attention_map_path, data_folder, fieldnames, get_exp_settings
+from analyze.test_data_factory import get_attention_map, data_folder, fieldnames, get_exp_settings
 from utils.tools import draw_attention_map
 
 folder_path = 'attention_map'
 exp_name = 'LSTM-AQ_Electricity_96'
 exp_settings = get_exp_settings(exp_name)
-attention_maps = np.load(get_attention_map_path(exp_name))
+attention_maps = get_attention_map(exp_name)
 
 
 def get_exp_config(_exp_settings):
