@@ -133,3 +133,18 @@ def get_loss(exp_name):
             _test_loss = data
 
     return _train_loss, _vali_loss, _test_loss
+
+
+def get_prob_metrics(exp_name):
+    _exp_path = get_exp_settings(exp_name)
+    pred_len = int(get_config_row(exp_name)['pred_len'])
+    _path = os.path.join(results_folder, _exp_path, 'prob_metrics.npy')
+    metrics_data = np.load(_path)
+
+    crps = metrics_data[0]
+    crps_steps = metrics_data[1:pred_len + 1]
+    pinaw = metrics_data[pred_len + 1]
+    mre = metrics_data[pred_len + 2]
+    pinaw_steps = metrics_data[pred_len + 3:]
+
+    return crps, crps_steps, mre, pinaw, pinaw_steps
