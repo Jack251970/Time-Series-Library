@@ -67,7 +67,8 @@ def get_search_space():
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': './dataset/'},
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        'data_path': {'_type': 'choice', '_value': ['traffic/traffic.csv']},
     }
 
     learning_config = {
