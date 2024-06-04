@@ -13,6 +13,7 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+
         if _model == 'LSTM-ED-CQ':
             if _pred_len == 16:
                 _config['lstm_hidden_size'] = 40
@@ -45,6 +46,7 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+
         if _model == 'LSTM-ED-CQ':
             if _pred_len == 16:
                 _config['lstm_hidden_size'] = 40
@@ -76,6 +78,28 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 862
         _config['dec_in'] = 862
         _config['c_out'] = 862
+
+        if _model == 'LSTM-ED-CQ':
+            if _pred_len == 16:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
+            elif _pred_len == 32:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
+            elif _pred_len == 64:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 8
+                _config['d_model'] = 64
+            elif _pred_len == 96:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
     elif _data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
@@ -113,8 +137,9 @@ def get_search_space():
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': './dataset/'},
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        'data_path': {'_type': 'single', '_value': 'traffic/traffic.csv'},
     }
 
     learning_config = {

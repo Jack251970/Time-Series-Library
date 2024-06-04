@@ -37,6 +37,10 @@ _exp_time_dict = {
     'LSTM-AQ_Exchange_32': '2024-04-24 11-34-20',
     'LSTM-AQ_Exchange_64': '2024-05-07 05-34-41',
     'LSTM-AQ_Exchange_96': '2024-04-24 17-16-19',
+    'LSTM-AQ_Traffic_16': '2024-06-02 16-12-42',
+    'LSTM-AQ_Traffic_32': '2024-06-02 22-01-15',
+    'LSTM-AQ_Traffic_64': '2024-06-02 11-49-53',
+    'LSTM-AQ_Traffic_96': '2024-06-02 01-57-16',
     # QSQF-C
     'QSQF-C_Electricity_16': '2024-04-22 11-26-26',
     'QSQF-C_Electricity_32': '2024-04-22 22-17-10',
@@ -46,6 +50,10 @@ _exp_time_dict = {
     'QSQF-C_Exchange_32': '2024-05-07 21-45-02',
     'QSQF-C_Exchange_64': '2024-05-07 21-52-48',
     'QSQF-C_Exchange_96': '2024-05-07 23-42-11',
+    'QSQF-C_Traffic_16': '2024-06-03 16-39-00',
+    'QSQF-C_Traffic_32': '2024-06-03 16-49-51',
+    'QSQF-C_Traffic_64': '2024-06-03 17-04-59',
+    'QSQF-C_Traffic_96': '2024-06-03 17-23-58',
 }
 _exp_dict = {}
 
