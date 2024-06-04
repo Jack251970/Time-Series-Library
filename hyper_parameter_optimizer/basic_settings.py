@@ -4,6 +4,7 @@ import os
 import time
 
 import torch
+from colorama import Fore
 
 
 # noinspection DuplicatedCode
@@ -525,22 +526,25 @@ def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_mode
                 if isinstance(_custom_time, str):
                     if latest_time.strftime(_format) == _custom_time:
                         if not _try_model:
-                            print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                            print(Fore.BLUE + f'Load the custom model to test in the time: '
+                                              f'{latest_time.strftime(_format)}!')
                         return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
                 elif isinstance(_custom_time, datetime.datetime):
                     if latest_time == _custom_time:
                         if not _try_model:
-                            print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                            print(Fore.BLUE + f'Load the custom model to test in the time: '
+                                              f'{latest_time.strftime(_format)}!')
                         return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
                 elif isinstance(_custom_time, list):
                     if latest_time.strftime(_format) in _custom_time or latest_time == _custom_time:
                         if not _try_model:
-                            print(f'Load the custom model to test in the time: {latest_time.strftime(_format)}!')
+                            print(Fore.BLUE + f'Load the custom model to test in the time: '
+                                              f'{latest_time.strftime(_format)}!')
                         return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
 
         if latest_time is not None:
             if not _try_model:
-                print(f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
+                print(Fore.BLUE + f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
             return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
 
         if not _try_model:
