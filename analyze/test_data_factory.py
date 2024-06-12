@@ -58,12 +58,8 @@ _exp_time_dict = {
 _exp_dict = {}
 
 
-def build_time_list():
-    global _exp_time_dict
-    _time_list = []
-    for exp_name, exp_time in _exp_time_dict.items():
-        _time_list.append(exp_time)
-    return _time_list
+def get_exp_time(key):
+    return _exp_time_dict[key]
 
 
 def build_exp_dict():

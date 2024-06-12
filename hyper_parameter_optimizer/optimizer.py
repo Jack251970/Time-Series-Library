@@ -23,7 +23,7 @@ from tqdm import tqdm
 class HyperParameterOptimizer(object):
     def __init__(self, script_mode, models=None, get_search_space=None, prepare_config=None, build_setting=None,
                  build_config_dict=None, set_args=None, get_fieldnames=None, get_model_id_tags=None,
-                 check_jump_experiment=None, link_fieldnames_data=None):
+                 check_jump_experiment=None, link_fieldnames_data=None, get_custom_test_time=None):
         # core settings
         self.script_mode = script_mode  # script mode
 
@@ -37,7 +37,9 @@ class HyperParameterOptimizer(object):
         # set args
         self.set_args = basic_settings.set_args if set_args is None else set_args
         # get tags
-        self.get_model_id_tags = get_model_id_tags  # get tags
+        self.get_model_id_tags = get_model_id_tags
+        # get custom test time
+        self.get_custom_test_time = get_custom_test_time
 
         # all mode settings
         self.seed = 2021  # random seed
@@ -52,7 +54,6 @@ class HyperParameterOptimizer(object):
         self.add_tags = []  # added tags in the model id
         self.time_format = '%Y-%m-%d %H-%M-%S'  # time format in data and process
         self.diff_time_format = '%H:%M:%S'  # diff time format in data and process
-        self.custom_test_time = None  # time of a custom model when testing
 
         # init experiment and parameters
         self.Exp = None
@@ -93,8 +94,7 @@ class HyperParameterOptimizer(object):
 
     def config_optimizer_settings(self, root_path=None, data_dir=None, jump_csv_file=None, data_csv_file=None,
                                   data_csv_file_format=None, scan_all_csv=None, process_number=None,
-                                  save_process=None, try_model=None, force_exp=None, add_tags=None,
-                                  custom_test_time=None):
+                                  save_process=None, try_model=None, force_exp=None, add_tags=None):
         if root_path is not None:
             self.root_path = root_path
         if data_dir is not None:
@@ -118,8 +118,6 @@ class HyperParameterOptimizer(object):
                 self.force_exp = force_exp
             if add_tags is not None:
                 self.add_tags = add_tags
-            if custom_test_time is not None:
-                self.custom_test_time = custom_test_time
 
     def get_optimizer_settings(self):
         core_setting = {
@@ -143,7 +141,6 @@ class HyperParameterOptimizer(object):
             'try_model': self.try_model,
             'force_exp': self.force_exp,
             'add_tags': self.add_tags,
-            'custom_test_time': self.custom_test_time,
             'search_spaces': self._get_search_spaces(),
             'all_fieldnames': self.all_fieldnames,
             'checked_fieldnames': self.checked_fieldnames,
@@ -540,7 +537,7 @@ class HyperParameterOptimizer(object):
 
         # build the setting of the experiment
         exp_setting, exp_train_time = self.build_setting(self.root_path, _args, exp_start_run_time, self.time_format,
-                                                         self.custom_test_time, _try_model)
+                                                         self.get_custom_test_time, _try_model)
 
         # get the experiment type
         self._init_experiment(_args.task_name)

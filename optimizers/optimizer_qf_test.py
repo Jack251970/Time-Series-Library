@@ -1,123 +1,141 @@
-from analyze.test_data_factory import build_time_list
 from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
+
+from analyze.test_data_factory import get_exp_time
 
 
 # noinspection DuplicatedCode
 def link_fieldnames_data(_config):
-    _data_path = _config['data_path']
-    _model = _config['model']
-    _pred_len = _config['pred_len']
-    if _data_path == 'electricity/electricity.csv':
+    data_path = _config['data_path']
+    model = _config['model']
+    pred_len = _config['pred_len']
+    if data_path == 'electricity/electricity.csv':
         # electricity dataset
         _config['reindex_tolerance'] = 0.80
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
 
-        if _model == 'LSTM-ED-CQ':
-            if _pred_len == 16:
+        if model == 'LSTM-ED-CQ':
+            if pred_len == 16:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 3
                 _config['n_heads'] = 1
                 _config['d_model'] = 24
-            elif _pred_len == 32:
+            elif pred_len == 32:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 3
                 _config['n_heads'] = 2
                 _config['d_model'] = 24
-            elif _pred_len == 64:
+            elif pred_len == 64:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
                 _config['n_heads'] = 2
                 _config['d_model'] = 40
-            elif _pred_len == 96:
+            elif pred_len == 96:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
                 _config['n_heads'] = 4
                 _config['d_model'] = 24
-    elif (_data_path == 'ETT-small/ETTh1.csv' or _data_path == 'ETT-small/ETTh2.csv' or
-          _data_path == 'ETT-small/ETTm1.csv' or _data_path == 'ETT-small/ETTm2.csv'):
+    elif (data_path == 'ETT-small/ETTh1.csv' or data_path == 'ETT-small/ETTh2.csv' or
+          data_path == 'ETT-small/ETTm1.csv' or data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
         _config['enc_in'] = 7
         _config['dec_in'] = 7
         _config['c_out'] = 7
-    elif _data_path == 'exchange_rate/exchange_rate.csv':
+    elif data_path == 'exchange_rate/exchange_rate.csv':
         # exchange rate dataset
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
 
-        if _model == 'LSTM-ED-CQ':
-            if _pred_len == 16:
+        if model == 'LSTM-ED-CQ':
+            if pred_len == 16:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
                 _config['n_heads'] = 2
                 _config['d_model'] = 64
-            elif _pred_len == 32:
+            elif pred_len == 32:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 2
                 _config['n_heads'] = 1
                 _config['d_model'] = 40
-            elif _pred_len == 64:
+            elif pred_len == 64:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
                 _config['n_heads'] = 2
                 _config['d_model'] = 64
-            elif _pred_len == 96:
+            elif pred_len == 96:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
                 _config['n_heads'] = 2
                 _config['d_model'] = 64
-    elif _data_path == 'illness/national_illness.csv':
+    elif data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
         _config['dec_in'] = 7
         _config['c_out'] = 7
-    elif _data_path == 'traffic/traffic.csv':
+    elif data_path == 'traffic/traffic.csv':
         # traffic dataset
         _config['enc_in'] = 862
         _config['dec_in'] = 862
         _config['c_out'] = 862
 
-        if _model == 'LSTM-ED-CQ':
-            if _pred_len == 16:
+        if model == 'LSTM-ED-CQ':
+            if pred_len == 16:
                 _config['lstm_hidden_size'] = 64
                 _config['lstm_layers'] = 2
                 _config['n_heads'] = 2
                 _config['d_model'] = 40
-            elif _pred_len == 32:
+            elif pred_len == 32:
                 _config['lstm_hidden_size'] = 64
                 _config['lstm_layers'] = 2
                 _config['n_heads'] = 2
                 _config['d_model'] = 40
-            elif _pred_len == 64:
+            elif pred_len == 64:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 3
                 _config['n_heads'] = 8
                 _config['d_model'] = 64
-            elif _pred_len == 96:
+            elif pred_len == 96:
                 _config['lstm_hidden_size'] = 64
                 _config['lstm_layers'] = 2
                 _config['n_heads'] = 2
                 _config['d_model'] = 40
-    elif _data_path == 'weather/weather.csv':
+    elif data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
         _config['dec_in'] = 21
         _config['c_out'] = 21
-    elif _data_path == 'pvod/station00.csv':
+    elif data_path == 'pvod/station00.csv':
         # solar dataset
         _config['target'] = 'power'
         _config['enc_in'] = 14
         _config['dec_in'] = 14
         _config['c_out'] = 14
-    elif _data_path == 'wind/Zone1/Zone1.csv':
+    elif data_path == 'wind/Zone1/Zone1.csv':
         # wind power dataset
         _config['target'] = 'wind'
         _config['enc_in'] = 5
         _config['dec_in'] = 5
         _config['c_out'] = 5
     return _config
+
+
+# noinspection DuplicatedCode
+def get_custom_test_time(_args):
+    data_path = _args.data_path
+    model = _args.model
+    pred_len = _args.pred_len
+    if model == 'LSTM-ED-CQ':
+        model = 'LSTM-AQ'
+    if data_path == 'electricity/electricity.csv':
+        data_path = 'Electricity'
+    elif data_path == 'exchange_rate/exchange_rate.csv':
+        data_path = 'Exchange'
+    elif data_path == 'traffic/traffic.csv':
+        data_path = 'Traffic'
+    factory_key = f'{model}_{data_path}_{pred_len}'
+    return get_exp_time(factory_key)
 
 
 # noinspection DuplicatedCode
@@ -200,6 +218,6 @@ def get_search_space():
 
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ', 'QSQF-C'],
-                            get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=True, save_process=False,
-                            custom_test_time=build_time_list())
+                            get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data,
+                            get_custom_test_time=get_custom_test_time)
+h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=True, save_process=False)

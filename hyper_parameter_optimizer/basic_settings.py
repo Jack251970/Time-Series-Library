@@ -489,7 +489,7 @@ def prepare_config(_params, _script_mode=False):
 
 
 # noinspection DuplicatedCode
-def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_model):
+def build_setting(_root_path, _args, _run_time, _format, _get_custom_test_time, _try_model):
     prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
         _args.task_name,
         _args.model_id,
@@ -511,6 +511,7 @@ def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_mode
         _args.distil,
         _args.des)
     checkpoints_folder = os.path.join(_root_path, 'checkpoints')
+    custom_time = _get_custom_test_time(_args)
 
     if not _args.is_training:
         checkpoints = os.listdir(checkpoints_folder)
@@ -521,27 +522,15 @@ def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_mode
             if checkpoint.startswith(prefix):
                 checkpoint_time = checkpoint.split('_')[-1]
                 checkpoint_time = datetime.datetime.strptime(checkpoint_time, _format)
+                # update if the checkpoint_time is later than the latest_time
                 if latest_time is None or checkpoint_time > latest_time:
                     latest_time = checkpoint_time
-                if isinstance(_custom_time, str):
-                    if latest_time.strftime(_format) == _custom_time:
-                        if not _try_model:
-                            print(Fore.BLUE + f'Load the custom model to test in the time: '
-                                              f'{latest_time.strftime(_format)}!')
-                        return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
-                elif isinstance(_custom_time, datetime.datetime):
-                    if latest_time == _custom_time:
-                        if not _try_model:
-                            print(Fore.BLUE + f'Load the custom model to test in the time: '
-                                              f'{latest_time.strftime(_format)}!')
-                        return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
-                elif isinstance(_custom_time, list):
-                    if latest_time.strftime(_format) in _custom_time or latest_time == _custom_time:
-                        if not _try_model:
-                            print(Fore.BLUE + f'Load the custom model to test in the time: '
-                                              f'{latest_time.strftime(_format)}!')
-                        return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
-
+                # return instantly if the custom time is found
+                if _check_custom_test_time(latest_time, custom_time, _format) is not None:
+                    if not _try_model:
+                        print(Fore.BLUE + f'Load the custom model to test in the time: '
+                                          f'{latest_time.strftime(_format)}!')
+                    return '{}_{}'.format(prefix, latest_time.strftime(_format)), latest_time.strftime(_format)
         if latest_time is not None:
             if not _try_model:
                 print(Fore.BLUE + f'Load the latest model to test in the time: {latest_time.strftime(_format)}!')
@@ -554,6 +543,19 @@ def build_setting(_root_path, _args, _run_time, _format, _custom_time, _try_mode
     if not _try_model:
         print(f'Generate a new model to train in the time: {_run_time}!')
     return '{}_{}'.format(prefix, _run_time), _run_time
+
+
+def _check_custom_test_time(latest_time, custom_time, _format):
+    if isinstance(custom_time, str):
+        if latest_time.strftime(_format) == custom_time:
+            return latest_time
+    elif isinstance(custom_time, datetime.datetime):
+        if latest_time == custom_time:
+            return latest_time
+    elif isinstance(custom_time, list):
+        if latest_time.strftime(_format) in custom_time or latest_time == custom_time:
+            return latest_time
+    return None
 
 
 # noinspection DuplicatedCode
