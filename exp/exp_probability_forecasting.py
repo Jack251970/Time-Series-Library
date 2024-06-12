@@ -361,7 +361,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
                 samples_gamma = torch.zeros(pred_length, data_length, 1).to(self.device)
                 samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
-            elif self.args.model == 'LSTM-ED-CQ':
+            elif self.args.model == 'LSTM-AQ':
                 parameter_flag = True
                 samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
                 samples_gamma = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)

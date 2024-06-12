@@ -10,7 +10,7 @@ from models.quantile_function.lstm_cq import ConvLayer, sample_pred
 class Model(nn.Module):
     def __init__(self, params, algorithm_type="1+2"):
         """
-        LSTM-ED-CQ: Auto-Regressive LSTM based on encoder-decoder architecture with convolution and spline to provide
+        LSTM-AQ: Auto-Regressive LSTM based on encoder-decoder architecture with convolution and spline to provide
         probabilistic forecasting.
 
         params: parameters for the model.

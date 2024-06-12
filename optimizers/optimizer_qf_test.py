@@ -15,7 +15,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 321
         _config['c_out'] = 321
 
-        if model == 'LSTM-ED-CQ':
+        if model == 'LSTM-AQ':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 3
@@ -48,7 +48,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 8
         _config['c_out'] = 8
 
-        if model == 'LSTM-ED-CQ':
+        if model == 'LSTM-AQ':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
@@ -80,7 +80,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 862
         _config['c_out'] = 862
 
-        if model == 'LSTM-ED-CQ':
+        if model == 'LSTM-AQ':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 64
                 _config['lstm_layers'] = 2
@@ -126,8 +126,6 @@ def get_custom_test_time(_args):
     data_path = _args.data_path
     model = _args.model
     pred_len = _args.pred_len
-    if model == 'LSTM-ED-CQ':
-        model = 'LSTM-AQ'
     if data_path == 'electricity/electricity.csv':
         data_path = 'Electricity'
     elif data_path == 'exchange_rate/exchange_rate.csv':
@@ -210,14 +208,14 @@ def get_search_space():
     }
 
     model_configs = {
-        'LSTM-ED-CQ': lstm_ed_cq_config,
+        'LSTM-AQ': lstm_ed_cq_config,
         'QSQF-C': qsqf_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-ED-CQ', 'QSQF-C'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ', 'QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data,
                             get_custom_test_time=get_custom_test_time)
 h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=True, save_process=False)
