@@ -89,6 +89,7 @@ class Model(nn.Module):
             self.use_norm = False
         if len(custom_params) > 0 and custom_params[0] == 'label':
             self.pred_steps = params.pred_len + params.label_len
+            self.pred_start = params.seq_len - params.label_len
             custom_params.pop(0)
         if len(custom_params) > 0:
             raise ValueError(f"Cannot parse these custom_params: {custom_params}")
