@@ -73,8 +73,9 @@ def get_search_space():
 
         # 1
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
+        'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'weather/weather.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'traffic/traffic.csv'},
 
         # 2
         # 'data_path': {'_type': 'choice',
@@ -85,7 +86,7 @@ def get_search_space():
         #               '_value': ['electricity/electricity.csv', 'wind/Zone1/Zone1.csv', 'pvod/station00.csv']},
 
         # 4
-        'data_path': {'_type': 'choice', '_value': ['traffic/traffic.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['traffic/traffic.csv']},
 
         # 6
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'ETT-small/ETTm2.csv',
@@ -178,8 +179,7 @@ def get_search_space():
         # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
         # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
-        # 'custom_params': {'_type': 'choice', '_value': build_custom_parameters()},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label1'},
     }
 
     model_configs = {
