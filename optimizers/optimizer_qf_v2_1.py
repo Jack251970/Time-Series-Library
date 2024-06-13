@@ -21,6 +21,9 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+
+        _config['n_heads'] = 4
+        _config['d_model'] = 64
     elif data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -31,9 +34,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 862
         _config['dec_in'] = 862
         _config['c_out'] = 862
-
-        _config['n_heads'] = 4
-        _config['d_model'] = 24
     elif data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
@@ -162,16 +162,16 @@ def get_search_space():
         'sample_times': {'_type': 'single', '_value': 99},
 
         # Step 1: Attention
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 1},
-        'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
-        'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        # 'lstm_layers': {'_type': 'single', '_value': 1},
+        # 'n_heads': {'_type': 'choice', '_value': [1, 2, 4, 8]},
+        # 'd_model': {'_type': 'choice', '_value': [24, 40, 64]},
 
         # Step 2: LSTM
-        # 'n_heads': {'_type': 'single', '_value': 4},
-        # 'd_model': {'_type': 'single', '_value': 24},
-        # 'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
-        # 'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
+        'n_heads': {'_type': 'single', '_value': 4},
+        'd_model': {'_type': 'single', '_value': 24},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label1'},
     }
