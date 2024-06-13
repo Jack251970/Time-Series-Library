@@ -190,7 +190,7 @@ def get_search_space():
         'lstm_layers': {'_type': 'single', '_value': 2},
     }
 
-    lstm_ed_cq_config = {
+    lstm_aq_config = {
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -208,7 +208,7 @@ def get_search_space():
     }
 
     model_configs = {
-        'LSTM-AQ': lstm_ed_cq_config,
+        'LSTM-AQ': lstm_aq_config,
         'QSQF-C': qsqf_config,
     }
 

@@ -149,7 +149,7 @@ def get_search_space():
         'sample_times': {'_type': 'single', '_value': 99},
     }
 
-    lstm_ed_cq_config = {
+    lstm_aq_config = {
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
@@ -182,7 +182,7 @@ def get_search_space():
         'LSTM-CQ': lstm_cq_config,
         'QSQF-C': qsqf_config,
         'RNN-SF': qsqf_config,
-        'LSTM-AQ': lstm_ed_cq_config,
+        'LSTM-AQ': lstm_aq_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
