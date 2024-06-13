@@ -227,7 +227,7 @@ class Model(nn.Module):
                 bias.data[start:end].fill_(1.)
 
     # noinspection DuplicatedCode
-    def get_input_data(self, x_enc, y_enc):
+    def get_input_data(self, x_enc, y_enc, x_mark_enc, x_mark_dec):
         if self.lag_index is None:
             self.lag_index = []
             self.cov_index = []
@@ -244,8 +244,11 @@ class Model(nn.Module):
                 if not lag:
                     self.cov_index.append(i)
 
+        # contact sample
         batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
+        x_mark = torch.cat((x_mark_enc, x_mark_dec[:, -self.pred_len:, :]), dim=1)
 
+        # divide sample
         # s = seq_len
         if self.enc_feature == 'A':
             enc_in = batch[:, :self.pred_start, :]
@@ -259,6 +262,7 @@ class Model(nn.Module):
             enc_in = batch[:, :self.pred_start, _index]
         else:
             raise ValueError("enc_feature must be 'A', 'C', or 'L'")
+        mark_enc = x_mark[:, :self.pred_start, :]
 
         # s = label_len + pred_len
         if self.dec_feature == 'A':
@@ -269,24 +273,24 @@ class Model(nn.Module):
             dec_in = batch[:, -self.pred_steps:, self.lag_index]
         else:
             raise ValueError("dec_feature must be 'A', 'C', or 'L'")
+        mark_dec = x_mark[:, -self.pred_steps:, :]
         labels = batch[:, -self.pred_steps:, -1]
 
-        return enc_in, dec_in, labels
+        return enc_in, dec_in, mark_enc, mark_dec, labels
 
     # noinspection DuplicatedCode,PyUnusedLocal
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            enc_in, dec_in, labels = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, x_mark_enc, x_mark_dec, labels)  # return loss list
+            enc_in, dec_in, mark_enc, mark_dec, labels = self.get_input_data(x_enc, y_enc, x_mark_enc, x_mark_dec)
+            return self.probability_forecast(enc_in, dec_in, mark_enc, mark_dec, labels=labels)  # return loss list
         return None
 
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
-            enc_in, dec_in, _ = self.get_input_data(x_enc, y_enc)
-            return self.probability_forecast(enc_in, dec_in, x_mark_enc, x_mark_dec,
-                                             probability_range=probability_range)
+            enc_in, dec_in, mark_enc, mark_dec, _ = self.get_input_data(x_enc, y_enc, x_mark_enc, x_mark_dec)
+            return self.probability_forecast(enc_in, dec_in, mark_enc, mark_dec, probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
@@ -375,21 +379,21 @@ class Model(nn.Module):
         return samples_lambda, samples_gamma, samples_eta_k
 
     # noinspection DuplicatedCode
-    def probability_forecast(self, x_enc, x_dec, x_mark_enc, x_mark_dec, labels=None, sample=False,
+    def probability_forecast(self, enc_in, dec_in, mark_enc, mark_dec, labels=None, sample=False,
                              probability_range=None):
         # [256, 96, 4], [256, 12, 7], [256, 12,]
         if probability_range is None:
             probability_range = [0.5]
 
-        batch_size = x_enc.shape[0]  # 256
-        device = x_enc.device
+        batch_size = enc_in.shape[0]  # 256
+        device = enc_in.device
 
         assert isinstance(probability_range, list)
         probability_range_len = len(probability_range)
         probability_range = torch.Tensor(probability_range).to(device)  # [3]
 
-        x_enc = x_enc.permute(1, 0, 2)  # [96, 256, 4]
-        x_dec = x_dec.permute(1, 0, 2)  # [16, 256, 7]
+        enc_in = enc_in.permute(1, 0, 2)  # [96, 256, 4]
+        dec_in = dec_in.permute(1, 0, 2)  # [16, 256, 7]
         if labels is not None:
             labels = labels.permute(1, 0)  # [12, 256]
 
@@ -404,7 +408,7 @@ class Model(nn.Module):
         enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
                                device=device)  # [96, 1, 256, 40]
         for t in range(self.pred_start):
-            hidden, cell = self.run_lstm_enc(x_enc[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
+            hidden, cell = self.run_lstm_enc(enc_in[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
             enc_hidden[t] = hidden
             enc_cell[t] = cell
 
@@ -427,7 +431,7 @@ class Model(nn.Module):
                 enc_hidden = enc_hidden.view(batch_size, self.pred_start,
                                              self.enc_lstm_layers * self.lstm_hidden_size)
                 if self.attention_projection == 'ap1':
-                    enc_hidden = self.enc_embedding(enc_hidden, x_mark_enc)
+                    enc_hidden = self.enc_embedding(enc_hidden, mark_enc)
                 else:
                     enc_hidden = self.enc_embedding(enc_hidden)
                 enc_hidden_attn = enc_hidden.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
@@ -455,8 +459,8 @@ class Model(nn.Module):
 
             # decoder
             for t in range(self.pred_steps):
-                x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                  hidden, cell, enc_hidden_attn)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
@@ -499,16 +503,16 @@ class Model(nn.Module):
 
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
-                x_dec_clone = x_dec.clone()  # [16, 256, 7]
+                x_dec_clone = dec_in.clone()  # [16, 256, 7]
 
                 # initialize hidden and cell
                 hidden, cell = dec_hidden.clone(), dec_cell.clone()
 
                 # decoder
                 for t in range(self.pred_steps):
-                    x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                        hidden, cell, enc_hidden_attn)
+                    x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                                                                     hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -547,7 +551,7 @@ class Model(nn.Module):
                 attention_map = None
 
             # clone test batch
-            x_dec_clone = x_dec.clone()  # [16, 256, 7]
+            x_dec_clone = dec_in.clone()  # [16, 256, 7]
 
             # sample
             samples_mu1 = torch.zeros(batch_size, self.pred_steps, 1, device=device)
@@ -560,8 +564,8 @@ class Model(nn.Module):
 
             # decoder
             for t in range(self.pred_steps):
-                x_mark_dec_step = x_mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(x_dec[t].unsqueeze_(0).clone(), x_mark_dec_step,
+                x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
+                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(), x_mark_dec_step,
                                                                     hidden, cell, enc_hidden_attn)
                 if self.use_attn:
                     attention_map[t] = attn
