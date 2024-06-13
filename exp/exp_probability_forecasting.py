@@ -115,15 +115,16 @@ class Exp_Probability_Forecast(Exp_Basic):
                                                       'custom loss function!')
                 elif isinstance(outputs, tuple):
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    # outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
-                    # batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
+
+                    # train don't need to select the length with pred_len
                     outputs = tuple([output[:, :, f_dim:] for output in outputs])  # [256, 16, 1]
                     batch_y = batch_y[:, :, f_dim:].to(self.device)  # [256, 16, 1]
+
                     loss = criterion(outputs, batch_y)
                 else:
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                    outputs = outputs[:, :, f_dim:]
+                    batch_y = batch_y[:, :, f_dim:].to(self.device)
                     loss = criterion(outputs, batch_y)
                 train_loss.append(loss.item())
 
@@ -260,10 +261,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                     loss = loss.detach().cpu()
                 elif isinstance(outputs, tuple):
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    # outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
-                    # batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
-                    outputs = tuple([output[:, :, f_dim:] for output in outputs])  # [256, 16, 1]
-                    batch_y = batch_y[:, :, f_dim:].to(self.device)  # [256, 16, 1]
+
+                    # validation need to select the length with pred_len
+                    outputs = tuple([output[:, -self.args.pred_len:, f_dim:] for output in outputs])  # [256, 16, 1]
+                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)  # [256, 16, 1]
 
                     outputs = tuple([output.detach().cpu() for output in outputs])
                     batch_y = batch_y.detach().cpu()
@@ -412,6 +413,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 samples, sample_mu, sample_std, samples_high, samples_low, attention_map, parameters = outputs
                 # [99, 256, 12], [256, 12, 1], [256, 12, 1], [3, 256, 16], [3, 256, 16], [16, 256, 8, 1, 96], ()
 
+                # test need to select the length with pred_len
                 samples = samples[:, :, -pred_length:]
                 sample_mu = sample_mu[:, -pred_length:, :]
                 # sample_std = sample_std[:, -pred_length:, :]
@@ -423,7 +425,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     attention_flag = False
                 if parameters is not None and parameter_flag:
-                    pass
+                    if isinstance(parameters, tuple):
+                        parameters = tuple([parameter[-pred_length:, :, :] for parameter in parameters])
                 else:
                     parameter_flag = False
 

@@ -1,7 +1,5 @@
 from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 
-from analyze.test_data_factory import get_exp_time
-
 
 # noinspection DuplicatedCode
 def link_fieldnames_data(_config):
@@ -152,7 +150,7 @@ def get_search_space():
 
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
-        'label_len': {'_type': 'choice', '_value': 16},
+        'label_len': {'_type': 'choice', '_value': 1},
         'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
