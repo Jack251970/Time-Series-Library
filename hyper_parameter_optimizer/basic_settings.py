@@ -510,7 +510,7 @@ def build_setting(_root_path, _args, _run_time, _format, _get_custom_test_time, 
         _args.distil,
         _args.des)
     checkpoints_folder = os.path.join(_root_path, 'checkpoints')
-    custom_time = _get_custom_test_time(_args)
+    custom_time = None if _get_custom_test_time is None else _get_custom_test_time(_args)
 
     if not _args.is_training:
         checkpoints = os.listdir(checkpoints_folder)
