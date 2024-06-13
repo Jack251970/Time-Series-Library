@@ -169,7 +169,7 @@ def get_search_space():
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label'},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label1'},
     }
 
     model_configs = {
