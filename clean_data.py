@@ -57,7 +57,8 @@ def clean_blank_folder(_folders):
                     os.rmdir(setting_folder)
                     clean_number += 1
 
-    print(Fore.RED + f"Cleaned {clean_number} blank folders")
+    if clean_number != 0:
+        print(Fore.RED + f"Cleaned {clean_number} blank folders")
 
 
 clean_blank_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
@@ -96,7 +97,8 @@ def clean_unrelated_folder(_folders):
                     shutil.rmtree(setting_folder)
                     clean_number += 1
 
-    print(Fore.RED + f"Cleaned {clean_number} folders that are not experiments in csv files under data folder")
+    if clean_number != 0:
+        print(Fore.RED + f"Cleaned {clean_number} folders that are not experiments in csv files under data folder")
 
 
 clean_unrelated_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
