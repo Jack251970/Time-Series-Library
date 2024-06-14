@@ -17,8 +17,8 @@ pred_length = int(config_row['pred_len'])
 n_heads = int(config_row['n_heads'])
 loader_length = attention_maps.shape[0]
 
-# draw attention map
-print('drawing attention map')
+# draw attention map for every loader
+print('drawing attention map for every loader')
 for i in tqdm(range(loader_length)):
     _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
     if not os.path.exists(_path):
@@ -30,6 +30,8 @@ for i in tqdm(range(loader_length)):
         _ = attention_map[j]
         draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'), cols=3)
 
+# draw attention map for every prediction step
+print('drawing attention map for every prediction step')
 for i in tqdm(range(pred_length)):
     _path = os.path.join(folder_path, f'attention_map', f'step {i}')
     if not os.path.exists(_path):
