@@ -7,6 +7,17 @@ from tqdm import tqdm
 from analyze.test_data_factory import get_parameter, get_config_row, get_all_value
 from models.quantile_function.lstm_cq import sample_pred
 
+from matplotlib import rcParams
+
+config = {
+    "font.family": 'serif',
+    "font.size": 12,
+    "font.serif": ['Times New Roman'],
+    # "mathtext.fontset": 'stix',
+    # 'axes.unicode_minus': False
+}
+rcParams.update(config)
+
 samples_index = [15, 31, 63, 95]
 folder_path = 'quantile_figure'
 
@@ -74,13 +85,12 @@ y_data_true = true_value[samples_index, :]
 # [4, 5165, 101]
 y_data_true = y_data_true.reshape(len(samples_index), data_length, 1).repeat(len(x_data), 2)
 
-
 # draw selected figures
 print('drawing selected quantile figure')
 i = samples_index.index(select_step)
 j = select_data_length
 plt.clf()
-plt.plot(x_data, y_data_lstm_aq[i, j, :], label='LSTM-AQ', color='blue')
+plt.plot(x_data, y_data_lstm_aq[i, j, :], label='AL-QSQF ', color='blue')  # add blank to create interval
 plt.plot(x_data, y_data_qsqf_c[i, j, :], label='QSQF-C', color='red')
 plt.plot(x_data, y_data_true[i, j, :], label='True', color='green')
 plt.legend()
@@ -88,8 +98,8 @@ plt.xlabel('alpha')
 plt.ylabel('Q(alpha)')
 plt.savefig(os.path.join(folder_path, f'quantile figure.png'))
 
-# draw figures
-print('drawing quantile figure')
+# draw all figures
+print('drawing all quantile figures')
 for i in range(len(samples_index)):
     index = samples_index[i]
     _path = os.path.join(folder_path, f'step {index}')
@@ -98,7 +108,7 @@ for i in range(len(samples_index)):
 
     for j in tqdm(range(data_length), desc=f'step {index}'):
         plt.clf()
-        plt.plot(x_data, y_data_lstm_aq[i, j, :], label='LSTM-AQ', color='blue')
+        plt.plot(x_data, y_data_lstm_aq[i, j, :], label='AL-QSQF ', color='blue')
         plt.plot(x_data, y_data_qsqf_c[i, j, :], label='QSQF-C', color='red')
         plt.plot(x_data, y_data_true[i, j, :], label='True', color='green')
         plt.legend()
