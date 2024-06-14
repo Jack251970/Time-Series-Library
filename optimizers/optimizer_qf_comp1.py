@@ -4,12 +4,36 @@ from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 # noinspection DuplicatedCode
 def link_fieldnames_data(_config):
     data_path = _config['data_path']
+    model = _config['model']
+    pred_len = _config['pred_len']
     if data_path == 'electricity/electricity.csv':
         # electricity dataset
         _config['reindex_tolerance'] = 0.80
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+
+        if model == 'LSTM-AQ':
+            if pred_len == 16:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 1
+                _config['d_model'] = 24
+            elif pred_len == 32:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 2
+                _config['d_model'] = 24
+            elif pred_len == 64:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
+            elif pred_len == 96:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 4
+                _config['d_model'] = 24
     elif (data_path == 'ETT-small/ETTh1.csv' or data_path == 'ETT-small/ETTh2.csv' or
           data_path == 'ETT-small/ETTm1.csv' or data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -21,6 +45,28 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+
+        if model == 'LSTM-AQ':
+            if pred_len == 16:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 64
+            elif pred_len == 32:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 1
+                _config['d_model'] = 40
+            elif pred_len == 64:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 64
+            elif pred_len == 96:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 1
+                _config['n_heads'] = 2
+                _config['d_model'] = 64
     elif data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -31,6 +77,28 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 862
         _config['dec_in'] = 862
         _config['c_out'] = 862
+
+        if model == 'LSTM-AQ':
+            if pred_len == 16:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
+            elif pred_len == 32:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
+            elif pred_len == 64:
+                _config['lstm_hidden_size'] = 40
+                _config['lstm_layers'] = 3
+                _config['n_heads'] = 8
+                _config['d_model'] = 64
+            elif pred_len == 96:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+                _config['n_heads'] = 2
+                _config['d_model'] = 40
     elif data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
@@ -61,6 +129,7 @@ def get_search_space():
         'embed': {'_type': 'single', '_value': 'timeF'},
         'freq': {'_type': 'single', '_value': 't'},
         'batch_size': {'_type': 'single', '_value': 256},
+        'pin_memory': {'_type': 'single', '_value': False},
     }
 
     dataset_config = {
@@ -78,16 +147,19 @@ def get_search_space():
 
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
-        'label_len': {'_type': 'single', '_value': 16},
+        'label_len': {'_type': 'single', '_value': 1},
         'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
 
-    lstm_aq1_config = {
+    lstm_aq_config = {
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+        'reindex': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 50},
@@ -95,20 +167,19 @@ def get_search_space():
         'num_spline': {'_type': 'single', '_value': 20},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
-
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 2},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
     }
 
     model_configs = {
-        'LSTM-AQ1': lstm_aq1_config
+        'LSTM-AQ1': lstm_aq_config,
+        'LSTM-AQ2': lstm_aq_config,
+        'LSTM-AQ3': lstm_aq_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ1'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ2', 'LSTM-AQ3', 'LSTM-AQ4'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_aq_comp.csv',
-                            scan_all_csv=True, try_model=False, force_exp=False)
+h.config_optimizer_settings(root_path='.', data_csv_file='data_comp1.csv',
+                            scan_all_csv=False, try_model=False, force_exp=False, save_process=False)
