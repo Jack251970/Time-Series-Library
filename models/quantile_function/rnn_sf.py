@@ -146,6 +146,7 @@ class Model(nn.Module):
             for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
                 if torch.isnan(hidden_permute).sum() > 0:
+                    loss_list.clear()
                     stop_flag = True
                     break
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]
