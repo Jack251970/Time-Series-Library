@@ -159,45 +159,68 @@ def draw_attention_map(att_map, path, cols=4):
     Draw attention map
     attn_map: (num_heads, seq_len_1, seq_len_2)
     """
-    # prepare attention maps for each head
-    to_shows = []
-    n_heads = att_map.shape[0]
-    for i in range(n_heads):
-        to_shows.append((att_map[i], f'Head {i}'))
-    if n_heads != 1:
-        average_att_map = att_map.mean(axis=0)
-        to_shows.append((average_att_map, 'Head Average'))
+    if cols > 0:
+        # prepare attention maps for each head
+        to_shows = []
+        n_heads = att_map.shape[0]
+        for i in range(n_heads):
+            to_shows.append((att_map[i], f'Head {i}'))
+        if n_heads != 1:
+            average_att_map = att_map.mean(axis=0)
+            to_shows.append((average_att_map, 'Head Average'))
 
-    # draw attention map
-    plt.clf()
-    rows = (len(to_shows) - 1) // cols + 1
-    it = iter(to_shows)
-    fig, axs = plt.subplots(rows, cols, figsize=(rows * 8.5, cols * 2))
-    if rows == 1:
-        for j in range(cols):
-            try:
-                image, title = next(it)
-            except StopIteration:
-                image = np.zeros_like(to_shows[0][0])
-                title = 'pad'
-            axs[j].imshow(image)
-            axs[j].set_title(title)
-            axs[j].set_yticks([])
-            axs[j].set_xticks([])
-    else:
-        for i in range(rows):
+        # draw attention map
+        plt.clf()
+        rows = (len(to_shows) - 1) // cols + 1
+        it = iter(to_shows)
+        fig, axs = plt.subplots(rows, cols, figsize=(rows * 8.5, cols * 2))
+        if rows == 1:
             for j in range(cols):
                 try:
                     image, title = next(it)
                 except StopIteration:
                     image = np.zeros_like(to_shows[0][0])
                     title = 'pad'
-                axs[i, j].imshow(image)
-                axs[i, j].set_title(title)
-                axs[i, j].set_yticks([])
-                axs[i, j].set_xticks([])
-    plt.legend('')
-    plt.savefig(path)
+                axs[j].imshow(image)
+                axs[j].set_title(title)
+                axs[j].set_yticks([])
+                axs[j].set_xticks([])
+        else:
+            for i in range(rows):
+                for j in range(cols):
+                    try:
+                        image, title = next(it)
+                    except StopIteration:
+                        image = np.zeros_like(to_shows[0][0])
+                        title = 'pad'
+                    axs[i, j].imshow(image)
+                    axs[i, j].set_title(title)
+                    axs[i, j].set_yticks([])
+                    axs[i, j].set_xticks([])
+        plt.legend('')
+        plt.savefig(path)
+    else:
+        mean_att_map = att_map.mean(axis=0)  # [96, 96]
+
+        plt.subplots(figsize=(16, 16))
+        plt.rc('font', family='Times New Roman', size=16)
+
+        # get the minimal and maximal value in mean_att_map
+        minimal = 0  # mean_att_map.min()
+        maximal = mean_att_map.max()
+
+        sns.heatmap(mean_att_map,
+                    center=0,
+                    annot=True,
+                    vmax=maximal, vmin=minimal,
+                    xticklabels=False, yticklabels=False,
+                    square=True,
+                    cmap="Blues")
+        plt.title("Heatmap")
+        # plt.savefig(f'{name}.pdf', bbox_inches='tight', format='pdf')
+        plt.savefig(path, bbox_inches='tight')
+
+        plt.show()
 
 
 def adjustment(gt, pred):
