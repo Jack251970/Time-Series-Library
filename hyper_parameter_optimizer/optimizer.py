@@ -16,6 +16,8 @@ from hyper_parameter_optimizer import basic_settings
 from itertools import product
 from tqdm import tqdm
 
+from utils.tools import set_times_new_roman_font
+
 
 # from utils.print_args import print_args
 
@@ -261,6 +263,9 @@ class HyperParameterOptimizer(object):
         return task_names
 
     def start_search(self, process_index=0, force_test=False, inverse_exp=False, shutdown_after_done=False):
+        # set default font to Times New Roman when plotting
+        set_times_new_roman_font()
+
         # run directly under script mode
         if self.script_mode:
             # print info
