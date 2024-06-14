@@ -443,6 +443,7 @@ def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
     1:
     Q(alpha) = lambda + sum(beta_k * (alpha - alpha_k))
     """
+    # phase parameter
     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
 
     if alpha is not None:
@@ -471,31 +472,27 @@ def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
         return y_hat
 
 
-def loss_fn(tuple_param):
+def loss_fn_crps(tuple_param):
     alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
 
     # CRPS
     labels = labels.unsqueeze(1)  # [256, 1]
-    return get_crps(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
+
+    # calculate loss
+    crpsLoss = get_crps(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
+
+    return crpsLoss
 
 
 def loss_fn_mse(tuple_param):
     alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
 
-    # CRPS
-    labels = labels.unsqueeze(1)  # [256, 1]
-    return get_mse(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
-
-
-def get_mse(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
-    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
-
     # get y_hat
-    y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
+    y_hat = sample_pred(alpha_prime_k, None, _lambda, gamma, eta_k, algorithm_type)  # [256,]
 
     # calculate loss
     loss = nn.MSELoss()
-    mseLoss = loss(y_hat, y)
+    mseLoss = loss(y_hat, labels)
 
     return mseLoss
 
@@ -503,22 +500,39 @@ def get_mse(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
 def loss_fn_mae(tuple_param):
     alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
 
-    # CRPS
-    labels = labels.unsqueeze(1)  # [256, 1]
-    return get_mae(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
-
-
-def get_mae(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
-    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
-
     # get y_hat
-    y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
+    y_hat = sample_pred(alpha_prime_k, None, _lambda, gamma, eta_k, algorithm_type)  # [256,]
 
     # calculate loss
     loss = nn.L1Loss()
-    mseLoss = loss(y_hat, y)
+    mseLoss = loss(y_hat, labels)
 
     return mseLoss
+
+
+_quantiles_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+
+def loss_fn_quantiles(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # sample quantiles
+    global _quantiles_list
+    quantiles_number = len(_quantiles_list)
+    batch_size = labels.shape[0]
+    device = labels.device
+    quantiles = torch.zeros(quantiles_number, batch_size, device=device)  # [256, 9]
+    quantiles_y_pred = torch.zeros(quantiles_number, batch_size, device=device)  # [256, 9]
+    for i in range(quantiles_number):
+        quantile = torch.Tensor([quantiles[i]], device=device).unsqueeze(0).expand(batch_size, -1)  # [256, 1]
+        quantiles[:, i] = quantile.squeeze(1)  # [256,]
+        quantiles_y_pred[:, i] = sample_pred(alpha_prime_k, quantile, _lambda, gamma, eta_k, algorithm_type)  # [256,]
+
+    # calculate loss
+    residual = quantiles_y_pred - labels  # [256, 9]
+    quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual)
+
+    return quantilesLoss
 
 
 # noinspection DuplicatedCode
