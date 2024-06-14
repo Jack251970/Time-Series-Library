@@ -479,17 +479,46 @@ def loss_fn(tuple_param):
     return get_crps(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
 
 
-# def get_mse(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
-#     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
-#
-#     # get y_hat
-#     y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
-#
-#     # calculate loss
-#     loss = nn.MSELoss()
-#     mseLoss = loss(y_hat, y)
-#
-#     return mseLoss
+def loss_fn_mse(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # CRPS
+    labels = labels.unsqueeze(1)  # [256, 1]
+    return get_mse(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
+
+
+def get_mse(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
+
+    # get y_hat
+    y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
+
+    # calculate loss
+    loss = nn.MSELoss()
+    mseLoss = loss(y_hat, y)
+
+    return mseLoss
+
+
+def loss_fn_mae(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # CRPS
+    labels = labels.unsqueeze(1)  # [256, 1]
+    return get_mae(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
+
+
+def get_mae(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
+
+    # get y_hat
+    y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
+
+    # calculate loss
+    loss = nn.L1Loss()
+    mseLoss = loss(y_hat, y)
+
+    return mseLoss
 
 
 # noinspection DuplicatedCode
