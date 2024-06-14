@@ -287,7 +287,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         return total_loss
 
     def test(self, setting, test=False, check_folder=False,
-             probabilistic_flag=True, probabilistic_density_flag=True, attention_flag=True, parameter_flag=True):
+             probabilistic_flag=False, probabilistic_density_flag=True, attention_flag=False, parameter_flag=False):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
@@ -327,7 +327,7 @@ class Exp_Probability_Forecast(Exp_Basic):
             parameter_flag = False
 
         # probabilistic forecast
-        if probabilistic_flag:
+        if probabilistic_flag or probabilistic_density_flag:
             pred_value = torch.zeros(pred_length, data_length).to(self.device)
             true_value = torch.zeros(pred_length, data_length).to(self.device)
             high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
@@ -434,7 +434,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                     pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
                     pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
                     samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
-                if probabilistic_flag:
+                if probabilistic_flag or probabilistic_density_flag:
                     pred = sample_mu[:, :, -1].transpose(0, 1)
                     pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
                     high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
@@ -546,7 +546,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 os.makedirs(folder_path)
 
             # pred value, true value & probability range
-            if probabilistic_flag:
+            if probabilistic_flag or probabilistic_density_flag:
                 # move to cpu and covert to numpy for plotting
                 pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
                 true_value = true_value.detach().cpu().numpy()  # [16, 15616]
@@ -606,25 +606,26 @@ class Exp_Probability_Forecast(Exp_Basic):
                 np.save(folder_path + 'high_value_inverse.npy', high_value)
                 np.save(folder_path + 'low_value_inverse.npy', low_value)
 
-                # draw figures
-                print('drawing probabilistic figure')
-                for i in tqdm(range(pred_length)):
-                    _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
-                    if not os.path.exists(_path):
-                        os.makedirs(_path)
+                if probabilistic_flag:
+                    # draw figures
+                    print('drawing probabilistic figure')
+                    for i in tqdm(range(pred_length)):
+                        _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
+                        if not os.path.exists(_path):
+                            os.makedirs(_path)
 
-                    interval = 128
-                    num = math.floor(data_length / interval)
-                    for j in range(num):
-                        if j * interval >= data_length:
-                            continue
-                        draw_figure(range(interval),
-                                    pred_value[i, j * interval: (j + 1) * interval],
-                                    true_value[i, j * interval: (j + 1) * interval],
-                                    high_value[i, :, j * interval: (j + 1) * interval],
-                                    low_value[i, :, j * interval: (j + 1) * interval],
-                                    probability_range,
-                                    os.path.join(_path, f'prediction {j}.png'))
+                        interval = 128
+                        num = math.floor(data_length / interval)
+                        for j in range(num):
+                            if j * interval >= data_length:
+                                continue
+                            draw_figure(range(interval),
+                                        pred_value[i, j * interval: (j + 1) * interval],
+                                        true_value[i, j * interval: (j + 1) * interval],
+                                        high_value[i, :, j * interval: (j + 1) * interval],
+                                        low_value[i, :, j * interval: (j + 1) * interval],
+                                        probability_range,
+                                        os.path.join(_path, f'prediction {j}.png'))
 
             if probabilistic_density_flag:
                 # move to cpu and covert to numpy for plotting
