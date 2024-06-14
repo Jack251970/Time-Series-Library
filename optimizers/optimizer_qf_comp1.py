@@ -171,9 +171,9 @@ def get_search_space():
     }
 
     model_configs = {
-        'LSTM-AQ1': lstm_aq_config,
         'LSTM-AQ2': lstm_aq_config,
         'LSTM-AQ3': lstm_aq_config,
+        'LSTM-AQ4': lstm_aq_config,
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
