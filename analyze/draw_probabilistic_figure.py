@@ -4,12 +4,14 @@ import os
 from tqdm import tqdm
 
 from analyze.test_data_factory import get_all_value_inverse, get_config_row
-from utils.tools import draw_figure
+from utils.tools import draw_figure, set_times_new_roman_font
+
+set_times_new_roman_font()
 
 samples_index = [15, 31, 63, 95]
 
 folder_path = 'probabilistic_figure'
-exp_name = 'LSTM-AQ_Electricity_96'
+exp_name = 'QSQF-C_Electricity_96'
 pred_value, true_value, high_value, low_value = get_all_value_inverse(exp_name)
 
 config_row = get_config_row(exp_name)
@@ -37,5 +39,5 @@ for i in tqdm(range(pred_length)):
                             high_value[i, :, j * interval: (j + 1) * interval],
                             low_value[i, :, j * interval: (j + 1) * interval],
                             probability_range,
-                            os.path.join(_path, f'prediction {j}.png'),
+                            os.path.join(_path, f'PF QSQF-C Electricity Pred 96 Step {i+1} Data {j+1}.png'),
                             ylim=[1500, 4500])

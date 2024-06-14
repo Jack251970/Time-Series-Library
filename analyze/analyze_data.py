@@ -198,7 +198,8 @@ latex_text = get_latex_table_data(baseline_data,
                                                  ['traffic/traffic.csv', 'Traffic'],
                                                  ['data_path', ''],
                                                  ['pred_len', ''],
-                                                 ['model', '']])
+                                                 ['model', ''],
+                                                 ['LSTM-AQ', 'AL-QSQF']])
 
 with open('accuracy_table.txt', 'w') as f:
     f.write(latex_text)
@@ -218,7 +219,8 @@ latex_text = get_latex_table_data(baseline_data,
                                                  ['traffic/traffic.csv', 'Traffic'],
                                                  ['data_path', ''],
                                                  ['pred_len', ''],
-                                                 ['model', '']])
+                                                 ['model', ''],
+                                                 ['LSTM-AQ', 'AL-QSQF']])
 
 with open('reliability_table.txt', 'w') as f:
     f.write(latex_text)

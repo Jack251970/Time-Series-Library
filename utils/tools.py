@@ -121,7 +121,7 @@ def visual(true, preds=None, name='./pic/test.pdf'):
 
 def draw_figure(x, pred, true, high, low, pred_range, path, xlim=None, ylim=None):
     plt.clf()
-    plt.plot(pred.squeeze(), label='Predicted Value', color='red')
+    plt.plot(pred.squeeze(), label='Predicted Value ', color='red')
     plt.plot(true.squeeze(), label='True Value', color='blue')
     if pred_range is not None:
         for j in range(len(pred_range)):
@@ -141,7 +141,7 @@ def draw_density_figure(samples, true, path):  # [99], []
     plt.clf()
 
     # Plotting the density plot of the samples
-    sns.kdeplot(samples.squeeze(), fill=True, label='Probability Density')
+    sns.kdeplot(samples.squeeze(), fill=True, label='Probability Density ')
 
     # Adding a vertical line for the true value
     plt.axvline(true.squeeze(), color='r', linestyle='--', label='True Value')

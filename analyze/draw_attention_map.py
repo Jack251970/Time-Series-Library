@@ -4,7 +4,9 @@ import os
 from tqdm import tqdm
 
 from analyze.test_data_factory import get_attention_map, get_config_row
-from utils.tools import draw_attention_map
+from utils.tools import draw_attention_map, set_times_new_roman_font
+
+set_times_new_roman_font()
 
 folder_path = 'attention_map'
 exp_name = 'LSTM-AQ_Electricity_96'
@@ -20,7 +22,7 @@ loader_length = attention_maps.shape[0]
 # draw attention map for every loader
 print('drawing attention map for every loader')
 for i in tqdm(range(loader_length)):
-    _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
+    _path = os.path.join(folder_path, f'loader {i}')
     if not os.path.exists(_path):
         os.makedirs(_path)
 
@@ -33,7 +35,7 @@ for i in tqdm(range(loader_length)):
 # draw attention map for every prediction step
 print('drawing attention map for every prediction step')
 for i in tqdm(range(pred_length)):
-    _path = os.path.join(folder_path, f'attention_map', f'step {i}')
+    _path = os.path.join(folder_path, f'step {i}')
     if not os.path.exists(_path):
         os.makedirs(_path)
 
