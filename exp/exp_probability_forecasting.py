@@ -287,7 +287,7 @@ class Exp_Probability_Forecast(Exp_Basic):
         return total_loss
 
     def test(self, setting, test=False, check_folder=False,
-             probabilistic_flag=True, sample_flag=True, attention_flag=True, parameter_flag=True):
+             probabilistic_flag=True, probabilistic_density_flag=True, attention_flag=True, parameter_flag=True):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
@@ -322,7 +322,7 @@ class Exp_Probability_Forecast(Exp_Basic):
 
         if not test:
             probabilistic_flag = False
-            sample_flag = False
+            probabilistic_density_flag = False
             attention_flag = False
             parameter_flag = False
 
@@ -339,7 +339,7 @@ class Exp_Probability_Forecast(Exp_Basic):
             low_value = None
 
         # sample value on certain time steps
-        if sample_flag:
+        if probabilistic_density_flag:
             samples_index = [15, 31, 63, 95]
             samples_number = len(samples_index)
             samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
@@ -430,7 +430,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 else:
                     parameter_flag = False
 
-                if sample_flag:
+                if probabilistic_density_flag:
                     pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
                     pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
                     samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
@@ -626,7 +626,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                                     probability_range,
                                     os.path.join(_path, f'prediction {j}.png'))
 
-            if sample_flag:
+            if probabilistic_density_flag:
                 # move to cpu and covert to numpy for plotting
                 samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
 
