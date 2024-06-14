@@ -7,16 +7,9 @@ from tqdm import tqdm
 from analyze.test_data_factory import get_parameter, get_config_row, get_all_value
 from models.quantile_function.lstm_cq import sample_pred
 
-from matplotlib import rcParams
+from utils.tools import set_times_new_roman_font
 
-config = {
-    "font.family": 'serif',
-    "font.size": 12,
-    "font.serif": ['Times New Roman'],
-    # "mathtext.fontset": 'stix',
-    # 'axes.unicode_minus': False
-}
-rcParams.update(config)
+set_times_new_roman_font()
 
 samples_index = [15, 31, 63, 95]
 folder_path = 'quantile_figure'

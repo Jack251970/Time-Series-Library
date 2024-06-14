@@ -8,6 +8,19 @@ import seaborn as sns
 plt.switch_backend('agg')
 
 
+def set_times_new_roman_font():
+    from matplotlib import rcParams
+
+    config = {
+        "font.family": 'serif',
+        "font.size": 12,
+        "font.serif": ['Times New Roman'],
+        # "mathtext.fontset": 'stix',
+        # 'axes.unicode_minus': False
+    }
+    rcParams.update(config)
+
+
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if args.lradj == 'type1':

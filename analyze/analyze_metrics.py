@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 
 from analyze.test_data_factory import get_prob_metrics, get_config_row
 
+from utils.tools import set_times_new_roman_font
+
+set_times_new_roman_font()
+
 plt.rcParams['figure.figsize'] = (12.8, 7.2)
 
 lstm_aq_exp_name = 'LSTM-AQ_Electricity_96'
@@ -16,7 +20,7 @@ pred_len = int(config_row_lstm_aq['pred_len'])
 x_data = range(1, pred_len, 1)
 
 plt.clf()
-plt.plot(x_data, crps_steps_lstm_aq[1:], 'bo-', alpha=0.5, linewidth=1, label='LSTM-AQ')
+plt.plot(x_data, crps_steps_lstm_aq[1:], 'bo-', alpha=0.5, linewidth=1, label='AL-QSQF ')
 plt.plot(x_data, crps_steps_qsqf_c[1:], 'ro-', alpha=0.5, linewidth=1, label='QSQF-C')
 
 plt.legend()
@@ -25,7 +29,7 @@ plt.ylabel('CRPS')
 plt.savefig('CRPS_steps.png')
 
 plt.clf()
-plt.plot(x_data, pinaw_steps_lstm_aq[1:], 'bo-', alpha=0.5, linewidth=1, label='LSTM-AQ')
+plt.plot(x_data, pinaw_steps_lstm_aq[1:], 'bo-', alpha=0.5, linewidth=1, label='AL-QSQF ')
 plt.plot(x_data, pinaw_steps_qsqf_c[1:], 'ro-', alpha=0.5, linewidth=1, label='QSQF-C')
 
 plt.legend()
