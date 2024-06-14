@@ -21,6 +21,7 @@ class Model(nn.Module):
         self.task_name = params.task_name
         self.batch_size = params.batch_size
         self.lstm_hidden_size = params.lstm_hidden_size
+        self.enc_in = params.enc_in
         self.enc_lstm_layers = params.lstm_layers
         self.dec_lstm_layers = 1  # TODO: Check self.enc_lstm_layers!!
         self.sample_times = params.sample_times
@@ -44,7 +45,6 @@ class Model(nn.Module):
             features = custom_params.pop(0)
             self.enc_feature = features[0]
             self.dec_feature = features[1]
-            self.enc_in = params.enc_in
             input_size = self.get_input_size(self.enc_feature, True)
             if self.use_cnn:
                 input_size = input_size + 2 * 2 - (3 - 1) - 1 + 1  # take conv into account
