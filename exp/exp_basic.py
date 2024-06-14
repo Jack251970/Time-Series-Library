@@ -120,7 +120,7 @@ class Exp_Basic(object):
             'LSTM-AQ1': lstm_cq.loss_fn_crps,
             'LSTM-AQ2': lstm_cq.loss_fn_mse,
             'LSTM-AQ3': lstm_cq.loss_fn_mae,
-            'LSTM-AQ4': lstm_cq.loss_fn_mse,
+            'LSTM-AQ4': lstm_cq.loss_fn_quantiles,
         }
 
         loss = self.args.loss

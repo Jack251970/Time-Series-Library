@@ -530,7 +530,7 @@ def loss_fn_quantiles(tuple_param):
 
     # calculate loss
     residual = quantiles_y_pred - labels  # [256, 9]
-    quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual)
+    quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual).mean()
 
     return quantilesLoss
 
