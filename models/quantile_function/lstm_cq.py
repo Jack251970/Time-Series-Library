@@ -475,7 +475,7 @@ def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
 def loss_fn_crps(tuple_param):
     alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
 
-    # CRPS
+    # labels
     labels = labels.unsqueeze(1)  # [256, 1]
 
     # calculate loss
@@ -516,17 +516,20 @@ _quantiles_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 def loss_fn_quantiles(tuple_param):
     alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
 
+    # labels
+    labels = labels.unsqueeze(1)  # [256, 1]
+
     # sample quantiles
     global _quantiles_list
     quantiles_number = len(_quantiles_list)
     batch_size = labels.shape[0]
     device = labels.device
-    quantiles = torch.zeros(quantiles_number, batch_size, device=device)  # [256, 9]
-    quantiles_y_pred = torch.zeros(quantiles_number, batch_size, device=device)  # [256, 9]
+    quantiles = torch.Tensor(_quantiles_list).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 9]
+    quantiles_y_pred = torch.zeros(batch_size, quantiles_number, device=device)  # [256, 9]
     for i in range(quantiles_number):
-        quantile = torch.Tensor([quantiles[i]], device=device).unsqueeze(0).expand(batch_size, -1)  # [256, 1]
-        quantiles[:, i] = quantile.squeeze(1)  # [256,]
-        quantiles_y_pred[:, i] = sample_pred(alpha_prime_k, quantile, _lambda, gamma, eta_k, algorithm_type)  # [256,]
+        quantile = torch.Tensor([_quantiles_list[i]]).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 1]
+        samples = sample_pred(alpha_prime_k, quantile, _lambda, gamma, eta_k, algorithm_type)
+        quantiles_y_pred[:, i] = samples  # [256,]
 
     # calculate loss
     residual = quantiles_y_pred - labels  # [256, 9]
