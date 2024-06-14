@@ -2,8 +2,12 @@ import csv
 import os
 import shutil
 
+from colorama import init, Fore
+
 from exp.exp_basic import Exp_Basic
 from hyper_parameter_optimizer import basic_settings
+
+init(autoreset=True)
 
 root_path = '.'
 data_dir = 'data'
@@ -41,8 +45,6 @@ fieldnames = basic_settings.get_fieldnames('all')
 print('Fieldnames:')
 print(f"\tFieldnames: {fieldnames}")
 
-print('\n')
-
 
 def clean_blank_folder(_folders):
     # clean blank folder under root folder
@@ -55,12 +57,11 @@ def clean_blank_folder(_folders):
                     os.rmdir(setting_folder)
                     clean_number += 1
 
-    print(f"Cleaned {clean_number} blank folders")
+    print(Fore.RED + f"Cleaned {clean_number} blank folders")
 
 
 clean_blank_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
                     prob_results_folder])
-print('\n')
 
 
 def clean_unrelated_folder(_folders):
@@ -95,9 +96,8 @@ def clean_unrelated_folder(_folders):
                     shutil.rmtree(setting_folder)
                     clean_number += 1
 
-    print(f"Cleaned {clean_number} unrelated folders")
+    print(Fore.RED + f"Cleaned {clean_number} folders that are not experiments in csv files under data folder")
 
 
 clean_unrelated_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
                         prob_results_folder])
-print('\n')
