@@ -97,8 +97,10 @@ def get_search_space():
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
 
-        'lstm_hidden_size': {'_type': 'single', '_value': 40},
-        'lstm_layers': {'_type': 'single', '_value': 2},
+        # 'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        # 'lstm_layers': {'_type': 'single', '_value': 2},
+        'lstm_hidden_size': {'_type': 'choice', '_value': [24, 40, 64]},
+        'lstm_layers': {'_type': 'choice', '_value': [1, 2, 3]},
     }
 
     model_configs = {
