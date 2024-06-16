@@ -25,9 +25,9 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
 
     # draw figures
     print('drawing probabilistic figure')
-    for i in tqdm(range(pred_length)):
-        if i in samples_index:
-            _path = os.path.join(out_dir, f'step {i + 1}')
+    for index in tqdm(range(pred_length)):
+        if index in samples_index:
+            _path = os.path.join(out_dir, f'step {index + 1}')
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
@@ -37,7 +37,7 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
                 if j * interval >= data_length:
                     continue
                 if max_data_length is not None and j < max_data_length:
-                    file_name = f'PF {exp_name} Pred {pred_length} Step {i + 1} Data {j + 1}.png'
+                    file_name = f'PF {exp_name} Pred {pred_length} Step {index + 1} Data {j + 1}.png'
                     for regex in replace_regex:
                         file_name = file_name.replace(regex[0], regex[1])
 
@@ -51,15 +51,15 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
                     ylim = None
                     if ylim_list is not None:
                         for _ylim in ylim_list:
-                            if _ylim[0] == i + 1 and _ylim[1] == j + 1:
+                            if _ylim[0] == index + 1 and _ylim[1] == j + 1:
                                 ylim = _ylim[2]
                                 break
 
                     draw_figure(range(interval),
-                                pred_value[i, j * interval: (j + 1) * interval],
-                                true_value[i, j * interval: (j + 1) * interval],
-                                high_value[i, :, j * interval: (j + 1) * interval],
-                                low_value[i, :, j * interval: (j + 1) * interval],
+                                pred_value[index, j * interval: (j + 1) * interval],
+                                true_value[index, j * interval: (j + 1) * interval],
+                                high_value[index, :, j * interval: (j + 1) * interval],
+                                low_value[index, :, j * interval: (j + 1) * interval],
                                 probability_range,
                                 file_path,
                                 ylim=ylim)
