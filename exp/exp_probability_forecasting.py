@@ -627,6 +627,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                                         probability_range,
                                         os.path.join(_path, f'prediction {j}.png'))
 
+            # probabilistic density
             if probabilistic_density_flag:
                 # move to cpu and covert to numpy for plotting
                 samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
@@ -703,6 +704,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                         # [8, 96, 96]
                         draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
 
+            # quantile function parameters
             if parameter_flag:
                 # move to cpu and covert to numpy for plotting
                 samples_lambda = samples_lambda.detach().cpu().numpy()
