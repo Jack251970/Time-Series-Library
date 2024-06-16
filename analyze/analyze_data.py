@@ -195,7 +195,7 @@ output_table(file=os.path.join('probability_forecast', 'data_baseline_paper.csv'
                                  'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
              target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
              core_target_fieldname='mse',
-             save_source=True,
+             save_source=False,
              row_label=['data_path', 'pred_len'],
              column_label=['model'],
              value_label=['mse', 'mae'],
