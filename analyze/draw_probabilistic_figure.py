@@ -11,7 +11,8 @@ set_times_new_roman_font()
 out_dir = 'probabilistic_figure'
 
 
-def draw_probabilistic_figure(exp_name, samples_index, ylim=None, folder=None, max_data_length=None, replace_regex=None):
+def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=None, max_data_length=None,
+                              replace_regex=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -49,6 +50,13 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim=None, folder=None, m
                     for regex in replace_regex:
                         file_name = file_name.replace(regex[0], regex[1])
 
+                    ylim = None
+                    if ylim_list is not None:
+                        for _ylim in ylim_list:
+                            if _ylim[0] == i + 1 and _ylim[1] == j + 1:
+                                ylim = _ylim[2]
+                                break
+
                     draw_figure(range(interval),
                                 pred_value[i, j * interval: (j + 1) * interval],
                                 true_value[i, j * interval: (j + 1) * interval],
@@ -65,7 +73,7 @@ draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
                           max_data_length=100,
                           folder='AL-QSQF',
                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
-                          ylim=None)
+                          ylim_list=None)
 
 # # QSQF-C
 draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
@@ -73,4 +81,7 @@ draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
                           max_data_length=100,
                           folder='QSQF-C',
                           replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
-                          ylim=None)
+                          ylim_list=[[16, 11, [1500, 5500]],
+                                     [32, 19, [1500, 5500]],
+                                     [64, 17, [1500, 5000]],
+                                     [96, 20, [1500, 5000]]])
