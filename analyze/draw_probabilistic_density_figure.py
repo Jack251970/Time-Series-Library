@@ -15,8 +15,8 @@ set_times_new_roman_font()
 out_dir = 'probabilistic_density_figure'
 
 
-def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _lambda, algorithm_type,
-                                      folder=None, replace_regex=None):
+def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _lambda, algorithm_type, select_data=None,
+                                      draw_all=True, folder=None, replace_regex=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -38,16 +38,16 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     samples_value_candidate = torch.zeros(sample_times, samples_number * data_length).to(device)
 
     # get input tensor
-    gamma_tensor = torch.Tensor(gamma_param).to(device)  # [96, 5165, 20]
-    eta_k_tensor = torch.Tensor(eta_k_param).to(device)  # [96, 5165, 20]
+    gamma_tensor = torch.Tensor(gamma_param).to(device)  # [96, 5165, *]
+    eta_k_tensor = torch.Tensor(eta_k_param).to(device)  # [96, 5165, *]
 
     # filter sample index
-    gamma_tensor = gamma_tensor[samples_index, :, :]  # [4, 5165, 20]
-    eta_k_tensor = eta_k_tensor[samples_index, :, :]  # [4, 5165, 20]
+    gamma_tensor = gamma_tensor[samples_index, :, :]  # [4, 5165, *]
+    eta_k_tensor = eta_k_tensor[samples_index, :, :]  # [4, 5165, *]
 
     # combine sample number and data length
-    gamma_tensor = gamma_tensor.reshape(samples_number * data_length, 20)  # [4 * 5165, 20]
-    eta_k_tensor = eta_k_tensor.reshape(samples_number * data_length, 20)  # [4 * 5165, 20]
+    gamma_tensor = gamma_tensor.reshape(samples_number * data_length, -1)  # [4 * 5165, *]
+    eta_k_tensor = eta_k_tensor.reshape(samples_number * data_length, -1)  # [4 * 5165, *]
 
     # init alpha prime k
     y = torch.ones(num_spline) / num_spline
@@ -89,28 +89,54 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     # restore different probability range data
     samples_value = samples_value.reshape(sample_times, samples_number, data_length)  # [99, 4, 15616]
 
-    # draw figures
-    print('drawing probabilistic density figure')
-    for i in range(samples_number):
+    # draw selected figures
+    print('drawing selected probabilistic density figures')
+    for k in select_data:
+        i = k[0]
+        j = k[1] - 1
+
         _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
         if not os.path.exists(_path):
             os.makedirs(_path)
 
-        for j in tqdm(range(data_length), desc=f'step {samples_index[i] + 1}'):
-            file_name = f'PDF {exp_name} Pred {pred_length} Step {i + 1} Data {j + 1}.png'
-            for regex in replace_regex:
-                file_name = file_name.replace(regex[0], regex[1])
+        file_name = f'PDF {exp_name} Pred {pred_length} Step {samples_index[i] + 1} Data {j + 1}.png'
+        for regex in replace_regex:
+            file_name = file_name.replace(regex[0], regex[1])
 
-            if folder is not None:
-                if not os.path.exists(os.path.join(_path, folder)):
-                    os.makedirs(os.path.join(_path, folder))
-                file_path = os.path.join(_path, folder, file_name)
-            else:
-                file_path = os.path.join(_path, file_name)
+        if folder is not None:
+            if not os.path.exists(os.path.join(_path, folder)):
+                os.makedirs(os.path.join(_path, folder))
+            file_path = os.path.join(_path, folder, file_name)
+        else:
+            file_path = os.path.join(_path, file_name)
 
-            draw_density_figure(samples=samples_value[:, i, j],
-                                true=true_value_inverse[i, j],
-                                path=file_path)
+        draw_density_figure(samples=samples_value[:, i, j],
+                            true=true_value_inverse[i, j],
+                            path=file_path)
+
+    # draw figures
+    if draw_all:
+        print('drawing all probabilistic density figures')
+        for i in range(samples_number):
+            _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
+            if not os.path.exists(_path):
+                os.makedirs(_path)
+
+            for j in tqdm(range(data_length), desc=f'step {samples_index[i] + 1}'):
+                file_name = f'PDF {exp_name} Pred {pred_length} Step {samples_index[i] + 1} Data {j + 1}.png'
+                for regex in replace_regex:
+                    file_name = file_name.replace(regex[0], regex[1])
+
+                if folder is not None:
+                    if not os.path.exists(os.path.join(_path, folder)):
+                        os.makedirs(os.path.join(_path, folder))
+                    file_path = os.path.join(_path, folder, file_name)
+                else:
+                    file_path = os.path.join(_path, file_name)
+
+                draw_density_figure(samples=samples_value[:, i, j],
+                                    true=true_value_inverse[i, j],
+                                    path=file_path)
 
 
 draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
@@ -118,5 +144,23 @@ draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
                                   sample_times=99,
                                   _lambda=-0.001,
                                   algorithm_type='1+2',
+                                  select_data=[[0, 97],
+                                               [1, 91],
+                                               [2, 181],
+                                               [3, 235]],
+                                  draw_all=False,
                                   folder='AL-QSQF',
                                   replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
+
+draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
+                                  samples_index=[15, 31, 63, 95],
+                                  sample_times=99,
+                                  _lambda=-0.001,
+                                  algorithm_type='2',
+                                  select_data=[[0, 97],
+                                               [1, 91],
+                                               [2, 181],
+                                               [3, 235]],
+                                  draw_all=False,
+                                  folder='QSQF-C',
+                                  replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
