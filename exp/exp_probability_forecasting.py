@@ -422,7 +422,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 samples_high = samples_high[:, :, -pred_length:]
                 samples_low = samples_low[:, :, -pred_length:]
 
-                if attention_map is not None and draw_attention_figure or save_attention:
+                if attention_map is not None and (draw_attention_figure or save_attention):
                     attention_map = attention_map[-pred_length:, :, :, :, :]
                 else:
                     draw_attention_figure = False
