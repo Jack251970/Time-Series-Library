@@ -37,18 +37,16 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
                 if j * interval >= data_length:
                     continue
                 if max_data_length is not None and j < max_data_length:
+                    file_name = f'PF {exp_name} Pred {pred_length} Step {i + 1} Data {j + 1}.png'
+                    for regex in replace_regex:
+                        file_name = file_name.replace(regex[0], regex[1])
+
                     if folder is not None:
                         if not os.path.exists(os.path.join(_path, folder)):
                             os.makedirs(os.path.join(_path, folder))
-                        file_name = os.path.join(_path, folder, f'PF {exp_name} Pred {pred_length} Step {i + 1} '
-                                                                     f'Data {j + 1}.png')
+                        file_path = os.path.join(_path, folder, file_name)
                     else:
-                        file_name = os.path.join(_path, f'PF {exp_name} Pred {pred_length} Step {i + 1} '
-                                                        f'Data {j + 1}.png')
-
-                    # 执行替换规则
-                    for regex in replace_regex:
-                        file_name = file_name.replace(regex[0], regex[1])
+                        file_path = os.path.join(_path, file_name)
 
                     ylim = None
                     if ylim_list is not None:
@@ -63,7 +61,7 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
                                 high_value[i, :, j * interval: (j + 1) * interval],
                                 low_value[i, :, j * interval: (j + 1) * interval],
                                 probability_range,
-                                file_name,
+                                file_path,
                                 ylim=ylim)
 
 
