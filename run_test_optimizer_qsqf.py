@@ -1,4 +1,4 @@
-from optimizers.optimizer_qf_test import h as ht
+from optimizers.optimizer_qsqf_test import h as ht
 
 process_index = 0
 
