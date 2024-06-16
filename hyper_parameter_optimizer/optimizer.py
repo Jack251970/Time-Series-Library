@@ -281,7 +281,7 @@ class HyperParameterOptimizer(object):
             config = self._build_config_dict(args)
 
             # start experiment
-            experiment_result = self._start_experiment(args, None, config, False, False)
+            experiment_result = self._start_experiment(args, None, config, False, False, False)
 
             # phase criteria and save data
             self._save_experiment(config, experiment_result)
