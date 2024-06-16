@@ -27,106 +27,99 @@ def output_table(file, output_file, source_file,
     path = os.path.join(data_folder, file)
     data = pd.read_csv(path)
 
-    # 更新最佳数据
-    def update_data(_input_data, checked_columns, target_columns, _core_target_fieldname):
-        # 扫描所有数据文件
-        global data_folder
-        file_paths = []
-        for root, dirs, files in os.walk(data_folder):
-            for _file in files:
-                if _file == 'jump_data.csv':
-                    continue
-                if _file.endswith('.csv') and _file not in file_paths:
-                    _append_path = os.path.join(root, _file)
-                    file_paths.append(_append_path)
-        print(f'scan {len(file_paths)} data files')
-
-        # 读取所有数据文件
-        all_data = pd.DataFrame()
-        for _file_path in file_paths:
-            all_data = pd.concat([all_data, pd.read_csv(_file_path)], ignore_index=True)
-        print(f'load {len(all_data)} records')
-
-        # 检查标准数据中是否需要更新：若有指标可以更优，则更新
-        _update_number = 0
-        _core_update_number = 0
-        _source_data = _input_data.copy()
-        for index, row in _input_data.iterrows():
-            _model = row['model']
-            _dataset = row['data_path']
-            _pred_len = row['pred_len']
-
-            # 获取检查数据和目标数据
-            _check_data = {}
-            for _column in checked_columns:
-                _check_data[_column] = row[_column]
-            _target_data = {}
-            for _column, _method in target_columns:
-                _target_data[_column] = row[_column]
-
-            # 获取检查数据都相同的数据
-            _data = all_data
-            for _column, _value in _check_data.items():
-                # 如果数据相同，或者都是空值，则选择
-                if pd.isna(_value):
-                    _data = _data[pd.isna(_data[_column])]
-                else:
-                    _data = _data[_data[_column] == _value]
-                if _data.empty:
-                    break
-            if _data.empty:
+    # 扫描所有数据文件
+    file_paths = []
+    for root, dirs, files in os.walk(data_folder):
+        for _file in files:
+            if _file == 'jump_data.csv':
                 continue
+            if _file.endswith('.csv') and _file not in file_paths:
+                _append_path = os.path.join(root, _file)
+                file_paths.append(_append_path)
+    print(f'scan {len(file_paths)} data files')
 
-            # 统计出最小的指标
-            _optimized_data = {}
-            for _column, _method in target_columns:
-                if _method == 'min':
-                    _optimized_data[_column] = (_data[_column].min(), _data[_column].idxmin(), _method)
-                elif _method == 'max':
-                    _optimized_data[_column] = (_data[_column].max(), _data[_column].idxmax(), _method)
-                elif _method == 'none':
-                    pass
-                else:
-                    raise ValueError(f"unknown method: {_method}")
+    # 读取所有数据文件
+    all_data = pd.DataFrame()
+    for _file_path in file_paths:
+        all_data = pd.concat([all_data, pd.read_csv(_file_path)], ignore_index=True)
+    print(f'load {len(all_data)} records')
 
-            # 获取最小指标
-            for _column, (_value, _index, _method) in _optimized_data.items():
-                _data_value = _target_data[_column]
-                if _method == 'min':
-                    if not pd.isna(_data_value) and _value < _data_value:
-                        _input_data.loc[index, _column] = _value
-                        if _column == _core_target_fieldname:
-                            _source_data.loc[index] = _data.loc[_index]
-                            _core_update_number += 1
-                            print(f"update core {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                                  f"{_data_value} -> {_value}")
-                        else:
-                            print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                                  f"{_data_value} -> {_value}")
-                        _update_number += 1
-                elif _method == 'max':
-                    if not pd.isna(_data_value) and _value > _data_value:
-                        _input_data.loc[index, _column] = _value
-                        if _column == _core_target_fieldname:
-                            _source_data.loc[index] = _data.loc[_index]
-                            _core_update_number += 1
-                            print(f"update core {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                                  f"{_data_value} -> {_value}")
-                        else:
-                            print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                                  f"{_data_value} -> {_value}")
-                        _update_number += 1
-                elif _method == 'none':
-                    pass
-                else:
-                    raise ValueError(f"unknown method: {_method}")
+    # 检查标准数据中是否需要更新：若有指标可以更优，则更新
+    update_number = 0
+    core_update_number = 0
+    source_data = data.copy()
+    for index, row in data.iterrows():
+        model = row['model']
+        data_path = row['data_path']
+        pred_len = row['pred_len']
 
-        print(f'update {_update_number} cells')
-        print(f'update {_core_update_number} source rows')
+        # 获取检查数据和目标数据
+        _check_data = {}
+        for _column in checked_fieldnames:
+            _check_data[_column] = row[_column]
+        _target_data = {}
+        for _column, _method in target_fieldnames:
+            _target_data[_column] = row[_column]
 
-        return _input_data, _source_data
+        # 获取检查数据都相同的数据
+        filtered_data = all_data.copy()
+        for _column, _value in _check_data.items():
+            # 如果数据相同，或者都是空值，则选择
+            if pd.isna(_value):
+                filtered_data = filtered_data[pd.isna(filtered_data[_column])]
+            else:
+                filtered_data = filtered_data[filtered_data[_column] == _value]
+            if filtered_data.empty:
+                break
+        if filtered_data.empty:
+            continue
 
-    data, source_data = update_data(data, checked_fieldnames, target_fieldnames, core_target_fieldname)
+        # 统计出最小的指标
+        optimized_data = {}
+        for _column, _method in target_fieldnames:
+            if _method == 'min':
+                optimized_data[_column] = (filtered_data[_column].min(), filtered_data[_column].idxmin(), _method)
+            elif _method == 'max':
+                optimized_data[_column] = (filtered_data[_column].max(), filtered_data[_column].idxmax(), _method)
+            elif _method == 'none':
+                pass
+            else:
+                raise ValueError(f"unknown method: {_method}")
+
+        # 获取最小指标
+        for _column, (_value, _index, _method) in optimized_data.items():
+            _data_value = _target_data[_column]
+            if _method == 'min':
+                if not pd.isna(_data_value) and _value < _data_value:
+                    data.loc[index, _column] = _value
+                    if _column == core_target_fieldname:
+                        source_data.loc[index] = filtered_data.loc[_index]
+                        core_update_number += 1
+                        print(f"update core {_column} for model {model}, data {data_path}, pred {pred_len}: "
+                              f"{_data_value} -> {_value}")
+                    else:
+                        print(f"update {_column} for model {model}, data {data_path}, pred {pred_len}: "
+                              f"{_data_value} -> {_value}")
+                    update_number += 1
+            elif _method == 'max':
+                if not pd.isna(_data_value) and _value > _data_value:
+                    data.loc[index, _column] = _value
+                    if _column == core_target_fieldname:
+                        source_data.loc[index] = filtered_data.loc[_index]
+                        core_update_number += 1
+                        print(f"update core {_column} for model {model}, data {data_path}, pred {pred_len}: "
+                              f"{_data_value} -> {_value}")
+                    else:
+                        print(f"update {_column} for model {model}, data {data_path}, pred {pred_len}: "
+                              f"{_data_value} -> {_value}")
+                    update_number += 1
+            elif _method == 'none':
+                pass
+            else:
+                raise ValueError(f"unknown method: {_method}")
+
+    print(f'update {update_number} cells')
+    print(f'update {core_update_number} source rows')
 
     # 保存最佳数据
     if save_source:
