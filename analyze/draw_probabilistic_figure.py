@@ -8,10 +8,10 @@ from utils.tools import draw_figure, set_times_new_roman_font
 
 set_times_new_roman_font()
 
-folder_path = 'probabilistic_figure'
+out_dir = 'probabilistic_figure'
 
 
-def draw_probabilistic_figure(exp_name, samples_index, max_data_length=None, replace_regex=None):
+def draw_probabilistic_figure(exp_name, samples_index, folder=None, max_data_length=None, replace_regex=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -26,7 +26,7 @@ def draw_probabilistic_figure(exp_name, samples_index, max_data_length=None, rep
     print('drawing probabilistic figure')
     for i in tqdm(range(pred_length)):
         if i in samples_index:
-            _path = os.path.join(folder_path, f'step {i}')
+            _path = os.path.join(out_dir, f'step {i}')
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
@@ -36,7 +36,14 @@ def draw_probabilistic_figure(exp_name, samples_index, max_data_length=None, rep
                 if j * interval >= data_length:
                     continue
                 if max_data_length is not None and j < max_data_length:
-                    file_name = os.path.join(_path, f'PF {exp_name} Pred {pred_length} Step {i + 1} Data {j + 1}.png')
+                    if folder is not None:
+                        if not os.path.exists(os.path.join(_path, folder)):
+                            os.makedirs(os.path.join(_path, folder))
+                        file_name = os.path.join(_path, folder, f'PF {exp_name} Pred {pred_length} Step {i + 1} '
+                                                                     f'Data {j + 1}.png')
+                    else:
+                        file_name = os.path.join(_path, f'PF {exp_name} Pred {pred_length} Step {i + 1} '
+                                                        f'Data {j + 1}.png')
 
                     # 执行替换规则
                     for regex in replace_regex:
@@ -48,7 +55,7 @@ def draw_probabilistic_figure(exp_name, samples_index, max_data_length=None, rep
                                 high_value[i, :, j * interval: (j + 1) * interval],
                                 low_value[i, :, j * interval: (j + 1) * interval],
                                 probability_range,
-                                os.path.join(_path, f'PF {exp_name} Pred {pred_length} Step {i + 1} Data {j + 1}.png'),
+                                file_name,
                                 ylim=[1500, 4500])
 
 
@@ -56,10 +63,12 @@ def draw_probabilistic_figure(exp_name, samples_index, max_data_length=None, rep
 draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
                           samples_index=[15, 31, 63, 95],
                           max_data_length=100,
+                          folder='AL-QSQF',
                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
 
 # # QSQF-C
-# draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
-#                           samples_index=[15, 31, 63, 95],
-#                           max_data_length=100,
-#                           replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
+draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
+                          samples_index=[15, 31, 63, 95],
+                          max_data_length=100,
+                          folder='QSQF-C',
+                          replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
