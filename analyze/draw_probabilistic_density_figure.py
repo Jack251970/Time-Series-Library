@@ -67,10 +67,10 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     samples_value = samples_value_candidate.reshape(sample_times, samples_number, data_length)  # [99, 4, 5165]
 
     # move to cpu and covert to numpy for plotting
-    samples_value = samples_value.detach().cpu().numpy()  # [99, 4, 15616]
+    samples_value = samples_value.detach().cpu().numpy()  # [99, 4, 5165]
 
     # integrate different probability range data
-    samples_value = samples_value.reshape(-1)  # [99 * 4 * 15616]
+    samples_value = samples_value.reshape(-1)  # [99 * 4 * 5165]
 
     # convert to shape: (sample, feature) for inverse transform
     new_shape = (sample_times * samples_number * data_length, enc_in)
@@ -84,39 +84,40 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     samples_value = data_set.inverse_transform(samples_value)
 
     # get the original data
-    samples_value = samples_value[:, -1].squeeze()  # [99 * 4 * 15616]
+    samples_value = samples_value[:, -1].squeeze()  # [99 * 4 * 5165]
 
     # restore different probability range data
-    samples_value = samples_value.reshape(sample_times, samples_number, data_length)  # [99, 4, 15616]
+    samples_value = samples_value.reshape(sample_times, samples_number, data_length)  # [99, 4, 5165]
 
     # draw selected figures
-    print('drawing selected probabilistic density figures')
-    for k in select_data:
-        i = k[0]
-        j = k[1] - 1
-        xlim = k[2] if len(k) >= 3 else None
-        ylim = k[3] if len(k) >= 4 else None
+    if select_data is not None:
+        print('drawing selected probabilistic density figures')
+        for k in select_data:
+            i = k[0]
+            j = k[1] - 1
+            xlim = k[2] if len(k) >= 3 else None
+            ylim = k[3] if len(k) >= 4 else None
 
-        _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
-        if not os.path.exists(_path):
-            os.makedirs(_path)
+            _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
+            if not os.path.exists(_path):
+                os.makedirs(_path)
 
-        file_name = f'PDF {exp_name} Pred {pred_length} Step {samples_index[i] + 1} Data {j + 1}.png'
-        for regex in replace_regex:
-            file_name = file_name.replace(regex[0], regex[1])
+            file_name = f'PDF {exp_name} Pred {pred_length} Step {samples_index[i] + 1} Data {j + 1}.png'
+            for regex in replace_regex:
+                file_name = file_name.replace(regex[0], regex[1])
 
-        if folder is not None:
-            if not os.path.exists(os.path.join(_path, folder)):
-                os.makedirs(os.path.join(_path, folder))
-            file_path = os.path.join(_path, folder, file_name)
-        else:
-            file_path = os.path.join(_path, file_name)
+            if folder is not None:
+                if not os.path.exists(os.path.join(_path, folder)):
+                    os.makedirs(os.path.join(_path, folder))
+                file_path = os.path.join(_path, folder, file_name)
+            else:
+                file_path = os.path.join(_path, file_name)
 
-        draw_density_figure(samples=samples_value[:, i, j],
-                            true=true_value_inverse[i, j],
-                            path=file_path,
-                            xlim=xlim,
-                            ylim=ylim)
+            draw_density_figure(samples=samples_value[:, i, j],
+                                true=true_value_inverse[i, j],
+                                path=file_path,
+                                xlim=xlim,
+                                ylim=ylim)
 
     # draw figures
     if draw_all:
