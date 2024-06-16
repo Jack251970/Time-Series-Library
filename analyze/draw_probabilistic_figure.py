@@ -27,7 +27,7 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
     print('drawing probabilistic figure')
     for i in tqdm(range(pred_length)):
         if i in samples_index:
-            _path = os.path.join(out_dir, f'step {i}')
+            _path = os.path.join(out_dir, f'step {i + 1}')
             if not os.path.exists(_path):
                 os.makedirs(_path)
 

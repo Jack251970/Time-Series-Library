@@ -95,11 +95,11 @@ plt.savefig(os.path.join(folder_path, f'QF Electricity Pred 96 Step {select_step
 print('drawing all quantile figures')
 for i in range(len(samples_index)):
     step = samples_index[i]
-    _path = os.path.join(folder_path, f'step {step}')
+    _path = os.path.join(folder_path, f'step {step + 1}')
     if not os.path.exists(_path):
         os.makedirs(_path)
 
-    for j in tqdm(range(data_length), desc=f'step {step}'):
+    for j in tqdm(range(data_length), desc=f'step {step + 1}'):
         plt.clf()
         plt.plot(x_data, y_data_lstm_aq[i, j, :], label='AL-QSQF ', color='blue')
         plt.plot(x_data, y_data_qsqf_c[i, j, :], label='QSQF-C', color='red')

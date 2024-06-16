@@ -22,7 +22,7 @@ loader_length = attention_maps.shape[0]
 # draw attention map for every loader
 print('drawing attention map for every loader')
 for i in tqdm(range(loader_length)):
-    _path = os.path.join(folder_path, f'loader {i}')
+    _path = os.path.join(folder_path, f'loader {i + 1}')
     if not os.path.exists(_path):
         os.makedirs(_path)
 
@@ -30,12 +30,12 @@ for i in tqdm(range(loader_length)):
     attention_map = attention_map.reshape(batch_size, n_heads, 1 * pred_length, seq_length)
     for j in range(batch_size):
         _ = attention_map[j]
-        draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'), cols=3)
+        draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j + 1}.png'), cols=3)
 
 # draw attention map for every prediction step
 print('drawing attention map for every prediction step')
 for i in tqdm(range(pred_length)):
-    _path = os.path.join(folder_path, f'step {i}')
+    _path = os.path.join(folder_path, f'step {i + 1}')
     if not os.path.exists(_path):
         os.makedirs(_path)
 
@@ -52,4 +52,4 @@ for i in tqdm(range(pred_length)):
         _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
         _attention_map = _attention_map.reshape(n_heads, 1 * interval, seq_length)
         # [8, 96, 96]
-        draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'), cols=3)
+        draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j + 1}.png'), cols=3)
