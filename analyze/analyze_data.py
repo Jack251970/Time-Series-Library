@@ -78,40 +78,44 @@ def output_table(file, output_file, source_file,
                 continue
 
             # 统计出最小的指标
-            _min_target_data = {}
+            _optimized_data = {}
             for _column, _method in target_columns:
                 if _method == 'min':
-                    _min_target_data[_column] = (_data[_column].min(), _method)
+                    _optimized_data[_column] = (_data[_column].min(), _data[_column].idxmin(), _method)
                 elif _method == 'max':
-                    _min_target_data[_column] = (_data[_column].max(), _method)
+                    _optimized_data[_column] = (_data[_column].max(), _data[_column].idxmax(), _method)
                 elif _method == 'none':
                     pass
                 else:
                     raise ValueError(f"unknown method: {_method}")
 
             # 获取最小指标
-            for _column, (_value, _method) in _min_target_data.items():
+            for _column, (_value, _index, _method) in _optimized_data.items():
                 _data_value = _target_data[_column]
                 if _method == 'min':
                     if not pd.isna(_data_value) and _value < _data_value:
                         _data.loc[index, _column] = _value
                         if _column == _core_target_fieldname:
-                            _source_data.loc[index] = row
+                            _source_data.loc[index] = _data.loc[_index]
                             _core_update_number += 1
+                            print(f"update core {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
+                                  f"{_data_value} -> {_value}")
+                        else:
+                            print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
+                                  f"{_data_value} -> {_value}")
                         _update_number += 1
-                        print(
-                            f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                            f"{_data_value} -> {_value}")
                 elif _method == 'max':
                     if not pd.isna(_data_value) and _value > _data_value:
                         _data.loc[index, _column] = _value
                         if _column == _core_target_fieldname:
-                            _source_data.loc[index] = row
+                            _source_data.loc[index] = _data.loc[_index]
                             _core_update_number += 1
+                            print(f"update core {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
+                                  f"{_data_value} -> {_value}")
+                        else:
+                            print(f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
+                                  f"{_data_value} -> {_value}")
                         _update_number += 1
-                        print(
-                            f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                            f"{_data_value} -> {_value}")
                 elif _method == 'none':
                     pass
                 else:
