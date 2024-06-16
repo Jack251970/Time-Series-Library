@@ -54,7 +54,7 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     alpha_prime_k = y.repeat(samples_number * data_length, 1).to(device)  # [4 * 5165, 20]
 
     # get samples
-    for i in range(sample_times):
+    for i in tqdm(range(sample_times), desc='sampling'):
         # get pred alpha
         uniform = torch.distributions.uniform.Uniform(
             torch.tensor([0.0], device=device),
@@ -94,6 +94,8 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     for k in select_data:
         i = k[0]
         j = k[1] - 1
+        xlim = k[2] if len(k) >= 3 else None
+        ylim = k[3] if len(k) >= 4 else None
 
         _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
         if not os.path.exists(_path):
@@ -112,7 +114,9 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
 
         draw_density_figure(samples=samples_value[:, i, j],
                             true=true_value_inverse[i, j],
-                            path=file_path)
+                            path=file_path,
+                            xlim=xlim,
+                            ylim=ylim)
 
     # draw figures
     if draw_all:
@@ -141,26 +145,26 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
 
 draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
                                   samples_index=[15, 31, 63, 95],
-                                  sample_times=99,
+                                  sample_times=500,
                                   _lambda=-0.001,
                                   algorithm_type='1+2',
-                                  select_data=[[0, 97],
-                                               [1, 91],
-                                               [2, 181],
-                                               [3, 235]],
+                                  select_data=[[0, 97, [-500, 4000], [0, 0.00225]],
+                                               [1, 91, [-500, 4500], [0, 0.00225]],
+                                               [2, 181, [-500, 5000], [0, 0.00200]],
+                                               [3, 235, [-500, 5000], [0, 0.00225]]],
                                   draw_all=False,
                                   folder='AL-QSQF',
                                   replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
 
 draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
                                   samples_index=[15, 31, 63, 95],
-                                  sample_times=99,
+                                  sample_times=500,
                                   _lambda=-0.001,
                                   algorithm_type='2',
-                                  select_data=[[0, 97],
-                                               [1, 91],
-                                               [2, 181],
-                                               [3, 235]],
+                                  select_data=[[0, 97, [-500, 4000], [0, 0.00225]],
+                                               [1, 91, [-500, 4500], [0, 0.00225]],
+                                               [2, 181, [-500, 5000], [0, 0.00200]],
+                                               [3, 235, [-500, 5000], [0, 0.00225]]],
                                   draw_all=False,
                                   folder='QSQF-C',
                                   replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])

@@ -137,20 +137,17 @@ def draw_figure(x, pred, true, high, low, pred_range, path, xlim=None, ylim=None
     plt.savefig(path)
 
 
-def draw_density_figure(samples, true, path):  # [99], []
+def draw_density_figure(samples, true, path, xlim=None, ylim=None):  # [99], []
     plt.clf()
-
-    # Plotting the density plot of the samples
     sns.kdeplot(samples.squeeze(), fill=True, label='Probability Density ')
-
-    # Adding a vertical line for the true value
     plt.axvline(true.squeeze(), color='r', linestyle='--', label='True Value')
-
-    # Adding labels and legend
     plt.xlabel('Value')
     plt.ylabel('Density')
     plt.legend()
-
+    if xlim is not None:
+        plt.xlim(xlim[0], xlim[1])
+    if ylim is not None:
+        plt.ylim(ylim[0], ylim[1])
     plt.savefig(path)
 
 
