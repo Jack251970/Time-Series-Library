@@ -188,3 +188,5 @@ data_loader_all.py
 /analyze/table/
 /analyze/loss/*
 /analyze/loss/
+/analyze/metrics/*
+/analyze/metrics/
