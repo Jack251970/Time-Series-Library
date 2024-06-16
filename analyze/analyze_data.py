@@ -28,7 +28,7 @@ def output_table(file, output_file, source_file,
     data = pd.read_csv(path)
 
     # 更新最佳数据
-    def update_data(_data, checked_columns, target_columns, _core_target_fieldname):
+    def update_data(_input_data, checked_columns, target_columns, _core_target_fieldname):
         # 扫描所有数据文件
         global data_folder
         file_paths = []
@@ -50,8 +50,8 @@ def output_table(file, output_file, source_file,
         # 检查标准数据中是否需要更新：若有指标可以更优，则更新
         _update_number = 0
         _core_update_number = 0
-        _source_data = _data.copy()
-        for index, row in _data.iterrows():
+        _source_data = _input_data.copy()
+        for index, row in _input_data.iterrows():
             _model = row['model']
             _dataset = row['data_path']
             _pred_len = row['pred_len']
@@ -94,7 +94,7 @@ def output_table(file, output_file, source_file,
                 _data_value = _target_data[_column]
                 if _method == 'min':
                     if not pd.isna(_data_value) and _value < _data_value:
-                        _data.loc[index, _column] = _value
+                        _input_data.loc[index, _column] = _value
                         if _column == _core_target_fieldname:
                             _source_data.loc[index] = _data.loc[_index]
                             _core_update_number += 1
@@ -106,7 +106,7 @@ def output_table(file, output_file, source_file,
                         _update_number += 1
                 elif _method == 'max':
                     if not pd.isna(_data_value) and _value > _data_value:
-                        _data.loc[index, _column] = _value
+                        _input_data.loc[index, _column] = _value
                         if _column == _core_target_fieldname:
                             _source_data.loc[index] = _data.loc[_index]
                             _core_update_number += 1
@@ -124,7 +124,7 @@ def output_table(file, output_file, source_file,
         print(f'update {_update_number} cells')
         print(f'update {_core_update_number} source rows')
 
-        return _data, _source_data
+        return _input_data, _source_data
 
     data, source_data = update_data(data, checked_fieldnames, target_fieldnames, core_target_fieldname)
 
@@ -190,6 +190,8 @@ def output_table(file, output_file, source_file,
     # 写入文件
     with open(os.path.join(output_dir, output_file), 'w') as writer:
         writer.write(table_data)
+
+    print('\n')
 
 
 # baseline MSE & MAE table
