@@ -75,7 +75,7 @@ draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
                           ylim_list=None)
 
-# # QSQF-C
+# QSQF-C
 draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
                           samples_index=[15, 31, 63, 95],
                           max_data_length=100,
