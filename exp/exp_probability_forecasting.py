@@ -287,7 +287,8 @@ class Exp_Probability_Forecast(Exp_Basic):
         return total_loss
 
     def test(self, setting, test=False, check_folder=False,
-             probabilistic_flag=True, probabilistic_density_flag=True, attention_flag=False, parameter_flag=True):
+             save_probabilistic=True, save_attention=True, save_parameter=True,
+             draw_probabilistic_figure=False, draw_probability_density_figure=False, draw_attention_figure=False):
         test_data, test_loader = self._get_data(data_flag='test', enter_flag='test', _try_model=self.try_model)
         if test:
             self.print_content('loading model')
@@ -317,58 +318,59 @@ class Exp_Probability_Forecast(Exp_Basic):
         seq_length = self.args.seq_len
         pred_length = self.args.pred_len
         batch_size = self.args.batch_size
+        n_heads = self.args.n_heads
         data_length = len(test_data)
         loader_length = len(test_loader)
 
         if not test:
-            probabilistic_flag = False
-            probabilistic_density_flag = False
-            attention_flag = False
-            parameter_flag = False
+            draw_probabilistic_figure = False
+            draw_probability_density_figure = False
+            draw_attention_figure = False
 
-        # probabilistic forecast
-        if probabilistic_flag or probabilistic_density_flag:
+        if draw_probabilistic_figure or save_probabilistic or draw_probability_density_figure:
+            # sample value on certain time steps
+            if draw_probability_density_figure:
+                samples_index = [15, 31, 63, 95]
+                samples_number = len(samples_index)
+                samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
+            else:
+                samples_index = None
+                samples_number = None
+                samples_value = None
+            # probabilistic forecast
             pred_value = torch.zeros(pred_length, data_length).to(self.device)
             true_value = torch.zeros(pred_length, data_length).to(self.device)
             high_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
             low_value = torch.zeros(pred_length, probability_range_len, data_length).to(self.device)
         else:
+            samples_index = None
+            samples_number = None
+            samples_value = None
             pred_value = None
             true_value = None
             high_value = None
             low_value = None
 
-        # sample value on certain time steps
-        if probabilistic_density_flag:
-            samples_index = [15, 31, 63, 95]
-            samples_number = len(samples_index)
-            samples_value = torch.zeros(self.args.sample_times, samples_number, data_length).to(self.device)
-        else:
-            samples_index = None
-            samples_number = None
-            samples_value = None
-
         # attention map
-        if attention_flag:
-            attention_maps = (torch.zeros(loader_length, pred_length, batch_size, self.args.n_heads, 1, seq_length)
-                              .to(self.device))
+        if draw_attention_figure or save_attention:
+            attention_maps = torch.zeros(loader_length, pred_length, batch_size, n_heads, 1, seq_length).to(self.device)
         else:
             attention_maps = None
 
         # parameters
-        if parameter_flag:
+        if save_parameter:
             if self.args.model == 'QSQF-C':
-                parameter_flag = True
+                save_parameter = True
                 samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
                 samples_gamma = torch.zeros(pred_length, data_length, 1).to(self.device)
                 samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
             elif self.args.model == 'LSTM-AQ':
-                parameter_flag = True
+                save_parameter = True
                 samples_lambda = torch.zeros(pred_length, data_length, 1).to(self.device)
                 samples_gamma = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
                 samples_eta_k = torch.zeros(pred_length, data_length, self.args.num_spline).to(self.device)
             else:
-                parameter_flag = False
+                save_parameter = False
                 samples_lambda = None
                 samples_gamma = None
                 samples_eta_k = None
@@ -420,21 +422,22 @@ class Exp_Probability_Forecast(Exp_Basic):
                 samples_high = samples_high[:, :, -pred_length:]
                 samples_low = samples_low[:, :, -pred_length:]
 
-                if attention_map is not None and attention_flag:
+                if attention_map is not None and draw_attention_figure or save_attention:
                     attention_map = attention_map[-pred_length:, :, :, :, :]
                 else:
-                    attention_flag = False
-                if parameters is not None and parameter_flag:
+                    draw_attention_figure = False
+                    save_attention = False
+                if parameters is not None and save_parameter:
                     if isinstance(parameters, tuple):
                         parameters = tuple([parameter[-pred_length:, :, :] for parameter in parameters])
                 else:
-                    parameter_flag = False
+                    save_parameter = False
 
-                if probabilistic_density_flag:
-                    pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
-                    pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
-                    samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
-                if probabilistic_flag or probabilistic_density_flag:
+                if draw_probabilistic_figure or save_probabilistic or draw_probability_density_figure:
+                    if draw_probability_density_figure:
+                        pred_samples = samples.transpose(1, 2)  # [99, 16, 256]
+                        pred_samples = pred_samples[:, samples_index, :]  # [99, 4, 256]
+                        samples_value[:, :, i * batch_size: (i + 1) * batch_size] = pred_samples
                     pred = sample_mu[:, :, -1].transpose(0, 1)
                     pred_value[:, i * batch_size: (i + 1) * batch_size] = pred
                     high = samples_high.transpose(0, 2).transpose(1, 2)  # [16, 3, 256]
@@ -474,10 +477,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                 preds.append(pred)
                 trues.append(true)
 
-                if attention_flag:
+                if draw_attention_figure or save_attention:
                     attention_maps[i] = attention_map
 
-                if parameter_flag:
+                if save_parameter:
                     samples_lambda[:, i * batch_size: (i + 1) * batch_size, :] = parameters[0]
                     samples_gamma[:, i * batch_size: (i + 1) * batch_size, :] = parameters[1]
                     samples_eta_k[:, i * batch_size: (i + 1) * batch_size, :] = parameters[2]
@@ -545,8 +548,8 @@ class Exp_Probability_Forecast(Exp_Basic):
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
 
-            # pred value, true value & probability range
-            if probabilistic_flag or probabilistic_density_flag:
+            # pred value, true value & probability range & probabilistic density
+            if draw_probabilistic_figure or save_probabilistic or draw_probability_density_figure:
                 # move to cpu and covert to numpy for plotting
                 pred_value = pred_value.detach().cpu().numpy()  # [16, 15616]
                 true_value = true_value.detach().cpu().numpy()  # [16, 15616]
@@ -606,8 +609,8 @@ class Exp_Probability_Forecast(Exp_Basic):
                 np.save(folder_path + 'high_value_inverse.npy', high_value)
                 np.save(folder_path + 'low_value_inverse.npy', low_value)
 
-                if probabilistic_flag:
-                    # draw figures
+                # draw figures
+                if draw_probabilistic_figure:
                     print('drawing probabilistic figure')
                     for i in tqdm(range(pred_length)):
                         _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
@@ -627,44 +630,44 @@ class Exp_Probability_Forecast(Exp_Basic):
                                         probability_range,
                                         os.path.join(_path, f'prediction {j}.png'))
 
-            # probabilistic density
-            if probabilistic_density_flag:
-                # move to cpu and covert to numpy for plotting
-                samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
+                # probabilistic density
+                if draw_probability_density_figure:
+                    # move to cpu and covert to numpy for plotting
+                    samples_value = samples_value.detach().cpu().numpy()  # [99, 5, 15616]
 
-                # integrate different probability range data
-                samples_value = samples_value.reshape(-1)  # [99 * 5 * 15616]
+                    # integrate different probability range data
+                    samples_value = samples_value.reshape(-1)  # [99 * 5 * 15616]
 
-                # convert to shape: (sample, feature) for inverse transform
-                new_shape = (self.args.sample_times * samples_number * data_length, self.args.enc_in)
-                _ = np.zeros(new_shape)
-                _[:, -1] = samples_value
-                samples_value = _
+                    # convert to shape: (sample, feature) for inverse transform
+                    new_shape = (self.args.sample_times * samples_number * data_length, self.args.enc_in)
+                    _ = np.zeros(new_shape)
+                    _[:, -1] = samples_value
+                    samples_value = _
 
-                # perform inverse transform
-                dataset = test_data
-                samples_value = dataset.inverse_transform(samples_value)
+                    # perform inverse transform
+                    dataset = test_data
+                    samples_value = dataset.inverse_transform(samples_value)
 
-                # get the original data
-                samples_value = samples_value[:, -1].squeeze()  # [99 * 5 * 15616]
+                    # get the original data
+                    samples_value = samples_value[:, -1].squeeze()  # [99 * 5 * 15616]
 
-                # restore different probability range data
-                samples_value = samples_value.reshape(self.args.sample_times, samples_number,
-                                                      data_length)  # [99, 5, 15616]
+                    # restore different probability range data
+                    samples_value = samples_value.reshape(self.args.sample_times, samples_number,
+                                                          data_length)  # [99, 5, 15616]
 
-                # draw figures
-                print('drawing probabilistic density figure')
-                for i in range(samples_number):
-                    _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
-                    if not os.path.exists(_path):
-                        os.makedirs(_path)
+                    # draw figures
+                    print('drawing probabilistic density figure')
+                    for i in range(samples_number):
+                        _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
+                        if not os.path.exists(_path):
+                            os.makedirs(_path)
 
-                    for j in tqdm(range(data_length), desc=f'step {samples_index[i]}'):
-                        draw_density_figure(samples_value[:, i, j], true_value[i, j],
-                                            os.path.join(_path, f'prediction {j}.png'))
+                        for j in tqdm(range(data_length), desc=f'step {samples_index[i]}'):
+                            draw_density_figure(samples_value[:, i, j], true_value[i, j],
+                                                os.path.join(_path, f'prediction {j}.png'))
 
             # attention map
-            if attention_flag:
+            if draw_attention_figure or save_attention:
                 # move to cpu and covert to numpy for plotting
                 attention_maps = attention_maps.detach().cpu().numpy()  # [61, 16, 256, 8, 1, 96]
 
@@ -672,40 +675,41 @@ class Exp_Probability_Forecast(Exp_Basic):
                 np.save(folder_path + 'attention_maps.npy', attention_maps)
 
                 # draw figure
-                print('drawing attention map')
-                for i in tqdm(range(loader_length)):
-                    _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
-                    if not os.path.exists(_path):
-                        os.makedirs(_path)
+                if draw_attention_figure:
+                    print('drawing attention map')
+                    for i in tqdm(range(loader_length)):
+                        _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
+                        if not os.path.exists(_path):
+                            os.makedirs(_path)
 
-                    attention_map = attention_maps[i]
-                    attention_map = attention_map.reshape(batch_size, self.args.n_heads, 1 * pred_length, seq_length)
-                    for j in range(batch_size):
-                        _ = attention_map[j]
-                        draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+                        attention_map = attention_maps[i]
+                        attention_map = attention_map.reshape(batch_size, n_heads, 1 * pred_length, seq_length)
+                        for j in range(batch_size):
+                            _ = attention_map[j]
+                            draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
 
-                for i in tqdm(range(pred_length)):
-                    _path = os.path.join(folder_path, f'attention_map', f'step {i}')
-                    if not os.path.exists(_path):
-                        os.makedirs(_path)
+                    for i in tqdm(range(pred_length)):
+                        _path = os.path.join(folder_path, f'attention_map', f'step {i}')
+                        if not os.path.exists(_path):
+                            os.makedirs(_path)
 
-                    attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
-                    attention_map = attention_map.reshape(loader_length * batch_size, self.args.n_heads, 1, seq_length)
-                    # [15616, 8, 1, 96]
+                        attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
+                        attention_map = attention_map.reshape(loader_length * batch_size, n_heads, 1, seq_length)
+                        # [15616, 8, 1, 96]
 
-                    interval = 96
-                    num = math.floor(loader_length * batch_size / interval)
-                    for j in range(num):
-                        if j * interval >= data_length:
-                            continue
+                        interval = 96
+                        num = math.floor(loader_length * batch_size / interval)
+                        for j in range(num):
+                            if j * interval >= data_length:
+                                continue
 
-                        _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
-                        _attention_map = _attention_map.reshape(self.args.n_heads, 1 * interval, seq_length)
-                        # [8, 96, 96]
-                        draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
+                            _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
+                            _attention_map = _attention_map.reshape(n_heads, 1 * interval, seq_length)
+                            # [8, 96, 96]
+                            draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
 
-            # quantile function parameters
-            if parameter_flag:
+            # save parameters
+            if save_parameter:
                 # move to cpu and covert to numpy for plotting
                 samples_lambda = samples_lambda.detach().cpu().numpy()
                 samples_gamma = samples_gamma.detach().cpu().numpy()
