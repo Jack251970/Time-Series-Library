@@ -35,7 +35,7 @@ x_data[0] = 0.0001
 x_data[-1] = 0.9999
 
 
-def get_q_alpha_data(_lambda, gamma, eta_k, algorithm_type, _samples_index):
+def get_q_alpha_data(lambda_param, gamma_param, eta_k_param, algorithm_type, _samples_index):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     sample_number = len(_samples_index)
     batch_size = sample_number * data_length
@@ -44,17 +44,17 @@ def get_q_alpha_data(_lambda, gamma, eta_k, algorithm_type, _samples_index):
     alpha_prime_k = y.repeat(batch_size, 1).to(device)  # [4 * 5165, 1]
     q_alpha_data = torch.Tensor(batch_size, len(x_data)).to(device)  # [4 * 5165, 101]
 
-    lambda_tensor = torch.Tensor(_lambda).to(device)  # [96, 5165, 1]
-    gamma_tensor = torch.Tensor(gamma).to(device)  # [96, 5165, 20]
-    eta_k_tensor = torch.Tensor(eta_k).to(device)  # [96, 5165, 20]
+    lambda_tensor = torch.Tensor(lambda_param).to(device)  # [96, 5165, 1]
+    gamma_tensor = torch.Tensor(gamma_param).to(device)  # [96, 5165, 20]
+    eta_k_tensor = torch.Tensor(eta_k_param).to(device)  # [96, 5165, 20]
 
     lambda_tensor = lambda_tensor[_samples_index, :, :]  # [4, 5165, 1]
     gamma_tensor = gamma_tensor[_samples_index, :, :]  # [4, 5165, 20]
     eta_k_tensor = eta_k_tensor[_samples_index, :, :]  # [4, 5165, 20]
 
     lambda_tensor = lambda_tensor.reshape(batch_size)  # [4 * 5165,]
-    gamma_tensor = gamma_tensor.reshape(batch_size, gamma.shape[-1])  # [4 * 5165, 20]
-    eta_k_tensor = eta_k_tensor.reshape(batch_size, eta_k.shape[-1])  # [4 * 5165, 20]
+    gamma_tensor = gamma_tensor.reshape(batch_size, gamma_param.shape[-1])  # [4 * 5165, 20]
+    eta_k_tensor = eta_k_tensor.reshape(batch_size, eta_k_param.shape[-1])  # [4 * 5165, 20]
 
     for i in range(len(x_data)):
         alpha = x_data[i]
