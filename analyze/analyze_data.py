@@ -28,9 +28,9 @@ def output_table(file, output_file, source_file,
     data = pd.read_csv(path)
 
     # 更新最佳数据
-    def update_data(_baseline_data, checked_columns, target_columns, _core_target_fieldname):
-        global data_folder
+    def update_data(_data, checked_columns, target_columns, _core_target_fieldname):
         # 扫描所有数据文件
+        global data_folder
         file_paths = []
         for root, dirs, files in os.walk(data_folder):
             for _file in files:
@@ -47,11 +47,11 @@ def output_table(file, output_file, source_file,
             all_data = pd.concat([all_data, pd.read_csv(_file_path)], ignore_index=True)
         print(f'load {len(all_data)} records')
 
-        # 检查标准数据中是否需要更新：若MSE,NAE,CRPS,PINAW中有指标可以更小，则更新
+        # 检查标准数据中是否需要更新：若有指标可以更优，则更新
         _update_number = 0
         _core_update_number = 0
-        _baseline_source_data = _baseline_data.copy()
-        for index, row in _baseline_data.iterrows():
+        _source_data = _data.copy()
+        for index, row in _data.iterrows():
             _model = row['model']
             _dataset = row['data_path']
             _pred_len = row['pred_len']
@@ -91,27 +91,27 @@ def output_table(file, output_file, source_file,
 
             # 获取最小指标
             for _column, (_value, _method) in _min_target_data.items():
-                _baseline_value = _target_data[_column]
+                _data_value = _target_data[_column]
                 if _method == 'min':
-                    if not pd.isna(_baseline_value) and _value < _baseline_value:
-                        _baseline_data.loc[index, _column] = _value
+                    if not pd.isna(_data_value) and _value < _data_value:
+                        _data.loc[index, _column] = _value
                         if _column == _core_target_fieldname:
-                            _baseline_source_data.loc[index] = row
+                            _source_data.loc[index] = row
                             _core_update_number += 1
                         _update_number += 1
                         print(
                             f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                            f"{_baseline_value} -> {_value}")
+                            f"{_data_value} -> {_value}")
                 elif _method == 'max':
-                    if not pd.isna(_baseline_value) and _value > _baseline_value:
-                        _baseline_data.loc[index, _column] = _value
+                    if not pd.isna(_data_value) and _value > _data_value:
+                        _data.loc[index, _column] = _value
                         if _column == _core_target_fieldname:
-                            _baseline_source_data.loc[index] = row
+                            _source_data.loc[index] = row
                             _core_update_number += 1
                         _update_number += 1
                         print(
                             f"update {_column} for model {_model}, data {_dataset}, pred {_pred_len}: "
-                            f"{_baseline_value} -> {_value}")
+                            f"{_data_value} -> {_value}")
                 elif _method == 'none':
                     pass
                 else:
@@ -120,7 +120,7 @@ def output_table(file, output_file, source_file,
         print(f'update {_update_number} cells')
         print(f'update {_core_update_number} source rows')
 
-        return _baseline_data, _baseline_source_data
+        return _data, _source_data
 
     data, source_data = update_data(data, checked_fieldnames, target_fieldnames, core_target_fieldname)
 
@@ -188,10 +188,61 @@ def output_table(file, output_file, source_file,
         writer.write(table_data)
 
 
-# # baseline MSE & MAE table
-# output_table(file=os.path.join('probability_forecast', 'data_baseline_paper.csv'),
-#              output_file='accuracy_table_baseline.txt',
-#              source_file='baseline_source_data.csv',
+# baseline MSE & MAE table
+output_table(file=os.path.join('probability_forecast', 'data_baseline_paper.csv'),
+             output_file='accuracy_table_baseline.txt',
+             source_file='baseline_source_data.csv',
+             checked_fieldnames=['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
+                                 'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
+             target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
+             core_target_fieldname='mse',
+             save_source=True,
+             row_label=['data_path', 'pred_len'],
+             column_label=['model'],
+             value_label=['mse', 'mae'],
+             replace_label=[(['mse', 'amse'], False), (['mae', 'bmae'], False)],
+             rearrange_column_label=['model', None],
+             combine_column_label=False,
+             add_table_appendix=True,
+             replace_nan=True,
+             replace_regex=[['electricity/electricity.csv', 'Electricity'],
+                            ['exchange_rate/exchange_rate.csv', 'Exchange'],
+                            ['weather/weather.csv', 'Weather'],
+                            ['traffic/traffic.csv', 'Traffic'],
+                            ['data_path', ''],
+                            ['pred_len', ''],
+                            ['model', ''],
+                            ['LSTM-AQ', 'AL-QSQF']])
+
+# baseline CRPS & PINAW table
+output_table(file=os.path.join('probability_forecast', 'data_baseline_paper.csv'),
+             output_file='reliability_table_baseline.txt',
+             source_file='baseline_source_data.csv',
+             checked_fieldnames=['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
+                                 'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
+             target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
+             core_target_fieldname='mse',
+             save_source=False,
+             row_label=['data_path', 'pred_len'],
+             column_label=['model'],
+             value_label=['crps', 'pinaw'],
+             rearrange_column_label=['model', None],
+             combine_column_label=False,
+             add_table_appendix=True,
+             replace_nan=True,
+             replace_regex=[['electricity/electricity.csv', 'Electricity'],
+                            ['exchange_rate/exchange_rate.csv', 'Exchange'],
+                            ['weather/weather.csv', 'Weather'],
+                            ['traffic/traffic.csv', 'Traffic'],
+                            ['data_path', ''],
+                            ['pred_len', ''],
+                            ['model', ''],
+                            ['LSTM-AQ', 'AL-QSQF']])
+
+# # comp MSE & MAE table
+# output_table(file=os.path.join('probability_forecast', 'data_comp.csv'),
+#              output_file='accuracy_table_comp.txt',
+#              source_file='comp_source_data.csv',
 #              checked_fieldnames=['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
 #                                  'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
 #              target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
@@ -214,10 +265,11 @@ def output_table(file, output_file, source_file,
 #                             ['model', ''],
 #                             ['LSTM-AQ', 'AL-QSQF']])
 #
-# # baseline CRPS & PINAW table
-# output_table(file=os.path.join('probability_forecast', 'data_baseline_paper.csv'),
-#              output_file='reliability_table_baseline.txt',
-#              source_file='baseline_source_data.csv',
+#
+# # comp CRPS & PINAW table
+# output_table(file=os.path.join('probability_forecast', 'data_comp.csv'),
+#              output_file='reliability_table_comp.txt',
+#              source_file='comp_source_data.csv',
 #              checked_fieldnames=['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
 #                                  'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
 #              target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
@@ -238,58 +290,6 @@ def output_table(file, output_file, source_file,
 #                             ['pred_len', ''],
 #                             ['model', ''],
 #                             ['LSTM-AQ', 'AL-QSQF']])
-
-# comp MSE & MAE table
-output_table(file=os.path.join('probability_forecast', 'data_comp.csv'),
-             output_file='accuracy_table_comp.txt',
-             source_file='comp_source_data.csv',
-             checked_fieldnames=['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
-                                 'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
-             target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
-             core_target_fieldname='mse',
-             save_source=False,
-             row_label=['data_path', 'pred_len'],
-             column_label=['model'],
-             value_label=['mse', 'mae'],
-             replace_label=[(['mse', 'amse'], False), (['mae', 'bmae'], False)],
-             rearrange_column_label=['model', None],
-             combine_column_label=False,
-             add_table_appendix=True,
-             replace_nan=True,
-             replace_regex=[['electricity/electricity.csv', 'Electricity'],
-                            ['exchange_rate/exchange_rate.csv', 'Exchange'],
-                            ['weather/weather.csv', 'Weather'],
-                            ['traffic/traffic.csv', 'Traffic'],
-                            ['data_path', ''],
-                            ['pred_len', ''],
-                            ['model', ''],
-                            ['LSTM-AQ', 'AL-QSQF']])
-
-
-# comp CRPS & PINAW table
-output_table(file=os.path.join('probability_forecast', 'data_comp.csv'),
-             output_file='reliability_table_comp.txt',
-             source_file='comp_source_data.csv',
-             checked_fieldnames=['model', 'data_path', 'custom_params', 'seed', 'task_name', 'model_id', 'data',
-                                 'features', 'target', 'scaler', 'seq_len', 'label_len', 'pred_len', 'inverse'],
-             target_fieldnames=[('mse', 'min'), ('mae', 'min'), ('crps', 'min'), ('pinaw', 'min')],
-             core_target_fieldname='mse',
-             save_source=False,
-             row_label=['data_path', 'pred_len'],
-             column_label=['model'],
-             value_label=['crps', 'pinaw'],
-             rearrange_column_label=['model', None],
-             combine_column_label=False,
-             add_table_appendix=True,
-             replace_nan=True,
-             replace_regex=[['electricity/electricity.csv', 'Electricity'],
-                            ['exchange_rate/exchange_rate.csv', 'Exchange'],
-                            ['weather/weather.csv', 'Weather'],
-                            ['traffic/traffic.csv', 'Traffic'],
-                            ['data_path', ''],
-                            ['pred_len', ''],
-                            ['model', ''],
-                            ['LSTM-AQ', 'AL-QSQF']])
 
 # # comp1 MSE & MAE table
 # output_table(file=os.path.join('probability_forecast', 'data_comp1.csv'),
