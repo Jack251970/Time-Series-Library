@@ -5,6 +5,7 @@ import numpy as np
 
 from exp.exp_basic import Exp_Basic
 from hyper_parameter_optimizer import basic_settings
+from hyper_parameter_optimizer.basic_settings import parse_launch_parameters, set_args
 
 root_path = '..'
 data_dir = 'data'
@@ -110,7 +111,25 @@ def get_config_row(exp_name):
                 if setting == _exp_settings:
                     target_row = row
 
+    # handle value type
+    for key in target_row:
+        try:
+            target_row[key] = int(target_row[key])
+        except ValueError:
+            try:
+                target_row[key] = float(target_row[key])
+            except ValueError:
+                pass
+
     return target_row
+
+
+def get_args(exp_name):
+    config = get_config_row(exp_name)
+    config['root_path'] = os.path.join(root_path, 'dataset')
+    args = parse_launch_parameters(False)
+    args = set_args(args, config)
+    return args
 
 
 def get_attention_map(exp_name):

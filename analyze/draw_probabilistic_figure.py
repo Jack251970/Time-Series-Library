@@ -19,7 +19,7 @@ def draw_probabilistic_figure(exp_name, samples_index, ylim_list=None, folder=No
     pred_value, true_value, high_value, low_value = get_all_value_inverse(exp_name)
 
     config_row = get_config_row(exp_name)
-    pred_length = int(config_row['pred_len'])
+    pred_length = config_row['pred_len']
     data_length = pred_value.shape[1]
     probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 

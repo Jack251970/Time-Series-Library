@@ -13,10 +13,10 @@ exp_name = 'LSTM-AQ_Electricity_96'
 attention_maps = get_attention_map(exp_name)
 
 config_row = get_config_row(exp_name)
-batch_size = int(config_row['batch_size'])
-seq_length = int(config_row['seq_len'])
-pred_length = int(config_row['pred_len'])
-n_heads = int(config_row['n_heads'])
+batch_size = config_row['batch_size']
+seq_length = config_row['seq_len']
+pred_length = config_row['pred_len']
+n_heads = config_row['n_heads']
 loader_length = attention_maps.shape[0]
 
 # draw attention map for every loader

@@ -26,8 +26,8 @@ lambda_qsqf_c, gamma_qsqf_c, eta_k_qsqf_c = get_parameter(qsqf_c_exp_name)
 _, true_value, _, _ = get_all_value(lstm_aq_exp_name)  # [96, 5165]
 
 config_row_lstm_aq = get_config_row(lstm_aq_exp_name)
-num_spline = int(config_row_lstm_aq['num_spline'])
-pred_len = int(config_row_lstm_aq['pred_len'])
+num_spline = config_row_lstm_aq['num_spline']
+pred_len = config_row_lstm_aq['pred_len']
 data_length = lambda_lstm_aq.shape[1]
 
 x_data = [i / 100 for i in range(101)]

@@ -23,7 +23,7 @@ def draw_steps_figure(config_list, fig_name):
         crps_qsqf_c, crps_steps_qsqf_c, mre_qsqf_c, pinaw_qsqf_c, pinaw_steps_qsqf_c = get_prob_metrics(qsqf_c_exp_name)
 
         config_row_lstm_aq = get_config_row(lstm_aq_exp_name)
-        pred_len = int(config_row_lstm_aq['pred_len'])
+        pred_len = config_row_lstm_aq['pred_len']
 
         x_data = range(1, pred_len, 1)
 
