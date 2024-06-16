@@ -49,18 +49,18 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
     gamma_tensor = gamma_tensor.reshape(samples_number * data_length, 20)  # [4 * 5165, 20]
     eta_k_tensor = eta_k_tensor.reshape(samples_number * data_length, 20)  # [4 * 5165, 20]
 
-    # init random variable from uniform distribution
-    uniform = torch.distributions.uniform.Uniform(
-        torch.tensor([0.0], device=device),
-        torch.tensor([1.0], device=device))
-    pred_alpha = uniform.sample(torch.Size([samples_number * data_length]))  # [4 * 5165, 1]
-
     # init alpha prime k
     y = torch.ones(num_spline) / num_spline
     alpha_prime_k = y.repeat(samples_number * data_length, 1).to(device)  # [4 * 5165, 20]
 
     # get samples
     for i in range(sample_times):
+        # get pred alpha
+        uniform = torch.distributions.uniform.Uniform(
+            torch.tensor([0.0], device=device),
+            torch.tensor([1.0], device=device))
+        pred_alpha = uniform.sample(torch.Size([samples_number * data_length]))  # [4 * 5165, 1]
+
         # [256] = [256, 20], [256, 1], -0.001, [256, 20], [256, 20], [256, 20], '1+2'
         pred = sample_pred(alpha_prime_k, pred_alpha, _lambda, gamma_tensor, eta_k_tensor, algorithm_type)
         samples_value_candidate[i, :] = pred
