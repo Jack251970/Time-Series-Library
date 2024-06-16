@@ -11,7 +11,7 @@ set_times_new_roman_font()
 out_dir = 'probabilistic_figure'
 
 
-def draw_probabilistic_figure(exp_name, samples_index, folder=None, max_data_length=None, replace_regex=None):
+def draw_probabilistic_figure(exp_name, samples_index, ylim=None, folder=None, max_data_length=None, replace_regex=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -56,7 +56,7 @@ def draw_probabilistic_figure(exp_name, samples_index, folder=None, max_data_len
                                 low_value[i, :, j * interval: (j + 1) * interval],
                                 probability_range,
                                 file_name,
-                                ylim=[1500, 4500])
+                                ylim=ylim)
 
 
 # AL-QSQF
@@ -64,11 +64,13 @@ draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
                           samples_index=[15, 31, 63, 95],
                           max_data_length=100,
                           folder='AL-QSQF',
-                          replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
+                          replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
+                          ylim=None)
 
 # # QSQF-C
 draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
                           samples_index=[15, 31, 63, 95],
                           max_data_length=100,
                           folder='QSQF-C',
-                          replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
+                          replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+                          ylim=None)
