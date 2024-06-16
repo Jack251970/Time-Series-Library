@@ -613,7 +613,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if draw_probabilistic_figure:
                     print('drawing probabilistic figure')
                     for i in tqdm(range(pred_length)):
-                        _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i}')
+                        _path = os.path.join(folder_path, f'probabilistic_figure', f'step {i + 1}')
                         if not os.path.exists(_path):
                             os.makedirs(_path)
 
@@ -628,7 +628,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                                         high_value[i, :, j * interval: (j + 1) * interval],
                                         low_value[i, :, j * interval: (j + 1) * interval],
                                         probability_range,
-                                        os.path.join(_path, f'prediction {j}.png'))
+                                        os.path.join(_path, f'prediction {j + 1}.png'))
 
                 # probabilistic density
                 if draw_probability_density_figure:
@@ -658,13 +658,13 @@ class Exp_Probability_Forecast(Exp_Basic):
                     # draw figures
                     print('drawing probabilistic density figure')
                     for i in range(samples_number):
-                        _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i]}')
+                        _path = os.path.join(folder_path, f'probability_density', f'step {samples_index[i] + 1}')
                         if not os.path.exists(_path):
                             os.makedirs(_path)
 
-                        for j in tqdm(range(data_length), desc=f'step {samples_index[i]}'):
+                        for j in tqdm(range(data_length), desc=f'step {samples_index[i] + 1}'):
                             draw_density_figure(samples_value[:, i, j], true_value[i, j],
-                                                os.path.join(_path, f'prediction {j}.png'))
+                                                os.path.join(_path, f'prediction {j + 1}.png'))
 
             # attention map
             if draw_attention_figure or save_attention:
@@ -678,7 +678,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                 if draw_attention_figure:
                     print('drawing attention map')
                     for i in tqdm(range(loader_length)):
-                        _path = os.path.join(folder_path, f'attention_map', f'loader {i}')
+                        _path = os.path.join(folder_path, f'attention_map', f'loader {i + 1}')
                         if not os.path.exists(_path):
                             os.makedirs(_path)
 
@@ -686,10 +686,10 @@ class Exp_Probability_Forecast(Exp_Basic):
                         attention_map = attention_map.reshape(batch_size, n_heads, 1 * pred_length, seq_length)
                         for j in range(batch_size):
                             _ = attention_map[j]
-                            draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j}.png'))
+                            draw_attention_map(attention_map[j], os.path.join(_path, f'attention map {j + 1}.png'))
 
                     for i in tqdm(range(pred_length)):
-                        _path = os.path.join(folder_path, f'attention_map', f'step {i}')
+                        _path = os.path.join(folder_path, f'attention_map', f'step {i + 1}')
                         if not os.path.exists(_path):
                             os.makedirs(_path)
 
@@ -706,7 +706,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                             _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
                             _attention_map = _attention_map.reshape(n_heads, 1 * interval, seq_length)
                             # [8, 96, 96]
-                            draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j}.png'))
+                            draw_attention_map(_attention_map, os.path.join(_path, f'attention map {j + 1}.png'))
 
             # save parameters
             if save_parameter:
