@@ -94,7 +94,8 @@ class Exp_Basic(object):
         return device
 
     def _get_data(self, data_flag, enter_flag, _try_model):
-        data_set, data_loader, info, new_index = data_provider(self.args, data_flag, enter_flag, self.new_index)
+        data_set, data_loader, info, new_index = data_provider(self.args, data_flag, enter_flag,
+                                                               new_indexes=self.new_index, cache_data=True)
         if new_index is not None and self.new_index is None:
             self.new_index = new_index
             try:
