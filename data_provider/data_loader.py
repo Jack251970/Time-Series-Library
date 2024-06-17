@@ -392,6 +392,9 @@ class Dataset_Custom(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
+    def get_scaler(self):
+        return self.scaler
+
     def get_all_data(self):
         return self.data_x, self.data_y, self.data_stamp
 

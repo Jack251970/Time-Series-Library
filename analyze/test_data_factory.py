@@ -2,6 +2,7 @@ import csv
 import os
 
 import numpy as np
+import cupy as cp
 
 from exp.exp_basic import Exp_Basic
 from hyper_parameter_optimizer import basic_settings
@@ -147,13 +148,16 @@ def get_all_value(exp_name):
     return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
 
 
-def get_all_value_inverse(exp_name):
+def get_all_value_inverse(exp_name, use_cupy=False):
     _exp_path = get_exp_settings(exp_name)
     pred_value_path = os.path.join(prob_results_folder, _exp_path, 'pred_value_inverse.npy')
     true_value_path = os.path.join(prob_results_folder, _exp_path, 'true_value_inverse.npy')
     high_value_path = os.path.join(prob_results_folder, _exp_path, 'high_value_inverse.npy')
     low_value_path = os.path.join(prob_results_folder, _exp_path, 'low_value_inverse.npy')
-    return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
+    if not use_cupy:
+        return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
+    else:
+        return cp.load(pred_value_path), cp.load(true_value_path), cp.load(high_value_path), cp.load(low_value_path)
 
 
 def get_loss(exp_name):
@@ -192,9 +196,12 @@ def get_prob_metrics(exp_name):
     return crps, crps_steps, mre, pinaw, pinaw_steps
 
 
-def get_parameter(exp_name):
+def get_parameter(exp_name, use_cupy=False):
     _exp_path = get_exp_settings(exp_name)
     lambda_path = os.path.join(prob_results_folder, _exp_path, 'samples_lambda.npy')
     gamma_path = os.path.join(prob_results_folder, _exp_path, 'samples_gamma.npy')
     eta_k_path = os.path.join(prob_results_folder, _exp_path, 'samples_eta_k.npy')
-    return np.load(lambda_path), np.load(gamma_path), np.load(eta_k_path)
+    if not use_cupy:
+        return np.load(lambda_path), np.load(gamma_path), np.load(eta_k_path)
+    else:
+        return cp.load(lambda_path), cp.load(gamma_path), cp.load(eta_k_path)
