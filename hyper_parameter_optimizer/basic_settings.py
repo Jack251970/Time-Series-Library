@@ -421,7 +421,7 @@ def prepare_config(_params, _script_mode=False):
     # build model_id for interface
     _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
-    if _script_mode is True:
+    if _script_mode is True or _params is None:
         return _args
     else:
         # load optimized parameters from _params
