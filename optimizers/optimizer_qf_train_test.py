@@ -165,10 +165,10 @@ def get_search_space():
         'reindex': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        'train_epochs': {'_type': 'single', '_value': 50},
+        'train_epochs': {'_type': 'single', '_value': 10},
 
-        'num_spline': {'_type': 'single', '_value': 20},
-        # 'num_spline': {'_type': 'choice', '_value': range(5, 60, 1)},
+        # 'num_spline': {'_type': 'single', '_value': 20},
+        'num_spline': {'_type': 'choice', '_value': range(5, 60, 1)},
         'sample_times': {'_type': 'single', '_value': 99},
 
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
@@ -184,4 +184,4 @@ def get_search_space():
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', data_csv_file='data_num_spline.csv',
-                            scan_all_csv=True, try_model=False, force_exp=False, save_process=True)
+                            scan_all_csv=False, try_model=False, force_exp=False)
