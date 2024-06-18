@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from layers.AutoCorrelation import AutoCorrelation, AutoCorrelationLayer
 from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, LayerNorm, series_decomp
-from layers.Embed import DataEmbedding_no_pos
+from layers.Embed import DataEmbedding_wo_pos
 
 
 # noinspection DuplicatedCode
@@ -33,9 +33,9 @@ class Model(nn.Module):
         # Embedding
         # The series-wise connection inherently contains the sequential information.
         # Thus, we can discard the position embedding of transformers.
-        self.enc_embedding = DataEmbedding_no_pos(configs.enc_in, configs.d_model, configs.embed, configs.freq,
+        self.enc_embedding = DataEmbedding_wo_pos(configs.enc_in, configs.d_model, configs.embed, configs.freq,
                                                   configs.dropout)
-        self.dec_embedding = DataEmbedding_no_pos(configs.dec_in, configs.d_model, configs.embed, configs.freq,
+        self.dec_embedding = DataEmbedding_wo_pos(configs.dec_in, configs.d_model, configs.embed, configs.freq,
                                                   configs.dropout) \
             if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast' else None
 

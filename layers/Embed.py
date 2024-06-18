@@ -163,13 +163,13 @@ class DataEmbedding_inverted(nn.Module):
         return self.dropout(x)
 
 
-class DataEmbedding_no_pos(nn.Module):
+class DataEmbedding_wo_pos(nn.Module):
     def __init__(self, c_in, d_model, embed_type='fixed', freq='h', dropout=0.1):
         """
         The series-wise connection inherently contains the sequential information.
         Thus, we can discard the position embedding of transformers.
         """
-        super(DataEmbedding_no_pos, self).__init__()
+        super(DataEmbedding_wo_pos, self).__init__()
 
         self.value_embedding = TokenEmbedding(c_in=c_in, d_model=d_model)
         self.position_embedding = PositionalEmbedding(d_model=d_model)
