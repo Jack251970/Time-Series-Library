@@ -23,7 +23,7 @@ class Model(nn.Module):
         self.lstm_hidden_size = params.lstm_hidden_size
         self.enc_in = params.enc_in
         self.enc_lstm_layers = params.lstm_layers
-        self.dec_lstm_layers = 1  # TODO: Check self.enc_lstm_layers!!
+        self.dec_lstm_layers = 1
         self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline

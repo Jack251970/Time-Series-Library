@@ -173,10 +173,15 @@ class Exp_Basic(object):
             if not os.path.exists(folder):
                 os.makedirs(folder)
 
-    def print_content(self, content, write=False):
+    def print_content(self, content='', write=False):
         print(content)
+
+        # remove useless tags from content
+        if '\033[1m' in content or '\033[0m' in content:
+            content = content.replace('\033[1m', '').replace('\033[0m', '')
+
         if self.save_process:
-            self.process_content = self.process_content + content + "\n"
+            self.process_content = self.process_content + content + '\n'
             if write:
                 f = open(self.process_file_path, 'a')
                 f.write(self.process_content)

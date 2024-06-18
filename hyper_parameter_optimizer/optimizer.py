@@ -19,7 +19,7 @@ from tqdm import tqdm
 from utils.tools import set_times_new_roman_font
 
 
-# from utils.print_args import print_args
+from utils.print_args import print_args
 
 
 class HyperParameterOptimizer(object):
@@ -566,8 +566,7 @@ class HyperParameterOptimizer(object):
             if _parameter is not None:
                 exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
-            # TODO: print arguments.
-            # print_args(_args, exp.print_content)
+            print_args(_args, exp.print_content)
 
             # start training
             _, exp_train_run_time = self._get_run_time()
@@ -589,8 +588,7 @@ class HyperParameterOptimizer(object):
             if _parameter is not None:
                 exp.print_content(f'Optimizing params in experiment:{_parameter}')
             exp.print_content(f'Config in experiment:{_config}')
-            # TODO: print arguments.
-            # print_args(_args, exp.print_content)
+            print_args(_args, exp.print_content)
 
             # start testing
             _, exp_test_run_time = self._get_run_time()
