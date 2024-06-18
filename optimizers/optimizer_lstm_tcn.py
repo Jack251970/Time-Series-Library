@@ -4,12 +4,28 @@ from hyper_parameter_optimizer.optimizer import HyperParameterOptimizer
 # noinspection DuplicatedCode
 def link_fieldnames_data(_config):
     data_path = _config['data_path']
+    model = _config['model']
+    pred_len = _config['pred_len']
     if data_path == 'electricity/electricity.csv':
         # electricity dataset
         _config['reindex_tolerance'] = 0.80
         _config['enc_in'] = 321
         _config['dec_in'] = 321
         _config['c_out'] = 321
+
+        if model == 'QSQF-C':
+            if pred_len == 16:
+                _config['lstm_hidden_size'] = 24
+                _config['lstm_layers'] = 1
+            elif pred_len == 32:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 3
+            elif pred_len == 64:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 3
+            elif pred_len == 96:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
     elif (data_path == 'ETT-small/ETTh1.csv' or data_path == 'ETT-small/ETTh2.csv' or
           data_path == 'ETT-small/ETTm1.csv' or data_path == 'ETT-small/ETTm2.csv'):
         # ETT dataset
@@ -21,6 +37,20 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 8
         _config['dec_in'] = 8
         _config['c_out'] = 8
+
+        if model == 'QSQF-C':
+            if pred_len == 16:
+                _config['lstm_hidden_size'] = 24
+                _config['lstm_layers'] = 3
+            elif pred_len == 32:
+                _config['lstm_hidden_size'] = 24
+                _config['lstm_layers'] = 3
+            elif pred_len == 64:
+                _config['lstm_hidden_size'] = 24
+                _config['lstm_layers'] = 2
+            elif pred_len == 96:
+                _config['lstm_hidden_size'] = 24
+                _config['lstm_layers'] = 3
     elif data_path == 'illness/national_illness.csv':
         # illness dataset
         _config['enc_in'] = 7
@@ -31,6 +61,20 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 862
         _config['dec_in'] = 862
         _config['c_out'] = 862
+
+        if model == 'QSQF-C':
+            if pred_len == 16:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+            elif pred_len == 32:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
+            elif pred_len == 64:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 1
+            elif pred_len == 96:
+                _config['lstm_hidden_size'] = 64
+                _config['lstm_layers'] = 2
     elif data_path == 'weather/weather.csv':
         # weather dataset
         _config['enc_in'] = 21
@@ -48,11 +92,6 @@ def link_fieldnames_data(_config):
         _config['enc_in'] = 5
         _config['dec_in'] = 5
         _config['c_out'] = 5
-    _pred_len = _config['pred_len']
-    if _pred_len == 16 or _pred_len == 32:
-        _config['label_len'] = 16
-    elif _pred_len == 96 or _pred_len == 192:
-        _config['label_len'] = 48
     return _config
 
 
@@ -93,7 +132,17 @@ def get_search_space():
     }
 
     lstm_config = {
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        'train_epochs': {'_type': 'single', '_value': 50},
+
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
     }
 
     model_configs = {
