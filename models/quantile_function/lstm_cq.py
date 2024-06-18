@@ -53,6 +53,7 @@ class Model(nn.Module):
         self.sample_times = params.sample_times
         self.lstm_dropout = params.dropout
         self.num_spline = params.num_spline
+        self.pred_len = params.pred_len
         self.pred_start = params.seq_len
         self.pred_steps = params.pred_len
         self.lag = params.lag
@@ -127,7 +128,7 @@ class Model(nn.Module):
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1).float()
             train_batch = batch[:, :, :-1]
             labels_batch = batch[:, :, -1]
             return self.probability_forecast(train_batch, labels_batch)  # return loss list
@@ -136,7 +137,7 @@ class Model(nn.Module):
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
-            batch = torch.cat((x_enc, y_enc), dim=1).float()
+            batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1).float()
             train_batch = batch[:, :, :-1]
             if probability_range is None:
                 probability_range = [0.5]
