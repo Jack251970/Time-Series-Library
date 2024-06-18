@@ -74,7 +74,7 @@ def get_exp_time(key):
     return _exp_time_dict[key]
 
 
-def build_exp_dict():
+def _build_exp_dict():
     global _exp_time_dict
     exp_names = os.listdir(process_folder)
     for exp_name, exp_time in _exp_time_dict.items():
@@ -83,15 +83,15 @@ def build_exp_dict():
                 _exp_dict[exp_name] = _exp_name
 
 
-def get_exp_settings(exp_name):
+def _get_exp_settings(exp_name):
     global _exp_dict
     if _exp_dict == {}:
-        build_exp_dict()
+        _build_exp_dict()
     return _exp_dict[exp_name]
 
 
 def get_config_row(exp_name):
-    _exp_settings = get_exp_settings(exp_name)
+    _exp_settings = _get_exp_settings(exp_name)
 
     # scan all csv files under data folder
     file_paths = []
@@ -133,23 +133,29 @@ def get_args(exp_name):
     return args
 
 
-def get_attention_map(exp_name):
-    _exp_path = get_exp_settings(exp_name)
+def get_attention_map(exp_name, use_cupy=False):
+    _exp_path = _get_exp_settings(exp_name)
     _path = os.path.join(prob_results_folder, _exp_path, 'attention_maps.npy')
-    return np.load(_path)
+    if not use_cupy:
+        return np.load(_path)
+    else:
+        return cp.load(_path)
 
 
-def get_all_value(exp_name):
-    _exp_path = get_exp_settings(exp_name)
+def get_all_value(exp_name, use_cupy=False):
+    _exp_path = _get_exp_settings(exp_name)
     pred_value_path = os.path.join(prob_results_folder, _exp_path, 'pred_value.npy')
     true_value_path = os.path.join(prob_results_folder, _exp_path, 'true_value.npy')
     high_value_path = os.path.join(prob_results_folder, _exp_path, 'high_value.npy')
     low_value_path = os.path.join(prob_results_folder, _exp_path, 'low_value.npy')
-    return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
+    if not use_cupy:
+        return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
+    else:
+        return cp.load(pred_value_path), cp.load(true_value_path), cp.load(high_value_path), cp.load(low_value_path)
 
 
 def get_all_value_inverse(exp_name, use_cupy=False):
-    _exp_path = get_exp_settings(exp_name)
+    _exp_path = _get_exp_settings(exp_name)
     pred_value_path = os.path.join(prob_results_folder, _exp_path, 'pred_value_inverse.npy')
     true_value_path = os.path.join(prob_results_folder, _exp_path, 'true_value_inverse.npy')
     high_value_path = os.path.join(prob_results_folder, _exp_path, 'high_value_inverse.npy')
@@ -160,8 +166,8 @@ def get_all_value_inverse(exp_name, use_cupy=False):
         return cp.load(pred_value_path), cp.load(true_value_path), cp.load(high_value_path), cp.load(low_value_path)
 
 
-def get_loss(exp_name):
-    _exp_path = get_exp_settings(exp_name)
+def get_loss(exp_name, use_cupy=False):
+    _exp_path = _get_exp_settings(exp_name)
     files = ['train_loss.npy', 'vali_loss.npy', 'test_loss.npy']
     _paths = [os.path.join(process_folder, _exp_path, file) for file in files]
 
@@ -170,7 +176,10 @@ def get_loss(exp_name):
     _test_loss = None
 
     for _path in _paths:
-        data = np.load(_path)
+        if not use_cupy:
+            data = np.load(_path)
+        else:
+            data = cp.load(_path)
         if 'train' in _path:
             _train_loss = data
         elif 'vali' in _path:
@@ -181,11 +190,14 @@ def get_loss(exp_name):
     return _train_loss, _vali_loss, _test_loss
 
 
-def get_prob_metrics(exp_name):
-    _exp_path = get_exp_settings(exp_name)
+def get_prob_metrics(exp_name, use_cupy=False):
+    _exp_path = _get_exp_settings(exp_name)
     pred_len = int(get_config_row(exp_name)['pred_len'])
     _path = os.path.join(results_folder, _exp_path, 'prob_metrics.npy')
-    metrics_data = np.load(_path)
+    if use_cupy:
+        metrics_data = np.load(_path)
+    else:
+        metrics_data = cp.load(_path)
 
     crps = metrics_data[0]
     crps_steps = metrics_data[1:pred_len + 1]
@@ -197,7 +209,7 @@ def get_prob_metrics(exp_name):
 
 
 def get_parameter(exp_name, use_cupy=False):
-    _exp_path = get_exp_settings(exp_name)
+    _exp_path = _get_exp_settings(exp_name)
     lambda_path = os.path.join(prob_results_folder, _exp_path, 'samples_lambda.npy')
     gamma_path = os.path.join(prob_results_folder, _exp_path, 'samples_gamma.npy')
     eta_k_path = os.path.join(prob_results_folder, _exp_path, 'samples_eta_k.npy')

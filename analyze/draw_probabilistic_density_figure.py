@@ -112,7 +112,6 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
 
     # draw selected figures
     if select_data is not None:
-        print('drawing selected probabilistic density figures')
         for k in select_data:
             i = k[0]
             j = k[1] - 1
@@ -142,7 +141,6 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
 
     # draw figures
     if draw_all:
-        print('drawing all probabilistic density figures')
         for i in range(samples_number):
             _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
             if not os.path.exists(_path):

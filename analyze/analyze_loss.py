@@ -11,16 +11,11 @@ set_times_new_roman_font()
 output_dir = 'loss'
 
 
-def output_loss_figure(exp_name, print_loss=False):
+def output_loss_figure(exp_name):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     train_loss, vali_loss, test_loss = get_loss(exp_name)
-
-    if print_loss:
-        print(f'train_loss: {train_loss}')
-        print(f'vali_loss: {vali_loss}')
-        print(f'test_loss: {test_loss}')
 
     plt.clf()
     plt.plot(train_loss.squeeze(), color='blue', label='Train Loss')
