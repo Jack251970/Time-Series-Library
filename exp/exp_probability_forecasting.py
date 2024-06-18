@@ -182,6 +182,11 @@ class Exp_Probability_Forecast(Exp_Basic):
                 stop_epochs = epoch + 1
                 break
 
+            if vali_loss == 0 or test_loss == 0:
+                self.print_content("Raise error and stop")
+                stop_epochs = epoch + 1
+                break
+
             _ = early_stopping(vali_loss, self.model, checkpoints_path)
             if _ is not None:
                 self.print_content(_)
