@@ -28,7 +28,7 @@ class Model(nn.Module):
         self.init_lstm(self.lstm)
 
         if self.task_name == 'short_term_forecast' or 'long_term_forecast':
-            self.out_projection = nn.Linear(self.lstm_hidden_size, self.c_out)
+            self.out_projection = nn.Linear(self.lstm_layers * self.lstm_hidden_size, self.c_out)
         else:
             raise NotImplementedError()
 
