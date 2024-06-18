@@ -39,7 +39,6 @@ def parse_launch_parameters(_script_mode):
                              'b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min '
                              'or 3h')
     parser.add_argument('--lag', type=int, default=0, help='lag of time series, only for RNN & LSTM related model')
-    parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--scaler', type=str, default='StandardScaler', help='feature scaling method')
     parser.add_argument('--reindex', type=int, default=0, help='reindex feature dimensions data, 1: enable 0: disable')
     parser.add_argument('--reindex_tolerance', type=float, default=0.9,
@@ -60,6 +59,8 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%)')
 
     # model define
+    parser.add_argument('--expand', type=int, default=2, help='expansion factor for Mamba')
+    parser.add_argument('--d_conv', type=int, default=4, help='conv kernel size for Mamba')
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
     parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
     parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')
@@ -82,8 +83,17 @@ def parse_launch_parameters(_script_mode):
                         help='time features encoding, options:[timeF, fixed, learned]')
     parser.add_argument('--activation', type=str, default='gelu', help='activation')
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in encoders')
-    parser.add_argument('--channel_independence', type=int, default=0, help='1: channel dependence 0: channel '
-                                                                            'independence for FreTS model')
+    parser.add_argument('--channel_independence', type=int, default=1,
+                        help='0: channel dependence 1: channel independence for FreTS model')
+    parser.add_argument('--decomp_method', type=str, default='moving_avg',
+                        help='method of series decompsition, only support moving_avg or dft_decomp')
+    parser.add_argument('--use_norm', type=int, default=1, help='whether to use normalize; True 1 False 0')
+    parser.add_argument('--down_sampling_layers', type=int, default=0, help='num of down sampling layers')
+    parser.add_argument('--down_sampling_window', type=int, default=1, help='down sampling window size')
+    parser.add_argument('--down_sampling_method', type=str, default=None,
+                        help='down sampling method, only support avg, max, conv')
+    parser.add_argument('--seg_len', type=int, default=48,
+                        help='the length of segmen-wise iteration of SegRNN')
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=12, help='data loader num workers')
@@ -107,6 +117,34 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=[128, 128],
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
+
+    # metrics (dtw)
+    parser.add_argument('--use_dtw', type=bool, default=False,
+                        help='the controller of using dtw metric (dtw is time consuming, not suggested unless necessary)')
+
+    # Augmentation
+    parser.add_argument('--augmentation_ratio', type=int, default=0, help="How many times to augment")
+    # parser.add_argument('--seed', type=int, default=2, help="Randomization seed")
+    parser.add_argument('--jitter', default=False, action="store_true", help="Jitter preset augmentation")
+    parser.add_argument('--scaling', default=False, action="store_true", help="Scaling preset augmentation")
+    parser.add_argument('--permutation', default=False, action="store_true",
+                        help="Equal Length Permutation preset augmentation")
+    parser.add_argument('--randompermutation', default=False, action="store_true",
+                        help="Random Length Permutation preset augmentation")
+    parser.add_argument('--magwarp', default=False, action="store_true", help="Magnitude warp preset augmentation")
+    parser.add_argument('--timewarp', default=False, action="store_true", help="Time warp preset augmentation")
+    parser.add_argument('--windowslice', default=False, action="store_true", help="Window slice preset augmentation")
+    parser.add_argument('--windowwarp', default=False, action="store_true", help="Window warp preset augmentation")
+    parser.add_argument('--rotation', default=False, action="store_true", help="Rotation preset augmentation")
+    parser.add_argument('--spawner', default=False, action="store_true", help="SPAWNER preset augmentation")
+    parser.add_argument('--dtwwarp', default=False, action="store_true", help="DTW warp preset augmentation")
+    parser.add_argument('--shapedtwwarp', default=False, action="store_true", help="Shape DTW warp preset augmentation")
+    parser.add_argument('--wdba', default=False, action="store_true", help="Weighted DBA preset augmentation")
+    parser.add_argument('--discdtw', default=False, action="store_true",
+                        help="Discrimitive DTW warp preset augmentation")
+    parser.add_argument('--discsdtw', default=False, action="store_true",
+                        help="Discrimitive shapeDTW warp preset augmentation")
+    parser.add_argument('--extra_tag', type=str, default="", help="Anything extra")
 
     # lstm params
     parser.add_argument('--lstm_hidden_size', type=int, default=512, help='hidden size of lstm')
@@ -139,7 +177,6 @@ def build_config_dict(_args):
         'target': _args.target,
         'freq': _args.freq,
         'lag': _args.lag,
-        'checkpoints': _args.checkpoints,
         'scaler': _args.scaler,
         'reindex': _args.reindex,
         'reindex_tolerance': _args.reindex_tolerance,
@@ -159,6 +196,8 @@ def build_config_dict(_args):
         'anomaly_ratio': _args.anomaly_ratio,
 
         # model define
+        'expand': _args.expand,
+        'd_conv': _args.d_conv,
         'top_k': _args.top_k,
         'num_kernels': _args.num_kernels,
         'enc_in': _args.enc_in,
@@ -178,6 +217,12 @@ def build_config_dict(_args):
         'activation': _args.activation,
         'output_attention': _args.output_attention,
         'channel_independence': _args.channel_independence,
+        'decomp_method': _args.decomp_method,
+        'use_norm': _args.use_norm,
+        'down_sampling_layers': _args.down_sampling_layers,
+        'down_sampling_window': _args.down_sampling_window,
+        'down_sampling_method': _args.down_sampling_method,
+        'seg_len': _args.seg_len,
 
         # optimization
         'num_workers': _args.num_workers,
@@ -199,6 +244,30 @@ def build_config_dict(_args):
         # de-stationary projector params
         'p_hidden_dims': _args.p_hidden_dims,
         'p_hidden_layers': _args.p_hidden_layers,
+
+        # metrics (dtw)
+        'use_dtw': _args.use_dtw,
+
+        # Augmentation
+        'augmentation_ratio': _args.augmentation_ratio,
+        # 'seed': _args.seed,
+        'jitter': _args.jitter,
+        'scaling': _args.scaling,
+        'permutation': _args.permutation,
+        'randompermutation': _args.randompermutation,
+        'magwarp': _args.magwarp,
+        'timewarp': _args.timewarp,
+        'windowslice': _args.windowslice,
+        'windowwarp': _args.windowwarp,
+        'rotation': _args.rotation,
+        'spawner': _args.spawner,
+        'dtwwarp': _args.dtwwarp,
+        'shapedtwwarp': _args.shapedtwwarp,
+        'wdba': _args.wdba,
+        'discdtw': _args.discdtw,
+        'discsdtw': _args.discsdtw,
+        'extra_tag': _args.extra_tag,
+
 
         # LSTM params
         'lstm_hidden_size': _args.lstm_hidden_size,
@@ -230,7 +299,6 @@ def set_args(_args, _config):
     _args.target = _config['target']
     _args.freq = _config['freq']
     _args.lag = _config['lag']
-    _args.checkpoints = _config['checkpoints']
     _args.scaler = _config['scaler']
     _args.reindex = _config['reindex']
     _args.reindex_tolerance = _config['reindex_tolerance']
@@ -250,6 +318,8 @@ def set_args(_args, _config):
     _args.anomaly_ratio = _config['anomaly_ratio']
 
     # model define
+    _args.expand = _config['expand']
+    _args.d_conv = _config['d_conv']
     _args.top_k = _config['top_k']
     _args.num_kernels = _config['num_kernels']
     _args.enc_in = _config['enc_in']
@@ -269,6 +339,12 @@ def set_args(_args, _config):
     _args.activation = _config['activation']
     _args.output_attention = _config['output_attention']
     _args.channel_independence = _config['channel_independence']
+    _args.decomp_method = _config['decomp_method']
+    _args.use_norm = _config['use_norm']
+    _args.down_sampling_layers = _config['down_sampling_layers']
+    _args.down_sampling_window = _config['down_sampling_window']
+    _args.down_sampling_method = _config['down_sampling_method']
+    _args.seg_len = _config['seg_len']
 
     # optimization
     _args.num_workers = _config['num_workers']
@@ -291,6 +367,29 @@ def set_args(_args, _config):
     _args.p_hidden_dims = _config['p_hidden_dims']
     _args.p_hidden_layers = _config['p_hidden_layers']
 
+    # metrics (dtw)
+    _args.use_dtw = _config['use_dtw']
+
+    # Augmentation
+    _args.augmentation_ratio = _config['augmentation_ratio']
+    # _args.seed = _config['seed']
+    _args.jitter = _config['jitter']
+    _args.scaling = _config['scaling']
+    _args.permutation = _config['permutation']
+    _args.randompermutation = _config['randompermutation']
+    _args.magwarp = _config['magwarp']
+    _args.timewarp = _config['timewarp']
+    _args.windowslice = _config['windowslice']
+    _args.windowwarp = _config['windowwarp']
+    _args.rotation = _config['rotation']
+    _args.spawner = _config['spawner']
+    _args.dtwwarp = _config['dtwwarp']
+    _args.shapedtwwarp = _config['shapedtwwarp']
+    _args.wdba = _config['wdba']
+    _args.discdtw = _config['discdtw']
+    _args.discsdtw = _config['discsdtw']
+    _args.extra_tag = _config['extra_tag']
+
     # LSTM params
     _args.lstm_hidden_size = _config['lstm_hidden_size']
     _args.lstm_layers = _config['lstm_layers']
@@ -311,6 +410,7 @@ def prepare_config(_params, _script_mode=False):
     _args = parse_launch_parameters(_script_mode)
 
     # load device config
+    # _args.use_gpu = True if torch.cuda.is_available() else False
     _args.use_gpu = True if torch.cuda.is_available() and _args.use_gpu else False
     if _args.use_gpu and _args.use_multi_gpu:
         _args.devices = _args.devices.replace(' ', '')
@@ -321,7 +421,7 @@ def prepare_config(_params, _script_mode=False):
     # build model_id for interface
     _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
-    if _script_mode is True:
+    if _script_mode is True or _params is None:
         return _args
     else:
         # load optimized parameters from _params
@@ -350,8 +450,6 @@ def prepare_config(_params, _script_mode=False):
             _args.freq = _params['freq']
         if 'lag' in _params:
             _args.lag = _params['lag']
-        if 'checkpoints' in _params:
-            _args.checkpoints = _params['checkpoints']
         if 'scaler' in _params:
             _args.scaler = _params['scaler']
         if 'reindex' in _params:
@@ -373,7 +471,7 @@ def prepare_config(_params, _script_mode=False):
         if 'inverse' in _params:
             _args.inverse = _params['inverse']
 
-        # inputation task
+        # imputation task
         if 'mask_rate' in _params:
             _args.mask_rate = _params['mask_rate']
 
@@ -382,6 +480,10 @@ def prepare_config(_params, _script_mode=False):
             _args.anomaly_ratio = _params['anomaly_ratio']
 
         # model define
+        if 'expand' in _params:
+            _args.expand = _params['expand']
+        if 'd_conv' in _params:
+            _args.d_conv = _params['d_conv']
         if 'top_k' in _params:
             _args.top_k = _params['top_k']
         if 'num_kernels' in _params:
@@ -420,6 +522,18 @@ def prepare_config(_params, _script_mode=False):
             _args.output_attention = _params['output_attention']
         if 'channel_independence' in _params:
             _args.channel_independence = _params['channel_independence']
+        if 'decomp_method' in _params:
+            _args.decomp_method = _params['decomp_method']
+        if 'use_norm' in _params:
+            _args.use_norm = _params['use_norm']
+        if 'down_sampling_layers' in _params:
+            _args.down_sampling_layers = _params['down_sampling_layers']
+        if 'down_sampling_window' in _params:
+            _args.down_sampling_window = _params['down_sampling_window']
+        if 'down_sampling_method' in _params:
+            _args.down_sampling_method = _params['down_sampling_method']
+        if 'seg_len' in _params:
+            _args.seg_len = _params['seg_len']
 
         # optimization
         if 'num_workers' in _params:
@@ -457,6 +571,48 @@ def prepare_config(_params, _script_mode=False):
         if 'p_hidden_layers' in _params:
             _args.p_hidden_layers = _params['p_hidden_layers']
 
+        # metrics (dtw)
+        if 'use_dtw' in _params:
+            _args.use_dtw = _params['use_dtw']
+
+        # Augmentation
+        if 'augmentation_ratio' in _params:
+            _args.augmentation_ratio = _params['augmentation_ratio']
+        # if 'seed' in _params:
+        #     _args.seed = _params['seed']
+        if 'jitter' in _params:
+            _args.jitter = _params['jitter']
+        if 'scaling' in _params:
+            _args.scaling = _params['scaling']
+        if 'permutation' in _params:
+            _args.permutation = _params['permutation']
+        if 'randompermutation' in _params:
+            _args.randompermutation = _params['randompermutation']
+        if 'magwarp' in _params:
+            _args.magwarp = _params['magwarp']
+        if 'timewarp' in _params:
+            _args.timewarp = _params['timewarp']
+        if 'windowslice' in _params:
+            _args.windowslice = _params['windowslice']
+        if 'windowwarp' in _params:
+            _args.windowwarp = _params['windowwarp']
+        if 'rotation' in _params:
+            _args.rotation = _params['rotation']
+        if 'spawner' in _params:
+            _args.spawner = _params['spawner']
+        if 'dtwwarp' in _params:
+            _args.dtwwarp = _params['dtwwarp']
+        if 'shapedtwwarp' in _params:
+            _args.shapedtwwarp = _params['shapedtwwarp']
+        if 'wdba' in _params:
+            _args.wdba = _params['wdba']
+        if 'discdtw' in _params:
+            _args.discdtw = _params['discdtw']
+        if 'discsdtw' in _params:
+            _args.discsdtw = _params['discsdtw']
+        if 'extra_tag' in _params:
+            _args.extra_tag = _params['extra_tag']
+
         # LSTM params
         if 'lstm_hidden_size' in _params:
             _args.lstm_hidden_size = _params['lstm_hidden_size']
@@ -477,6 +633,7 @@ def prepare_config(_params, _script_mode=False):
         _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
         # load new device config
+        # _args.use_gpu = True if torch.cuda.is_available() else False
         _args.use_gpu = True if torch.cuda.is_available() and _args.use_gpu else False
         if _args.use_gpu and _args.use_multi_gpu:
             _args.devices = _args.devices.replace(' ', '')
@@ -489,7 +646,8 @@ def prepare_config(_params, _script_mode=False):
 
 # noinspection DuplicatedCode
 def build_setting(_root_path, _args, _run_time, _format, _get_custom_test_time, _try_model):
-    prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
+    setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_de{}'
+    prefix = setting.format(
         _args.task_name,
         _args.model_id,
         _args.model,
@@ -505,6 +663,8 @@ def build_setting(_root_path, _args, _run_time, _format, _get_custom_test_time, 
         _args.series_decomp_mode,
         _args.moving_avg,
         _args.d_ff,
+        _args.expand,
+        _args.d_conv,
         _args.factor,
         _args.embed,
         _args.distil,
@@ -562,18 +722,22 @@ def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['model', 'data_path', 'custom_params', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre',
                       'pinaw', 'setting', 'seed', 'task_name', 'is_training', 'model_id', 'data', 'features', 'target',
-                      'freq', 'lag', 'checkpoints', 'scaler', 'reindex', 'reindex_tolerance', 'pin_memory', 'seq_len',
-                      'label_len', 'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'top_k',
-                      'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers', 'd_ff',
-                      'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
-                      'output_attention', 'channel_independence', 'num_workers', 'train_epochs', 'stop_epochs',
-                      'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp', 'use_gpu', 'gpu',
-                      'use_multi_gpu', 'devices', 'p_hidden_dims', 'p_hidden_layers', 'lstm_hidden_size', 'lstm_layers',
-                      'num_spline', 'sample_times', 'run_time']
+                      'freq', 'lag', 'scaler', 'reindex', 'reindex_tolerance', 'pin_memory', 'seq_len', 'label_len',
+                      'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'expand', 'd_conv',
+                      'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers',
+                      'd_ff', 'moving_avg', 'series_decomp_mode', 'factor', 'distil', 'dropout', 'embed', 'activation',
+                      'output_attention', 'channel_independence', 'decomp_method', 'use_norm', 'down_sampling_layers',
+                      'down_sampling_window', 'down_sampling_method', 'seg_len', 'num_workers', 'train_epochs',
+                      'stop_epochs', 'batch_size', 'patience', 'learning_rate', 'des', 'loss', 'lradj', 'use_amp',
+                      'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'p_hidden_dims', 'p_hidden_layers', 'use_dtw',
+                      'augmentation_ratio', 'jitter', 'scaling', 'permutation', 'randompermutation', 'magwarp',
+                      'timewarp', 'windowslice', 'windowwarp', 'rotation', 'spawner', 'dtwwarp', 'shapedtwwarp',
+                      'wdba', 'discdtw', 'discsdtw', 'extra_tag', 'lstm_hidden_size', 'lstm_layers', 'num_spline',
+                      'sample_times', 'run_time']
 
     # init the fieldnames need to be checked
     _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
-                           'is_training', 'root_path', 'checkpoints', 'pin_memory', 'output_attention', 'num_workers',
+                           'is_training', 'root_path', 'pin_memory', 'output_attention', 'num_workers',
                            'stop_epochs', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]
 

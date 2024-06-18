@@ -78,20 +78,12 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
     # get data information
     timeenc = 0 if args.embed != 'timeF' else 1
     pin_memory = args.pin_memory
-    if data_flag == 'test':
-        shuffle_flag = False
-        drop_last = True
-        if args.task_name == 'anomaly_detection' or args.task_name == 'classification':
-            batch_size = args.batch_size
-        else:
-            # batch_size = 1  # bsz=1 for evaluation
-            batch_size = args.batch_size  # fasten the test process
-        freq = args.freq
-    else:
-        shuffle_flag = True
-        drop_last = True
-        batch_size = args.batch_size  # bsz for train and valid
-        freq = args.freq
+
+    shuffle_flag = False if data_flag == 'test' else True
+    drop_last = True
+    batch_size = args.batch_size
+    freq = args.freq
+
     if enter_flag != 'train':
         pin_memory = False
 
@@ -102,6 +94,7 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
             data_set, new_indexes = cached_data_set, cached_new_indexes
         else:
             data_set = Data(
+                args=args,
                 root_path=args.root_path,
                 win_size=args.seq_len,
                 flag=data_flag,
@@ -113,6 +106,7 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
                         new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                     else:
                         new_indexes = Data(
+                            args=args,
                             root_path=args.root_path,
                             win_size=args.seq_len,
                             flag='train',  # use train dataset to get more detailed information from more data
@@ -138,6 +132,7 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
             data_set, new_indexes = cached_data_set, cached_new_indexes
         else:
             data_set = Data(
+                args=args,
                 root_path=args.root_path,
                 flag=data_flag,
             )
@@ -148,6 +143,7 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
                         new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                     else:
                         new_indexes = Data(
+                            args=args,
                             root_path=args.root_path,
                             flag='train',
                         ).get_new_indexes(tolerance=args.reindex_tolerance)
@@ -175,6 +171,7 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
             data_set, new_indexes = cached_data_set, cached_new_indexes
         else:
             data_set = Data(
+                args=args,
                 root_path=args.root_path,
                 data_path=args.data_path,
                 flag=data_flag,
@@ -195,6 +192,7 @@ def data_provider(args, data_flag, enter_flag, new_indexes=None, cache_data=True
                         new_indexes = data_set.get_new_indexes(tolerance=args.reindex_tolerance)
                     else:
                         new_indexes = Data(
+                            args=args,
                             root_path=args.root_path,
                             data_path=args.data_path,
                             flag='train',

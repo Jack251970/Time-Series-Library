@@ -4,6 +4,9 @@ import time
 import warnings
 
 import numpy as np
+from utils.dtw_metric import dtw,accelerated_dtw
+from utils.augmentation import run_augmentation, run_augmentation_single
+
 import torch
 from tqdm import tqdm
 
@@ -62,7 +65,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 iter_count += 1
                 model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device)
-
                 batch_y = batch_y.float().to(self.device)
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
@@ -366,13 +368,28 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+        # dtw calculation
+        if self.args.use_dtw:
+            dtw_list = []
+            manhattan_distance = lambda x, y: np.abs(x - y)
+            for i in range(preds.shape[0]):
+                x = preds[i].reshape(-1, 1)
+                y = trues[i].reshape(-1, 1)
+                if i % 100 == 0:
+                    print("calculating dtw iter:", i)
+                d, _, _, _ = accelerated_dtw(x, y, dist=manhattan_distance)
+                dtw_list.append(d)
+            dtw = np.array(dtw_list).mean()
+        else:
+            dtw = -999
+
         mae, mse, rmse, mape, mspe = metric(preds, trues)
-        self.print_content('mse:{}, mae:{}'.format(mse, mae))
+        self.print_content('mse:{}, mae:{}, dtw:{}'.format(mse, mae, dtw))
 
         # save results in txt
         # f = open("result_long_term_forecast.txt", 'a')
         # f.write(setting + "  \n")
-        # f.write('mse:{}, mae:{}'.format(mse, mae))
+        # f.write('mse:{}, mae:{}, dtw:{}'.format(mse, mae, dtw))
         # f.write('\n')
         # f.write('\n')
         # f.close()

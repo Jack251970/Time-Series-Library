@@ -77,6 +77,11 @@ class Exp_Imputation(Exp_Basic):
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, :, f_dim:]
+
+                # add support for MS
+                batch_x = batch_x[:, :, f_dim:]
+                mask = mask[:, :, f_dim:]
+
                 loss = criterion(outputs[mask == 0], batch_x[mask == 0])
                 train_loss.append(loss.item())
 
@@ -168,6 +173,11 @@ class Exp_Imputation(Exp_Basic):
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, :, f_dim:]
+
+                # add support for MS
+                batch_x = batch_x[:, :, f_dim:]
+                mask = mask[:, :, f_dim:]
+
                 pred = outputs.detach().cpu()
                 true = batch_x.detach().cpu()
                 mask = mask.detach().cpu()
@@ -223,6 +233,11 @@ class Exp_Imputation(Exp_Basic):
                 # eval
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, :, f_dim:]
+
+                # add support for MS
+                batch_x = batch_x[:, :, f_dim:]
+                mask = mask[:, :, f_dim:]
+
                 outputs = outputs.detach().cpu().numpy()
                 pred = outputs
                 true = batch_x.detach().cpu().numpy()
