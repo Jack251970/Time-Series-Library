@@ -5,7 +5,7 @@ from torch import optim, nn
 from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
                     Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
-                    FreTS, LSTM)
+                    FreTS, TimeMixer, TSMixer, SegRNN, MambaSimple, Mamba, TemporalFusionTransformer, LSTM)
 from models.quantile_function import (rnn_sf, lstm_cq, lstm_aq, lstm_aq1, lstm_aq2, lstm_aq3, lstm_aq4, lstm_yjqr,
                                       lstm_ed_yjqr, qsqf_c, qsqf_c1)
 from utils.losses import mape_loss, mase_loss, smape_loss
@@ -56,6 +56,12 @@ class Exp_Basic(object):
             'Koopa': Koopa,
             'TiDE': TiDE,
             'FreTS': FreTS,
+            'MambaSimple': MambaSimple,
+            'Mamba': Mamba,
+            'TimeMixer': TimeMixer,
+            'TSMixer': TSMixer,
+            'SegRNN': SegRNN,
+            'TemporalFusionTransformer': TemporalFusionTransformer,
             'LSTM': LSTM,
             # quantile functions
             'QSQF-C': qsqf_c,
@@ -111,7 +117,10 @@ class Exp_Basic(object):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        if self.args.task_name == 'classification':
+            model_optim = optim.RAdam(self.model.parameters(), lr=self.args.learning_rate)
+        else:
+            model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
         return model_optim
 
     def _select_criterion(self):

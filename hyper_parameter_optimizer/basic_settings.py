@@ -39,6 +39,7 @@ def parse_launch_parameters(_script_mode):
                              'b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min '
                              'or 3h')
     parser.add_argument('--lag', type=int, default=0, help='lag of time series, only for RNN & LSTM related model')
+    # TODO: Remove
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--scaler', type=str, default='StandardScaler', help='feature scaling method')
     parser.add_argument('--reindex', type=int, default=0, help='reindex feature dimensions data, 1: enable 0: disable')
@@ -60,6 +61,8 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%)')
 
     # model define
+    parser.add_argument('--expand', type=int, default=2, help='expansion factor for Mamba')
+    parser.add_argument('--d_conv', type=int, default=4, help='conv kernel size for Mamba')
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
     parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
     parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')
@@ -82,8 +85,20 @@ def parse_launch_parameters(_script_mode):
                         help='time features encoding, options:[timeF, fixed, learned]')
     parser.add_argument('--activation', type=str, default='gelu', help='activation')
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in encoders')
+    # TODO: Remove
     parser.add_argument('--channel_independence', type=int, default=0, help='1: channel dependence 0: channel '
                                                                             'independence for FreTS model')
+    parser.add_argument('--channel_independence', type=int, default=1,
+                        help='0: channel dependence 1: channel independence for FreTS model')
+    parser.add_argument('--decomp_method', type=str, default='moving_avg',
+                        help='method of series decompsition, only support moving_avg or dft_decomp')
+    parser.add_argument('--use_norm', type=int, default=1, help='whether to use normalize; True 1 False 0')
+    parser.add_argument('--down_sampling_layers', type=int, default=0, help='num of down sampling layers')
+    parser.add_argument('--down_sampling_window', type=int, default=1, help='down sampling window size')
+    parser.add_argument('--down_sampling_method', type=str, default=None,
+                        help='down sampling method, only support avg, max, conv')
+    parser.add_argument('--seg_len', type=int, default=48,
+                        help='the length of segmen-wise iteration of SegRNN')
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=12, help='data loader num workers')
@@ -107,6 +122,34 @@ def parse_launch_parameters(_script_mode):
     parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=[128, 128],
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
+
+    # metrics (dtw)
+    parser.add_argument('--use_dtw', type=bool, default=False,
+                        help='the controller of using dtw metric (dtw is time consuming, not suggested unless necessary)')
+
+    # Augmentation
+    parser.add_argument('--augmentation_ratio', type=int, default=0, help="How many times to augment")
+    parser.add_argument('--seed', type=int, default=2, help="Randomization seed")
+    parser.add_argument('--jitter', default=False, action="store_true", help="Jitter preset augmentation")
+    parser.add_argument('--scaling', default=False, action="store_true", help="Scaling preset augmentation")
+    parser.add_argument('--permutation', default=False, action="store_true",
+                        help="Equal Length Permutation preset augmentation")
+    parser.add_argument('--randompermutation', default=False, action="store_true",
+                        help="Random Length Permutation preset augmentation")
+    parser.add_argument('--magwarp', default=False, action="store_true", help="Magnitude warp preset augmentation")
+    parser.add_argument('--timewarp', default=False, action="store_true", help="Time warp preset augmentation")
+    parser.add_argument('--windowslice', default=False, action="store_true", help="Window slice preset augmentation")
+    parser.add_argument('--windowwarp', default=False, action="store_true", help="Window warp preset augmentation")
+    parser.add_argument('--rotation', default=False, action="store_true", help="Rotation preset augmentation")
+    parser.add_argument('--spawner', default=False, action="store_true", help="SPAWNER preset augmentation")
+    parser.add_argument('--dtwwarp', default=False, action="store_true", help="DTW warp preset augmentation")
+    parser.add_argument('--shapedtwwarp', default=False, action="store_true", help="Shape DTW warp preset augmentation")
+    parser.add_argument('--wdba', default=False, action="store_true", help="Weighted DBA preset augmentation")
+    parser.add_argument('--discdtw', default=False, action="store_true",
+                        help="Discrimitive DTW warp preset augmentation")
+    parser.add_argument('--discsdtw', default=False, action="store_true",
+                        help="Discrimitive shapeDTW warp preset augmentation")
+    parser.add_argument('--extra_tag', type=str, default="", help="Anything extra")
 
     # lstm params
     parser.add_argument('--lstm_hidden_size', type=int, default=512, help='hidden size of lstm')
@@ -311,6 +354,7 @@ def prepare_config(_params, _script_mode=False):
     _args = parse_launch_parameters(_script_mode)
 
     # load device config
+    # _args.use_gpu = True if torch.cuda.is_available() else False
     _args.use_gpu = True if torch.cuda.is_available() and _args.use_gpu else False
     if _args.use_gpu and _args.use_multi_gpu:
         _args.devices = _args.devices.replace(' ', '')
@@ -477,6 +521,7 @@ def prepare_config(_params, _script_mode=False):
         _args.model_id = f'{_args.target}_{_args.seq_len}_{_args.pred_len}'
 
         # load new device config
+        # _args.use_gpu = True if torch.cuda.is_available() else False
         _args.use_gpu = True if torch.cuda.is_available() and _args.use_gpu else False
         if _args.use_gpu and _args.use_multi_gpu:
             _args.devices = _args.devices.replace(' ', '')
@@ -489,7 +534,9 @@ def prepare_config(_params, _script_mode=False):
 
 # noinspection DuplicatedCode
 def build_setting(_root_path, _args, _run_time, _format, _get_custom_test_time, _try_model):
-    prefix = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_fc{}_eb{}_dt{}_de{}'.format(
+    # TODO: 更新数据库以及文件名称
+    setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_dm{}_ma{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_de{}'
+    prefix = setting.format(
         _args.task_name,
         _args.model_id,
         _args.model,
@@ -505,6 +552,8 @@ def build_setting(_root_path, _args, _run_time, _format, _get_custom_test_time, 
         _args.series_decomp_mode,
         _args.moving_avg,
         _args.d_ff,
+        _args.expand,
+        _args.d_conv,
         _args.factor,
         _args.embed,
         _args.distil,
