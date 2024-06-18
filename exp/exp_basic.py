@@ -5,7 +5,7 @@ from torch import optim, nn
 from data_provider.data_factory import data_provider
 from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS,
                     Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
-                    FreTS)
+                    FreTS, LSTM)
 from models.quantile_function import (rnn_sf, lstm_cq, lstm_aq, lstm_aq1, lstm_aq2, lstm_aq3, lstm_aq4, lstm_yjqr,
                                       lstm_ed_yjqr, qsqf_c, qsqf_c1)
 from utils.losses import mape_loss, mase_loss, smape_loss
@@ -56,6 +56,8 @@ class Exp_Basic(object):
             'Koopa': Koopa,
             'TiDE': TiDE,
             'FreTS': FreTS,
+            'LSTM': LSTM,
+            # quantile functions
             'QSQF-C': qsqf_c,
             'RNN-SF': rnn_sf,
             'LSTM-CQ': lstm_cq,
@@ -66,7 +68,7 @@ class Exp_Basic(object):
             'LSTM-AQ2': lstm_aq2,
             'LSTM-AQ3': lstm_aq3,
             'LSTM-AQ4': lstm_aq4,
-            'QSQF-C1': qsqf_c1
+            'QSQF-C1': qsqf_c1,
         }
         model = model_dict[self.args.model].Model(self.args).float()
         # use multi gpus if enabled
