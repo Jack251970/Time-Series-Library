@@ -303,6 +303,9 @@ class HyperParameterOptimizer(object):
         if process_index > self.max_process_index or process_index < 0:
             raise ValueError(f'The index of the process {process_index} is out of range!')
 
+        # check data header
+        self._check_data_header()
+
         # init the config list
         config_list = []
         for task_name in self.get_all_task_names():
@@ -690,45 +693,6 @@ class HyperParameterOptimizer(object):
             with open(file_path, 'w', newline='') as csv_file:
                 _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
                 _writer.writeheader()
-        else:
-            new_data = None
-
-            # check the header of the file
-            with open(file_path, 'r', newline='') as csv_file:
-                file_header = next(csv.reader(csv_file))
-
-                correct, exist_headers = self._check_header_correct(file_header)
-                if not correct:
-                    # get old data
-                    old_data = []
-                    _reader = csv.DictReader(csv_file, fieldnames=file_header)
-                    for row in _reader:
-                        old_data.append(row)
-
-                    # transfer exist data
-                    new_data = []
-                    for _dict in old_data:
-                        row = {}
-                        for exist_header in exist_headers:
-                            row[exist_header] = _dict[exist_header]
-                        new_data.append(row)
-
-                    # create default new data
-                    non_exist_headers = list(set(self.all_fieldnames) - set(exist_headers))
-                    default_args = self.prepare_config(None, False)
-                    default_data_dict = self._build_config_dict(default_args)
-                    for row in new_data:
-                        for non_exist_header in non_exist_headers:
-                            row[non_exist_header] = default_data_dict[non_exist_header]
-
-            # write new data if not correct
-            if new_data is not None:
-                # create new file with header
-                with open(file_path, 'w', newline='') as csv_file:
-                    _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
-                    _writer.writeheader()
-                    for row in new_data:
-                        _writer.writerow(row)
 
     def _check_header_correct(self, header):
         correct = True
@@ -746,6 +710,54 @@ class HyperParameterOptimizer(object):
                 if header[i] in self.all_fieldnames:
                     exist_headers.append(header[i])
         return correct, exist_headers
+
+    def _check_data_header(self):
+        root_path = os.path.join(self.root_path, self.data_dir)
+
+        # get all csv file under the path
+        for root, dirs, files in os.walk(root_path):
+            for file in files:
+                if file.endswith('.csv'):
+                    file_path = os.path.join(root, file)
+
+                    new_data = None
+
+                    # check the header of the file
+                    with open(file_path, 'r', newline='') as csv_file:
+                        file_header = next(csv.reader(csv_file))
+
+                        correct, exist_headers = self._check_header_correct(file_header)
+                        if not correct:
+                            # get old data
+                            old_data = []
+                            _reader = csv.DictReader(csv_file, fieldnames=file_header)
+                            for row in _reader:
+                                old_data.append(row)
+
+                            # transfer exist data
+                            new_data = []
+                            for _dict in old_data:
+                                row = {}
+                                for exist_header in exist_headers:
+                                    row[exist_header] = _dict[exist_header]
+                                new_data.append(row)
+
+                            # create default new data
+                            non_exist_headers = list(set(self.all_fieldnames) - set(exist_headers))
+                            default_args = self.prepare_config(None, False)
+                            default_data_dict = self._build_config_dict(default_args)
+                            for row in new_data:
+                                for non_exist_header in non_exist_headers:
+                                    row[non_exist_header] = default_data_dict[non_exist_header]
+
+                    # write new data if not correct
+                    if new_data is not None:
+                        # create new file with header
+                        with open(file_path, 'w', newline='') as csv_file:
+                            _writer = csv.DictWriter(csv_file, fieldnames=self.all_fieldnames)
+                            _writer.writeheader()
+                            for row in new_data:
+                                _writer.writerow(row)
 
     def _get_config_list(self, task_name, file_paths, scan_all_csv=False):
         if not isinstance(file_paths, list):
