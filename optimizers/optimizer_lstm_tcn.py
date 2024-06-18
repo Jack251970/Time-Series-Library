@@ -72,8 +72,9 @@ def get_search_space():
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': './dataset/'},
-        'data_path': {'_type': 'choice', '_value': ['exchange_rate/exchange_rate.csv']},
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'traffic/traffic.csv']},
+        # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'traffic/traffic.csv']},
         'pin_memory': {'_type': 'single', '_value': False},
     }
 
@@ -85,8 +86,8 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'choice', '_value': [16]},
-        # 'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
+        # 'pred_len': {'_type': 'choice', '_value': [16]},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
