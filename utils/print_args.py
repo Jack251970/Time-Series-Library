@@ -8,7 +8,6 @@ def print_args(args, print_func=print):
     print_func(f'  {"Data:":<20}{args.data:<20}{"Root Path:":<20}{args.root_path:<20}')
     print_func(f'  {"Data Path:":<20}{args.data_path:<20}{"Features:":<20}{args.features:<20}')
     print_func(f'  {"Target:":<20}{args.target:<20}{"Freq:":<20}{args.freq:<20}')
-    print_func(f'  {"Checkpoints:":<20}{args.checkpoints:<20}')
     print_func(f'  {"Lag:":<20}{args.lag:<20}{"Scaler:":<20}{args.scaler:<20}')
     print_func(f'  {"Reindex:":<20}{args.reindex:<20}{"Reindex Tolerance:":<20}{args.reindex_tolerance:<20}')
     print_func(f'  {"Pin Memory:":<20}{args.pin_memory:<20}')

@@ -24,7 +24,7 @@ class Exp_Basic(object):
         self.new_index = None
 
         # folder paths
-        self.root_checkpoints_path = os.path.join(root_path, 'checkpoints')
+        self.root_checkpoints_path = os.path.join(root_path, 'checkpoints')  # same as basic_settings
         self.root_process_path = os.path.join(root_path, 'process')
         self.root_results_path = os.path.join(root_path, 'results')
         self.root_test_results_path = os.path.join(root_path, 'test_results')

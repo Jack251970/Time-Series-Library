@@ -4,13 +4,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mamba_ssm import Mamba
-
 from layers.Embed import DataEmbedding
 
 class Model(nn.Module):
     
     def __init__(self, configs):
+        from mamba_ssm import Mamba
+
         super(Model, self).__init__()
         self.task_name = configs.task_name
         self.pred_len = configs.pred_len
