@@ -1,7 +1,5 @@
 import os
 
-import cupy as cp
-
 import torch
 from tqdm import tqdm
 
@@ -20,6 +18,7 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
                                       draw_all=True, folder=None, replace_regex=None, use_cupy=False):
     # check cuda
     if use_cupy:
+        import cupy as cp
         use_cupy = cp.cuda.is_available()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 

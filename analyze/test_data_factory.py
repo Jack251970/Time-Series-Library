@@ -2,7 +2,6 @@ import csv
 import os
 
 import numpy as np
-import cupy as cp
 
 from exp.exp_basic import Exp_Basic
 from hyper_parameter_optimizer import basic_settings
@@ -139,6 +138,7 @@ def get_attention_map(exp_name, use_cupy=False):
     if not use_cupy:
         return np.load(_path)
     else:
+        import cupy as cp
         return cp.load(_path)
 
 
@@ -151,6 +151,7 @@ def get_all_value(exp_name, use_cupy=False):
     if not use_cupy:
         return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
     else:
+        import cupy as cp
         return cp.load(pred_value_path), cp.load(true_value_path), cp.load(high_value_path), cp.load(low_value_path)
 
 
@@ -163,6 +164,7 @@ def get_all_value_inverse(exp_name, use_cupy=False):
     if not use_cupy:
         return np.load(pred_value_path), np.load(true_value_path), np.load(high_value_path), np.load(low_value_path)
     else:
+        import cupy as cp
         return cp.load(pred_value_path), cp.load(true_value_path), cp.load(high_value_path), cp.load(low_value_path)
 
 
@@ -179,6 +181,7 @@ def get_loss(exp_name, use_cupy=False):
         if not use_cupy:
             data = np.load(_path)
         else:
+            import cupy as cp
             data = cp.load(_path)
         if 'train' in _path:
             _train_loss = data
@@ -197,6 +200,7 @@ def get_prob_metrics(exp_name, use_cupy=False):
     if use_cupy:
         metrics_data = np.load(_path)
     else:
+        import cupy as cp
         metrics_data = cp.load(_path)
 
     crps = metrics_data[0]
@@ -216,4 +220,5 @@ def get_parameter(exp_name, use_cupy=False):
     if not use_cupy:
         return np.load(lambda_path), np.load(gamma_path), np.load(eta_k_path)
     else:
+        import cupy as cp
         return cp.load(lambda_path), cp.load(gamma_path), cp.load(eta_k_path)
