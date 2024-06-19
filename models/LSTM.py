@@ -11,7 +11,7 @@ class Model(nn.Module):
         self.lstm_hidden_size = params.lstm_hidden_size
         self.lstm_layers = params.lstm_layers
         self.lstm_dropout = params.dropout
-        self.lstm_c_out = params.c_out + params.lag - 1
+        self.lstm_c_out = params.c_out + params.lag  # take lag into account
         self.pred_start = params.seq_len
         self.pred_len = params.pred_len
         self.pred_steps = params.pred_len
@@ -49,7 +49,7 @@ class Model(nn.Module):
         batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
         # lag data from 0 to lag-1
         train_batch = batch[:, :, :-1]
-        labels_batch = batch[:, :, :-1]
+        labels_batch = batch
         return train_batch, labels_batch
 
     # noinspection DuplicatedCode,PyUnusedLocal
@@ -108,31 +108,31 @@ class Model(nn.Module):
 
             # get loss list
             stop_flag = False
-            output_steps = torch.zeros(batch_size, self.train_window, self.lstm_c_out, device=device)  # [112, 256, 7]
+            output_steps = torch.zeros(batch_size, self.train_window, self.lstm_c_out, device=device)  # [112, 256, 8]
             for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
                 if torch.isnan(hidden_permute).sum() > 0:
                     stop_flag = True
                     print('Raise error!')
                     break
-                output_steps[:, t, :] = self.out_projection(hidden_permute)  # [256, 7]
+                output_steps[:, t, :] = self.out_projection(hidden_permute)  # [256, 8]
 
-            return (output_steps, labels_batch), stop_flag
+            return (output_steps, labels_batch.clone()), stop_flag
         else:
             # condition range
             for t in range(self.pred_start):
                 hidden, cell = self.run_lstm(batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
 
             # prediction range
-            output_steps = torch.zeros(batch_size, self.pred_steps, self.lstm_c_out, device=device)  # [16, 256, 7]
+            output_steps = torch.zeros(batch_size, self.pred_steps, self.lstm_c_out, device=device)  # [16, 256, 8]
             for t in range(self.pred_steps):
                 hidden, cell = self.run_lstm(batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                 hidden_permute = self.get_hidden_permute(hidden)
                 pred = self.out_projection(hidden_permute)
-                output_steps[:, t, :] = pred  # [256, 7]
+                output_steps[:, t, :] = pred  # [256, 8]
 
                 for lag in range(self.lag):
                     if t < self.pred_steps - lag - 1:
-                        batch[self.pred_start + t + 1, :, 0] = pred[:, -1]
+                        batch[self.pred_start + t + 1, :, 0] = pred[:, -1]  # [256]
 
             return output_steps
