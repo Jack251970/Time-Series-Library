@@ -1,4 +1,4 @@
-from optimizers.optimizer_lstm_tcn import h
+from optimizers.optimizer_lstm import h
 
 process_index = 0
 
