@@ -151,12 +151,12 @@ def draw_density_figure(samples, true, path, xlim=None, ylim=None):  # [99], []
     plt.savefig(path)
 
 
-def draw_attention_map(att_map, path, cols=4):
+def draw_attention_map(att_map, path, only_average=False, cols=4):
     """
     Draw attention map
     attn_map: (num_heads, seq_len_1, seq_len_2)
     """
-    if cols > 0:
+    if not only_average:
         # prepare attention maps for each head
         to_shows = []
         n_heads = att_map.shape[0]
@@ -197,27 +197,35 @@ def draw_attention_map(att_map, path, cols=4):
         plt.legend('')
         plt.savefig(path)
     else:
-        mean_att_map = att_map.mean(axis=0)  # [96, 96]
+        average_att_map = att_map.mean(axis=0)  # [96, 96]
 
-        plt.subplots(figsize=(16, 16))
-        plt.rc('font', family='Times New Roman', size=16)
+        plt.clf()
+        # use sns to draw heatmap
+        # plt.subplots(figsize=(16, 16))
+        # plt.rc('font', family='Times New Roman', size=16)
+        #
+        # # get the minimal and maximal value in mean_att_map
+        # minimal = 0  # mean_att_map.min()
+        # maximal = average_att_map.max()
+        #
+        # sns.heatmap(average_att_map,
+        #             center=0,
+        #             annot=True,
+        #             vmax=maximal, vmin=minimal,
+        #             xticklabels=False, yticklabels=False,
+        #             square=True,
+        #             cmap="Blues")
+        # plt.title("Heatmap")
+        # # plt.savefig(f'{name}.pdf', bbox_inches='tight', format='pdf')
+        # plt.savefig(path, bbox_inches='tight')
 
-        # get the minimal and maximal value in mean_att_map
-        minimal = 0  # mean_att_map.min()
-        maximal = mean_att_map.max()
-
-        sns.heatmap(mean_att_map,
-                    center=0,
-                    annot=True,
-                    vmax=maximal, vmin=minimal,
-                    xticklabels=False, yticklabels=False,
-                    square=True,
-                    cmap="Blues")
-        plt.title("Heatmap")
-        # plt.savefig(f'{name}.pdf', bbox_inches='tight', format='pdf')
-        plt.savefig(path, bbox_inches='tight')
-
-        plt.show()
+        # draw attention map
+        plt.figure(figsize=(16, 16))
+        plt.imshow(average_att_map)
+        plt.title('')
+        plt.yticks([])
+        plt.xticks([])
+        plt.savefig(path)
 
 
 def adjustment(gt, pred):
