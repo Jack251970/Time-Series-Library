@@ -13,7 +13,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 321
         _config['c_out'] = 321
 
-        if model == 'QSQF-C':
+        if model == 'LSTM':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 24
                 _config['lstm_layers'] = 1
@@ -38,7 +38,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 8
         _config['c_out'] = 8
 
-        if model == 'QSQF-C':
+        if model == 'LSTM':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 24
                 _config['lstm_layers'] = 3
@@ -62,7 +62,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 862
         _config['c_out'] = 862
 
-        if model == 'QSQF-C':
+        if model == 'LSTM':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 64
                 _config['lstm_layers'] = 2
