@@ -64,7 +64,8 @@ class Model(nn.Module):
         if self.task_name == 'short_term_forecast' or 'long_term_forecast':
             train_batch, _ = self.get_input_data(x_enc, y_enc)
             return self.probability_forecast(train_batch)  # [B, L, D]
-        return None
+        else:
+            raise NotImplementedError()
 
     # noinspection DuplicatedCode
     def run_lstm(self, x, hidden, cell):
@@ -127,10 +128,10 @@ class Model(nn.Module):
                 hidden, cell = self.run_lstm(batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                 hidden_permute = self.get_hidden_permute(hidden)
                 pred = self.out_projection(hidden_permute)
-                output_steps[:, t, :] = pred
+                output_steps[:, t, :] = pred  # [256, 7]
 
                 for lag in range(self.lag):
                     if t < self.pred_steps - lag - 1:
-                        batch[self.pred_start + t + 1, :, 0] = pred
+                        batch[self.pred_start + t + 1, :, 0] = pred[:, self.c_out - 1]
 
             return output_steps
