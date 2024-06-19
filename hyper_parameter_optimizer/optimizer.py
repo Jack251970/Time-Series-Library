@@ -800,6 +800,12 @@ class HyperParameterOptimizer(object):
 
     @staticmethod
     def _check_data_same(_data1, _data2):
+        # check None value
+        if _data1 is None and _data2 == '':
+            return True
+        if _data1 == '' and _data2 is None:
+            return True
+
         # check string value
         str1 = str(_data1)
         str2 = str(_data2)
