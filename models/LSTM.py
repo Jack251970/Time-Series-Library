@@ -7,11 +7,11 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.task_name = params.task_name
         self.enc_in = params.enc_in
-        self.c_out = params.c_out
         self.lstm_input_size = params.enc_in + params.lag - 1  # take lag into account
         self.lstm_hidden_size = params.lstm_hidden_size
         self.lstm_layers = params.lstm_layers
         self.lstm_dropout = params.dropout
+        self.lstm_c_out = params.c_out + params.lag - 1
         self.pred_start = params.seq_len
         self.pred_len = params.pred_len
         self.pred_steps = params.pred_len
@@ -28,7 +28,7 @@ class Model(nn.Module):
         self.init_lstm(self.lstm)
 
         if self.task_name == 'short_term_forecast' or 'long_term_forecast':
-            self.out_projection = nn.Linear(self.lstm_layers * self.lstm_hidden_size, self.c_out)
+            self.out_projection = nn.Linear(self.lstm_layers * self.lstm_hidden_size, self.lstm_c_out)
         else:
             raise NotImplementedError()
 
@@ -47,8 +47,9 @@ class Model(nn.Module):
     # noinspection DuplicatedCode
     def get_input_data(self, x_enc, y_enc):
         batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
+        # lag data from 0 to lag-1
         train_batch = batch[:, :, :-1]
-        labels_batch = batch[:, :, :-self.lag+1]
+        labels_batch = batch[:, :, :-1]
         return train_batch, labels_batch
 
     # noinspection DuplicatedCode,PyUnusedLocal
@@ -107,7 +108,7 @@ class Model(nn.Module):
 
             # get loss list
             stop_flag = False
-            output_steps = torch.zeros(batch_size, self.train_window, self.c_out, device=device)  # [112, 256, 7]
+            output_steps = torch.zeros(batch_size, self.train_window, self.lstm_c_out, device=device)  # [112, 256, 7]
             for t in range(self.train_window):
                 hidden_permute = hidden_permutes[:, t, :]  # [256, 80]
                 if torch.isnan(hidden_permute).sum() > 0:
@@ -123,7 +124,7 @@ class Model(nn.Module):
                 hidden, cell = self.run_lstm(batch[t].unsqueeze(0), hidden, cell)  # [2, 256, 40], [2, 256, 40]
 
             # prediction range
-            output_steps = torch.zeros(batch_size, self.pred_steps, self.c_out, device=device)  # [16, 256, 7]
+            output_steps = torch.zeros(batch_size, self.pred_steps, self.lstm_c_out, device=device)  # [16, 256, 7]
             for t in range(self.pred_steps):
                 hidden, cell = self.run_lstm(batch[self.pred_start + t].unsqueeze(0), hidden, cell)
                 hidden_permute = self.get_hidden_permute(hidden)
@@ -132,6 +133,6 @@ class Model(nn.Module):
 
                 for lag in range(self.lag):
                     if t < self.pred_steps - lag - 1:
-                        batch[self.pred_start + t + 1, :, 0] = pred[:, self.c_out - 1]
+                        batch[self.pred_start + t + 1, :, 0] = pred[:, -1]
 
             return output_steps
