@@ -115,10 +115,10 @@ draw_attention_map_figure(exp_name='LSTM-AQ_Exchange_96',
                           selected_loader_data=[[1, 43, True]],
                           selected_step_data=[],
                           folder='Exchange',
-                          replace_regex=[['LSTM-AQ_Exchange_96', 'AL-QSQF Electricity']])
+                          replace_regex=[['LSTM-AQ_Exchange_96', 'AL-QSQF Exchange']])
 
 draw_attention_map_figure(exp_name='LSTM-AQ_Traffic_96',
                           selected_loader_data=[[1, 17, True]],
                           selected_step_data=[],
                           folder='Traffic',
-                          replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Electricity']])
+                          replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic']])
