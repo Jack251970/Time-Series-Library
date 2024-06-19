@@ -49,20 +49,21 @@ print(f"\tFieldnames: {fieldnames}")
 def clean_blank_folder(_folders):
     # clean blank folder under root folder
     clean_number = 0
-    blank_folders = []
+    blank_settings = []
     for folder in _folders:
         if os.path.exists(folder):
             for path in os.listdir(folder):
                 setting_folder = os.path.join(folder, path)
                 if os.path.isdir(setting_folder) and not os.listdir(setting_folder):
                     os.rmdir(setting_folder)
-                    blank_folders.append(setting_folder)
+                    if path not in blank_settings:
+                        blank_settings.append(path)
                     clean_number += 1
 
     if clean_number != 0:
         print(Fore.RED + f"Cleaned {clean_number} blank folders")
-        for folder in blank_folders:
-            print(Fore.RED + f"\t{folder}")
+        for blank_setting in blank_settings:
+            print(Fore.RED + f"\t{blank_setting}")
 
 
 clean_blank_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
@@ -93,20 +94,21 @@ def clean_unrelated_folder(_folders):
 
     # clean unrelated folders
     clean_number = 0
-    unrelated_folders = []
+    unrelated_settings = []
     for folder in _folders:
         if os.path.exists(folder):
             for path in os.listdir(folder):
                 setting_folder = os.path.join(folder, path)
                 if os.path.isdir(setting_folder) and path not in setting_list:
                     shutil.rmtree(setting_folder)
-                    unrelated_folders.append(setting_folder)
+                    if path not in unrelated_settings:
+                        unrelated_settings.append(path)
                     clean_number += 1
 
     if clean_number != 0:
         print(Fore.RED + f"Cleaned {clean_number} folders that are not experiments in csv files under data folder")
-        for folder in unrelated_folders:
-            print(Fore.RED + f"\t{folder}")
+        for unrelated_setting in unrelated_settings:
+            print(Fore.RED + f"\t{unrelated_setting}")
 
 
 clean_unrelated_folder([checkpoints_folder, process_folder, results_folder, test_results_folder, m4_results_folder,
