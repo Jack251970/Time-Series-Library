@@ -11,7 +11,8 @@ set_times_new_roman_font()
 output_dir = 'attention_map'
 
 
-def draw_attention_map_figure(exp_name, max_loader=3, selected_pred_step_indexes=None, folder=None, replace_regex=None):
+def draw_attention_map_figure(exp_name, selected_loader_data=None, selected_step_data=None, folder=None,
+                              replace_regex=None):
     attention_maps = get_attention_map(exp_name)
 
     config_row = get_config_row(exp_name)
@@ -22,26 +23,66 @@ def draw_attention_map_figure(exp_name, max_loader=3, selected_pred_step_indexes
     loader_length = attention_maps.shape[0]
 
     # draw attention map for every loader
-    for i in range(loader_length if loader_length < max_loader else max_loader):
-        _path = os.path.join(output_dir, folder, f'loader {i + 1}')
-        if not os.path.exists(_path):
-            os.makedirs(_path)
+    if selected_loader_data is not None:
+        for k in selected_loader_data:
+            i = k[0] - 1
+            j = k[1] - 1
 
-        attention_map = attention_maps[i]
-        attention_map = attention_map.reshape(batch_size, n_heads, 1 * pred_length, seq_length)  # [*, 8, 32, 96]
+            _path = os.path.join(output_dir, folder, f'loader {i + 1}')
+            if not os.path.exists(_path):
+                os.makedirs(_path)
 
-        for j in tqdm(range(batch_size), desc=f'loader {i + 1}'):
-            _ = attention_map[j]
+            attention_map = attention_maps[i]
+            attention_map = attention_map.reshape(batch_size, n_heads, 1 * pred_length, seq_length)  # [*, 8, 32, 96]
 
             file_name = f'AM {exp_name} Pred {pred_length} Data {j + 1}.png'
             for regex in replace_regex:
                 file_name = file_name.replace(regex[0], regex[1])
 
             draw_attention_map(attention_map[j], os.path.join(_path, file_name), cols=3)
+    else:
+        for i in range(loader_length):
+            _path = os.path.join(output_dir, folder, f'loader {i + 1}')
+            if not os.path.exists(_path):
+                os.makedirs(_path)
+
+            attention_map = attention_maps[i]
+            attention_map = attention_map.reshape(batch_size, n_heads, 1 * pred_length, seq_length)  # [*, 8, 32, 96]
+
+            interval = 96
+            num = math.floor(loader_length * batch_size / interval)
+            for j in tqdm(range(num), desc=f'pred {i}'):
+                file_name = f'AM {exp_name} Pred {pred_length} Data {j + 1}.png'
+                for regex in replace_regex:
+                    file_name = file_name.replace(regex[0], regex[1])
+
+                draw_attention_map(attention_map[j], os.path.join(_path, file_name), cols=3)
 
     # draw attention map for every prediction step
-    if selected_pred_step_indexes is not None:
-        for i in selected_pred_step_indexes:
+    if selected_step_data is not None:
+        for k in selected_step_data:
+            i = k[0] - 1
+            j = k[1] - 1
+
+            _path = os.path.join(output_dir, folder, f'step {i + 1}', )
+            if not os.path.exists(_path):
+                os.makedirs(_path)
+
+            attention_map = attention_maps[:, i, :, :, :, :]  # [61, 256, 8, 1, 96]
+            attention_map = attention_map.reshape(loader_length * batch_size, n_heads, 1, seq_length)  # [*, 8, 1, 96]
+
+            interval = 96
+
+            _attention_map = attention_map[j * interval: (j + 1) * interval]  # [96, 8, 1, 96]
+            _attention_map = _attention_map.reshape(n_heads, 1 * interval, seq_length)  # [8, 96, 96]
+
+            file_name = f'AM {exp_name} Pred {pred_length} Step {j + 1}.png'
+            for regex in replace_regex:
+                file_name = file_name.replace(regex[0], regex[1])
+
+            draw_attention_map(attention_map[j], os.path.join(_path, file_name), cols=3)
+    else:
+        for i in range(pred_length):
             _path = os.path.join(output_dir, folder, f'step {i + 1}', )
             if not os.path.exists(_path):
                 os.makedirs(_path)
@@ -63,19 +104,19 @@ def draw_attention_map_figure(exp_name, max_loader=3, selected_pred_step_indexes
 
 
 draw_attention_map_figure(exp_name='LSTM-AQ_Electricity_96',
-                          max_loader=3,
-                          selected_pred_step_indexes=[0, 31, 63, 95],
+                          selected_loader_data=[[1, 11]],
+                          selected_step_data=[],
                           folder='Electricity',
                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
 
 draw_attention_map_figure(exp_name='LSTM-AQ_Exchange_96',
-                          max_loader=3,
-                          selected_pred_step_indexes=[0, 31, 63, 95],
+                          selected_loader_data=[[1, 43]],
+                          selected_step_data=[],
                           folder='Exchange',
                           replace_regex=[['LSTM-AQ_Exchange_96', 'AL-QSQF Electricity']])
 
 draw_attention_map_figure(exp_name='LSTM-AQ_Traffic_96',
-                          max_loader=3,
-                          selected_pred_step_indexes=[0, 31, 63, 95],
+                          selected_loader_data=[[1, 17]],
+                          selected_step_data=[],
                           folder='Traffic',
                           replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Electricity']])
