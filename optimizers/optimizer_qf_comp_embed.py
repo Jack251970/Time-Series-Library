@@ -182,4 +182,4 @@ def get_search_space():
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
 h.config_optimizer_settings(root_path='.', data_csv_file='data_comp_embed.csv',
-                            scan_all_csv=False, try_model=False, force_exp=True, save_process=False)
+                            scan_all_csv=False, try_model=False, force_exp=False, save_process=False)
