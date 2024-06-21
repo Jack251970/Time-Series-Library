@@ -36,6 +36,11 @@ class Model(nn.Module):
         # phase custom_params
         custom_params = params.custom_params
         custom_params = custom_params.split('_')
+        if len(custom_params) > 0 and custom_params[0] == 'qrnn':
+            self.use_qrnn = True
+            custom_params.pop(0)
+        else:
+            self.use_qrnn = False
         if len(custom_params) > 0 and custom_params[0] == 'cnn':
             self.use_cnn = True
             custom_params.pop(0)
@@ -103,22 +108,37 @@ class Model(nn.Module):
             self.cnn_dec = ConvLayer(1)
 
         # LSTM: Encoder and Decoder
-        self.lstm_enc = nn.LSTM(input_size=self.enc_lstm_input_size,
-                                hidden_size=self.lstm_hidden_size,
-                                num_layers=self.enc_lstm_layers,
-                                bias=True,
-                                batch_first=False,
-                                bidirectional=False,
-                                dropout=self.lstm_dropout)
-        self.lstm_dec = nn.LSTM(input_size=self.dec_lstm_input_size,
-                                hidden_size=self.lstm_hidden_size,
-                                num_layers=self.dec_lstm_layers,
-                                bias=True,
-                                batch_first=False,
-                                bidirectional=False,
-                                dropout=self.lstm_dropout)
-        self.init_lstm(self.lstm_enc)
-        self.init_lstm(self.lstm_dec)
+        if not self.use_qrnn:
+            self.lstm_enc = nn.LSTM(input_size=self.enc_lstm_input_size,
+                                    hidden_size=self.lstm_hidden_size,
+                                    num_layers=self.enc_lstm_layers,
+                                    bias=True,
+                                    batch_first=False,
+                                    bidirectional=False,
+                                    dropout=self.lstm_dropout)
+            self.lstm_dec = nn.LSTM(input_size=self.dec_lstm_input_size,
+                                    hidden_size=self.lstm_hidden_size,
+                                    num_layers=self.dec_lstm_layers,
+                                    bias=True,
+                                    batch_first=False,
+                                    bidirectional=False,
+                                    dropout=self.lstm_dropout)
+            self.init_lstm(self.lstm_enc)
+            self.init_lstm(self.lstm_dec)
+        else:
+            from layers.pytorch_qrnn.torchqrnn import QRNN
+            self.lstm_enc = QRNN(input_size=self.enc_lstm_input_size,
+                                 hidden_size=self.lstm_hidden_size,
+                                 num_layers=self.enc_lstm_layers,
+                                 bias=True,
+                                 dropout=self.lstm_dropout,
+                                 use_cuda=params.use_gpu)
+            self.lstm_dec = QRNN(input_size=self.dec_lstm_input_size,
+                                 hidden_size=self.lstm_hidden_size,
+                                 num_layers=self.dec_lstm_layers,
+                                 bias=True,
+                                 dropout=self.lstm_dropout,
+                                 use_cuda=params.use_gpu)
 
         # Attention
         if self.use_attn is not None:
@@ -301,7 +321,10 @@ class Model(nn.Module):
         if self.use_cnn:
             x = self.cnn_enc(x)  # [96, 256, 5]
 
-        _, (hidden, cell) = self.lstm_enc(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
+        if self.use_qrnn:
+            _, hidden = self.lstm_enc(x, hidden)  # [2, 256, 40]
+        else:
+            _, (hidden, cell) = self.lstm_enc(x, (hidden, cell))  # [2, 256, 40], [2, 256, 40]
 
         return hidden, cell
 
@@ -310,7 +333,10 @@ class Model(nn.Module):
         if self.use_cnn:
             x = self.cnn_dec(x)  # [96, 256, 5]
 
-        _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
+        if self.use_qrnn:
+            _, hidden = self.lstm_dec(x, hidden)  # [2, 256, 64]
+        else:
+            _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
 
         if self.use_attn is not None:
             if self.attention_projection is not None:
@@ -411,7 +437,8 @@ class Model(nn.Module):
         enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
                                device=device)  # [96, 1, 256, 40]
         for t in range(self.pred_start):
-            hidden, cell = self.run_lstm_enc(enc_in[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
+            hidden, cell = self.run_lstm_enc(enc_in[t].unsqueeze_(0).clone(), hidden,
+                                             cell)  # [2, 256, 40], [2, 256, 40]
             enc_hidden[t] = hidden
             enc_cell[t] = cell
 
