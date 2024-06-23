@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import pad
 
+from layers.ALQSQF_EncDec import series_decomp
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import phase_gamma_and_eta_k
@@ -67,6 +68,10 @@ class Model(nn.Module):
                                 dropout=self.dropout)
         self.init_lstm(self.lstm_enc)
         self.init_lstm(self.lstm_dec)
+
+        # Series decomposition
+        self.decomp_enc = series_decomp(kernel_size=params.moving_avg)
+        self.decomp_dec = series_decomp(kernel_size=params.moving_avg)
 
         # Attention
         self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=self.dropout)
@@ -207,35 +212,32 @@ class Model(nn.Module):
         probability_range_len = len(probability_range)
         probability_range = torch.Tensor(probability_range).to(device)  # [3]
 
-        dec_in_trend = self._lambda
+        # series decomposition
+        dec_in_uncertainty = dec_in  # , dec_in_trend = self.decomp_dec(dec_in)  # [256, 16, 7]
+        dec_in_trend = self._lambda  # dec_in_trend[:, :, -1:]  # [256, 16, 1]
 
         enc_in = enc_in.permute(1, 0, 2)  # [96, 256, 4]
-        dec_in = dec_in.permute(1, 0, 2)  # [16, 256, 7]
+        dec_in_uncertainty = dec_in_uncertainty.permute(1, 0, 2)  # [16, 256, 7]
         dec_in_trend = dec_in_trend.permute(1, 0, 2)  # [16, 256, 1]
         if labels is not None:
             labels = labels.permute(1, 0, 2)  # [12, 256]
 
         # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
-                             device=device)  # [2, 256, 40]
+        hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
         cell = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
 
         # run encoder
         enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
                                  device=device)  # [96, 1, 256, 40]
-        enc_cell = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
-                               device=device)  # [96, 1, 256, 40]
         for t in range(self.pred_start):
-            hidden, cell = self.run_lstm_enc(enc_in[t].unsqueeze_(0).clone(), hidden,
-                                             cell)  # [2, 256, 40], [2, 256, 40]
+            hidden, _ = self.run_lstm_enc(enc_in[t].unsqueeze_(0).clone(), hidden, cell)  # [2, 256, 40], [2, 256, 40]
             enc_hidden[t] = hidden
-            enc_cell[t] = cell
 
-        # only select the last hidden state
-        # embedding encoder
+        # series decomposition & embedding
         enc_hidden = enc_hidden.view(batch_size, self.pred_start, self.enc_lstm_layers * self.lstm_hidden_size)
-        enc_hidden = self.enc_embedding(enc_hidden, mark_enc)
-        enc_hidden_attn = enc_hidden.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
+        enc_hidden_uncertainty = enc_hidden  #  , _ = self.decomp_enc(enc_hidden)  # [256, 96, 40]
+        enc_hidden_uncertainty = self.enc_embedding(enc_hidden_uncertainty, mark_enc)
+        enc_hidden_attn = enc_hidden_uncertainty.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
         # initialize decoder input
         dec_hidden = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
@@ -251,8 +253,8 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                 hidden, cell, enc_hidden_attn)
+                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in_uncertainty[t].unsqueeze_(0).clone(),
+                                                                 x_mark_dec_step, hidden, cell, enc_hidden_attn)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -294,7 +296,7 @@ class Model(nn.Module):
 
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
-                x_dec_clone = dec_in.clone()  # [16, 256, 7]
+                x_dec_clone = dec_in_uncertainty.clone()  # [16, 256, 7]
 
                 # initialize hidden and cell
                 hidden, cell = dec_hidden.clone(), dec_cell.clone()
@@ -302,8 +304,8 @@ class Model(nn.Module):
                 # decoder
                 for t in range(self.pred_steps):
                     x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                     hidden, cell, enc_hidden_attn)
+                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in_uncertainty[t].unsqueeze_(0).clone(),
+                                                                     x_mark_dec_step, hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -318,7 +320,8 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_pred(self.alpha_prime_k, pred_alpha, dec_in_trend[t], gamma, eta_k, self.algorithm_type)
+                    pred = sample_pred(self.alpha_prime_k, pred_alpha, dec_in_trend[t], gamma, eta_k,
+                                       self.algorithm_type)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -339,7 +342,7 @@ class Model(nn.Module):
                                         device=device)
 
             # clone test batch
-            x_dec_clone = dec_in.clone()  # [16, 256, 7]
+            x_dec_clone = dec_in_uncertainty.clone()  # [16, 256, 7]
 
             # sample
             samples_mu1 = torch.zeros(batch_size, self.pred_steps, 1, device=device)
@@ -353,8 +356,8 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(), x_mark_dec_step,
-                                                                    hidden, cell, enc_hidden_attn)
+                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(dec_in_uncertainty[t].unsqueeze_(0).clone(),
+                                                                    x_mark_dec_step, hidden, cell, enc_hidden_attn)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
                 attention_map[t] = attn
@@ -382,64 +385,15 @@ class Model(nn.Module):
 
 # noinspection DuplicatedCode
 def get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
-    """
-    Formula
-    2:
-    int{Q(alpha)} = lambda * (max_alpha - min_alpha) + 1/2 * gamma * (max_alpha ^ 2 - min_alpha ^ 2)
-    + sum(1/3 * beta_k * (max_alpha - alpha_0_k) ^ 3)
-    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
-
-    1+2:
-    int{Q(alpha)} = lambda * (max_alpha - min_alpha) + sum(1/2 * gamma_k * (max_alpha - alpha_0_k) ^ 2)
-    + sum(1/3 * beta_k * (max_alpha - alpha_0_k) ^ 3)
-    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
-
-    1:
-    int {Q(alpha)} = lambda * (max_alpha - min_alpha) + sum(1/2 * gamma_k * (max_alpha - alpha_0_k) ^ 2)
-    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
-    """
     # init min_alpha and max_alpha
     device = gamma.device
     min_alpha = torch.Tensor([0]).to(device)  # [1]
     max_alpha = torch.Tensor([1]).to(device)  # [1]
 
-    # get min pred and max pred
-    # indices = alpha_0_k < min_alpha  # [256, 20]
-    # min_pred0 = _lambda
-    # if algorithm_type == '2':
-    #     min_pred1 = (min_alpha * gamma).sum(dim=1)  # [256,]
-    #     min_pred2 = ((min_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
-    #     min_pred = min_pred0 + min_pred1 + min_pred2  # [256,]
-    # elif algorithm_type == '1+2':
-    #     min_pred1 = ((min_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
-    #     min_pred2 = ((min_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
-    #     min_pred = min_pred0 + min_pred1 + min_pred2  # [256,]
-    # elif algorithm_type == '1':
-    #     min_pred1 = ((min_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
-    #     min_pred = min_pred0 + min_pred1  # [256,]
-    # else:
-    #     raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-    # indices = alpha_0_k < max_alpha  # [256, 20]
-    # max_pred0 = _lambda
-    # if algorithm_type == '2':
-    #     max_pred1 = (max_alpha * gamma).sum(dim=1)  # [256,]
-    #     max_pred2 = ((max_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
-    #     max_pred = max_pred0 + max_pred1 + max_pred2  # [256,]
-    # elif algorithm_type == '1+2':
-    #     max_pred1 = ((max_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
-    #     max_pred2 = ((max_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
-    #     max_pred = max_pred0 + max_pred1 + max_pred2  # [256,]
-    # elif algorithm_type == '1':
-    #     max_pred1 = ((max_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
-    #     max_pred = max_pred0 + max_pred1  # [256,]
-    # else:
-    #     raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-    # total_area = ((max_alpha - min_alpha) * (max_pred - min_pred))  # [256,]
-
     # get int{Q(alpha)}
     _lambda = _lambda.squeeze()  # [256,]
     if algorithm_type == '2':
-        integral0 = _lambda * (max_alpha - min_alpha)
+        integral0 = _lambda * (max_alpha - min_alpha)  # [256,]
         integral1 = 1 / 2 * gamma.squeeze() * (max_alpha.pow(2) - min_alpha.pow(2))  # [256,]
         integral2 = 1 / 3 * ((max_alpha - alpha_0_k).pow(3) * beta_k).sum(dim=1)  # [256,]
         integral = integral0 + integral1 + integral2  # [256,]
@@ -461,17 +415,6 @@ def get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
 
 # noinspection DuplicatedCode
 def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
-    """
-    Formula
-    2:
-    Q(alpha) = lambda + gamma * alpha + sum(beta_k * (alpha - alpha_k) ^ 2)
-
-    1+2:
-    Q(alpha) = lambda + sum(beta_k * (alpha - alpha_k)) + sum(beta_k * (alpha - alpha_k) ^ 2)
-
-    1:
-    Q(alpha) = lambda + sum(beta_k * (alpha - alpha_k))
-    """
     # phase parameter
     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
 
