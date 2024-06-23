@@ -108,11 +108,6 @@ class Model(nn.Module):
         y = torch.ones(self.num_spline) / self.num_spline
         self.alpha_prime_k = y.repeat(self.batch_size, 1).to(device)  # [256, 20]
 
-        # Reindex
-        self.new_index = None
-        self.lag_index = None
-        self.cov_index = None
-
     @staticmethod
     def init_lstm(lstm):
         # initialize LSTM forget gate bias to be 1 as recommended by
@@ -127,22 +122,6 @@ class Model(nn.Module):
 
     # noinspection DuplicatedCode
     def get_input_data(self, x_enc, y_enc, x_mark_enc, x_mark_dec):
-        if self.lag_index is None:
-            self.lag_index = []
-            self.cov_index = []
-            if self.new_index is None:
-                self.new_index = list(range(self.enc_in + self.lag))
-            for i in range(self.lag):
-                self.lag_index.append(self.new_index[i])
-            for i in range(self.enc_in + self.lag - 1):
-                lag = False
-                for j in self.lag_index:
-                    if i == j:
-                        lag = True
-                        break
-                if not lag:
-                    self.cov_index.append(i)
-
         # contact sample
         batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
         x_mark = torch.cat((x_mark_enc, x_mark_dec[:, -self.pred_len:, :]), dim=1)
@@ -363,7 +342,7 @@ class Model(nn.Module):
                     if t >= label_len:
                         for lag in range(self.lag):
                             if t < self.pred_steps - lag - 1:
-                                x_dec_clone[t + 1, :, self.lag_index[0]] = pred
+                                x_dec_clone[t + 1, :, 0] = pred
 
             samples_mu = torch.mean(samples, dim=0).unsqueeze(-1)  # mean or median ? # [256, 12, 1]
             samples_std = samples.std(dim=0).unsqueeze(-1)  # [256, 12, 1]
@@ -402,7 +381,7 @@ class Model(nn.Module):
                 if t >= label_len:
                     for lag in range(self.lag):
                         if t < self.pred_steps - lag - 1:
-                            x_dec_clone[t + 1, :, self.lag_index[0]] = pred
+                            x_dec_clone[t + 1, :, 0] = pred
 
             if not sample:
                 # use integral to calculate the mean
