@@ -212,13 +212,9 @@ class Model(nn.Module):
         probability_range_len = len(probability_range)
         probability_range = torch.Tensor(probability_range).to(device)  # [3]
 
-        # series decomposition
-        dec_in_uncertainty = dec_in  # , dec_in_trend = self.decomp_dec(dec_in)  # [256, 16, 7]
-        dec_in_trend = self._lambda  # dec_in_trend[:, :, -1:]  # [256, 16, 1]
-
         enc_in = enc_in.permute(1, 0, 2)  # [96, 256, 4]
-        dec_in_uncertainty = dec_in_uncertainty.permute(1, 0, 2)  # [16, 256, 7]
-        dec_in_trend = dec_in_trend.permute(1, 0, 2)  # [16, 256, 1]
+        dec_in = dec_in.permute(1, 0, 2)  # [16, 256, 7]
+        dec_in_trend = self._lambda.permute(1, 0, 2)  # [16, 256, 1]
         if labels is not None:
             labels = labels.permute(1, 0, 2)  # [12, 256]
 
@@ -235,7 +231,7 @@ class Model(nn.Module):
 
         # series decomposition & embedding
         enc_hidden = enc_hidden.view(batch_size, self.pred_start, self.enc_lstm_layers * self.lstm_hidden_size)
-        enc_hidden_uncertainty = enc_hidden  #  , _ = self.decomp_enc(enc_hidden)  # [256, 96, 40]
+        enc_hidden_uncertainty, _ = self.decomp_enc(enc_hidden)  # [256, 96, 40]
         enc_hidden_uncertainty = self.enc_embedding(enc_hidden_uncertainty, mark_enc)
         enc_hidden_attn = enc_hidden_uncertainty.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
@@ -253,7 +249,7 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in_uncertainty[t].unsqueeze_(0).clone(),
+                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(),
                                                                  x_mark_dec_step, hidden, cell, enc_hidden_attn)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
@@ -296,7 +292,7 @@ class Model(nn.Module):
 
             for j in range(self.sample_times + probability_range_len * 2):
                 # clone test batch
-                x_dec_clone = dec_in_uncertainty.clone()  # [16, 256, 7]
+                x_dec_clone = dec_in.clone()  # [16, 256, 7]
 
                 # initialize hidden and cell
                 hidden, cell = dec_hidden.clone(), dec_cell.clone()
@@ -304,7 +300,7 @@ class Model(nn.Module):
                 # decoder
                 for t in range(self.pred_steps):
                     x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in_uncertainty[t].unsqueeze_(0).clone(),
+                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(),
                                                                      x_mark_dec_step, hidden, cell, enc_hidden_attn)
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
@@ -342,7 +338,7 @@ class Model(nn.Module):
                                         device=device)
 
             # clone test batch
-            x_dec_clone = dec_in_uncertainty.clone()  # [16, 256, 7]
+            x_dec_clone = dec_in.clone()  # [16, 256, 7]
 
             # sample
             samples_mu1 = torch.zeros(batch_size, self.pred_steps, 1, device=device)
@@ -356,7 +352,7 @@ class Model(nn.Module):
             # decoder
             for t in range(self.pred_steps):
                 x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(dec_in_uncertainty[t].unsqueeze_(0).clone(),
+                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(),
                                                                     x_mark_dec_step, hidden, cell, enc_hidden_attn)
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
