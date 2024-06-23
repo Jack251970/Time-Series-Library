@@ -15,7 +15,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 321
         _config['c_out'] = 321
 
-        if model == 'LSTM-AQ':
+        if model == 'LSTM-AQ' or model == 'AL-QSQF':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 3
@@ -48,7 +48,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 8
         _config['c_out'] = 8
 
-        if model == 'LSTM-AQ':
+        if model == 'LSTM-AQ' or model == 'AL-QSQF':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 40
                 _config['lstm_layers'] = 1
@@ -80,7 +80,7 @@ def link_fieldnames_data(_config):
         _config['dec_in'] = 862
         _config['c_out'] = 862
 
-        if model == 'LSTM-AQ':
+        if model == 'LSTM-AQ' or model == 'AL-QSQF':
             if pred_len == 16:
                 _config['lstm_hidden_size'] = 64
                 _config['lstm_layers'] = 2
@@ -153,7 +153,7 @@ def get_search_space():
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': './dataset/'},
-        'data_path': {'_type': 'single', '_value': 'traffic/traffic.csv'},
+        'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
         #                                             'traffic/traffic.csv']},
     }
@@ -166,7 +166,7 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'choice', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 96},
+        'pred_len': {'_type': 'single', '_value': 16},
         # 'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
@@ -189,14 +189,32 @@ def get_search_space():
         'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
     }
 
+    al_qsqf_config = {
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+        'reindex': {'_type': 'single', '_value': 0},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        'train_epochs': {'_type': 'single', '_value': 50},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99},
+
+        'custom_params': {'_type': 'single', '_value': ''},
+    }
+
     model_configs = {
         'LSTM-AQ': lstm_aq_config,
+        'AL-QSQF': al_qsqf_config
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ'],
+h = HyperParameterOptimizer(script_mode=False, models=['AL-QSQF'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data,
                             get_custom_test_time=get_custom_test_time)
 h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=True, save_process=False)

@@ -7,7 +7,7 @@ from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer
                     Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, TiDE,
                     FreTS, TimeMixer, TSMixer, SegRNN, MambaSimple, Mamba, TemporalFusionTransformer, LSTM)
 from models.quantile_function import (rnn_sf, lstm_cq, lstm_aq, lstm_aq1, lstm_aq2, lstm_aq3, lstm_aq4, lstm_yjqr,
-                                      lstm_ed_yjqr, qsqf_c, qsqf_c1)
+                                      lstm_ed_yjqr, qsqf_c, qsqf_c1, al_qsqf)
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 
@@ -75,6 +75,7 @@ class Exp_Basic(object):
             'LSTM-AQ3': lstm_aq3,
             'LSTM-AQ4': lstm_aq4,
             'QSQF-C1': qsqf_c1,
+            'AL-QSQF': al_qsqf
         }
         model = model_dict[self.args.model].Model(self.args).float()
         # use multi gpus if enabled
@@ -110,7 +111,7 @@ class Exp_Basic(object):
                 self.model.new_index = new_index
                 if not _try_model:
                     self.print_content('New index has been set for the model: {}'.format(new_index))
-            except:
+            except AttributeError:
                 pass
         if not self.try_model:
             self.print_content(info)
@@ -135,7 +136,8 @@ class Exp_Basic(object):
             'LSTM-AQ2': lstm_cq.loss_fn_mse,
             'LSTM-AQ3': lstm_cq.loss_fn_mae,
             'LSTM-AQ4': lstm_cq.loss_fn_quantiles,
-            'QSQF-C1': lstm_cq.loss_fn_crps
+            'QSQF-C1': lstm_cq.loss_fn_crps,
+            'AL-QSQF': lstm_cq.loss_fn_crps,
         }
 
         loss = self.args.loss
