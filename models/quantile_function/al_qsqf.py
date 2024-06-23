@@ -95,7 +95,8 @@ class Model(nn.Module):
         # QSQM
         device = torch.device("cuda" if params.use_gpu else "cpu")
         self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
-        self._lambda = -1e-3  # make sure all data is not on the left point
+        # - 1e-3 make sure all data is not on the left point
+        self._lambda = torch.zeros(self.batch_size, self.pred_steps, 1).to(device) - 1e-3
         if self.algorithm_type == '2':
             self.linear_gamma = nn.Linear(self.qsqm_input_size, 1)
         elif self.algorithm_type == '1+2':
@@ -126,7 +127,7 @@ class Model(nn.Module):
             # we don't need to use mark data because lstm can handle time series relation information
             return self.probability_forecast(x_enc, y_enc[:, -self.pred_len:, :-1],
                                              x_mark_enc, x_mark_dec[:, -self.pred_len:, :],
-                                             labels=y_enc[:, -self.pred_len:, -1])  # return loss list
+                                             labels=y_enc[:, -self.pred_len:, -1:])  # return loss list
         return None
 
     # noinspection PyUnusedLocal
@@ -206,10 +207,13 @@ class Model(nn.Module):
         probability_range_len = len(probability_range)
         probability_range = torch.Tensor(probability_range).to(device)  # [3]
 
+        dec_in_trend = self._lambda
+
         enc_in = enc_in.permute(1, 0, 2)  # [96, 256, 4]
         dec_in = dec_in.permute(1, 0, 2)  # [16, 256, 7]
+        dec_in_trend = dec_in_trend.permute(1, 0, 2)  # [16, 256, 1]
         if labels is not None:
-            labels = labels.permute(1, 0)  # [12, 256]
+            labels = labels.permute(1, 0, 2)  # [12, 256]
 
         # hidden and cell are initialized to zero
         hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
@@ -269,7 +273,7 @@ class Model(nn.Module):
                     break
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]
                 y = labels[t].clone()  # [256,]
-                loss_list.append((self.alpha_prime_k, self._lambda, gamma, eta_k, y, self.algorithm_type))
+                loss_list.append((self.alpha_prime_k, dec_in_trend[t], gamma, eta_k, y, self.algorithm_type))
 
             return loss_list, stop_flag
         else:
@@ -314,7 +318,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_pred(self.alpha_prime_k, pred_alpha, self._lambda, gamma, eta_k, self.algorithm_type)
+                    pred = sample_pred(self.alpha_prime_k, pred_alpha, dec_in_trend[t], gamma, eta_k, self.algorithm_type)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
                     elif j < 2 * probability_range_len:
@@ -355,8 +359,8 @@ class Model(nn.Module):
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
                 attention_map[t] = attn
 
-                pred = sample_pred(self.alpha_prime_k, None, self._lambda, gamma, eta_k, self.algorithm_type)
-                samples_lambda[t] = self._lambda
+                pred = sample_pred(self.alpha_prime_k, None, dec_in_trend[t], gamma, eta_k, self.algorithm_type)
+                samples_lambda[t] = dec_in_trend[t]
                 samples_gamma[t] = gamma
                 samples_eta_k[t] = eta_k
                 samples_mu1[:, t, 0] = pred
@@ -433,6 +437,7 @@ def get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
     # total_area = ((max_alpha - min_alpha) * (max_pred - min_pred))  # [256,]
 
     # get int{Q(alpha)}
+    _lambda = _lambda.squeeze()  # [256,]
     if algorithm_type == '2':
         integral0 = _lambda * (max_alpha - min_alpha)
         integral1 = 1 / 2 * gamma.squeeze() * (max_alpha.pow(2) - min_alpha.pow(2))  # [256,]
@@ -473,7 +478,7 @@ def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
     if alpha is not None:
         # get Q(alpha)
         indices = alpha_0_k < alpha  # [256, 20]
-        pred0 = _lambda
+        pred0 = _lambda.squeeze()  # [256,]
         if algorithm_type == '2':
             pred1 = (gamma * alpha).sum(dim=1)  # [256,]
             pred2 = (beta_k * (alpha - alpha_0_k).pow(2) * indices).sum(dim=1)  # [256,]
@@ -499,9 +504,6 @@ def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
 def loss_fn_crps(tuple_param):
     alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
 
-    # labels
-    labels = labels.unsqueeze(1)  # [256, 1]
-
     # calculate loss
     crpsLoss = get_crps(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
 
@@ -519,6 +521,8 @@ def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
                             alpha_prime_k.shape[1]).T.clone()  # [20, 256, 20]
     knots = df1 - alpha_0_k  # [20, 256, 20]
     knots[knots < 0] = 0  # [20, 256, 20]
+    num_spline = knots.shape[0]  # 20
+    _lambda = _lambda.permute(1, 0).repeat(num_spline, 1)  # [20, 256]
     if algorithm_type == '2':
         df2 = alpha_1_k1.T.unsqueeze(2)
         knots = _lambda + (df2 * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)  # [20, 256]
@@ -528,12 +532,15 @@ def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
         knots = _lambda + (knots * gamma).sum(dim=2)  # [20, 256]
     else:
         raise ValueError("algorithm_type must be '1', '2', or '1+2'")
-    knots = pad(knots.T, (1, 0), value=_lambda)[:, :-1]  # F(alpha_{1~K})=0~max  # [256, 20]
+    _lambda = _lambda.permute(1, 0)  # [256, 20]
+    knots = pad(knots.T, (1, 0), value=float('-Infinity'))[:, :-1]  # F(alpha_{1~K})=0~max  # [256, 20]
+    knots[knots == float('-Infinity')] = _lambda[knots == float('-Infinity')]  # [256, 20]
     diff = y - knots  # [256, 20]
     alpha_l = diff > 0  # [256, 20]
 
     # calculate the parameter for quadratic equation
     y = y.squeeze()  # [256,]
+    _lambda = _lambda[:, 0]  # [256,]
     if algorithm_type == '2':
         A = torch.sum(alpha_l * beta_k, dim=1)  # [256,]
         B = gamma[:, 0] - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)  # [256,]
