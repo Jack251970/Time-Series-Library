@@ -68,7 +68,7 @@ class Model(nn.Module):
         self.init_lstm(self.lstm_dec)
 
         # Attention
-        self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=0.1)  # self.dropout)
+        self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=self.dropout)
         self.L_enc = self.pred_start
         self.L_dec = 1
         self.H = self.n_heads
@@ -120,37 +120,21 @@ class Model(nn.Module):
                 start, end = n // 4, n // 2
                 bias.data[start:end].fill_(1.)
 
-    # noinspection DuplicatedCode
-    def get_input_data(self, x_enc, y_enc, x_mark_enc, x_mark_dec):
-        # contact sample
-        batch = torch.cat((x_enc, y_enc[:, -self.pred_len:, :]), dim=1)
-        x_mark = torch.cat((x_mark_enc, x_mark_dec[:, -self.pred_len:, :]), dim=1)
-
-        # divide sample
-        # s = seq_len
-        enc_in = batch[:, :self.pred_start, :]
-        mark_enc = x_mark[:, :self.pred_start, :]
-
-        # s = label_len + pred_len
-        dec_in = batch[:, -self.pred_steps:, :-1]
-        mark_dec = x_mark[:, -self.pred_steps:, :]
-        labels = batch[:, -self.pred_steps:, -1]
-
-        return enc_in, dec_in, mark_enc, mark_dec, labels
-
     # noinspection DuplicatedCode,PyUnusedLocal
     def forward(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None):
         if self.task_name == 'probability_forecast':
             # we don't need to use mark data because lstm can handle time series relation information
-            enc_in, dec_in, mark_enc, mark_dec, labels = self.get_input_data(x_enc, y_enc, x_mark_enc, x_mark_dec)
-            return self.probability_forecast(enc_in, dec_in, mark_enc, mark_dec, labels=labels)  # return loss list
+            return self.probability_forecast(x_enc, y_enc[:, -self.pred_len:, :-1],
+                                             x_mark_enc, x_mark_dec[:, -self.pred_len:, :],
+                                             labels=y_enc[:, -self.pred_len:, -1])  # return loss list
         return None
 
     # noinspection PyUnusedLocal
     def predict(self, x_enc, x_mark_enc, x_dec, y_enc, x_mark_dec, mask=None, probability_range=None):
         if self.task_name == 'probability_forecast':
-            enc_in, dec_in, mark_enc, mark_dec, _ = self.get_input_data(x_enc, y_enc, x_mark_enc, x_mark_dec)
-            return self.probability_forecast(enc_in, dec_in, mark_enc, mark_dec, probability_range=probability_range)
+            return self.probability_forecast(x_enc, y_enc[:, -self.pred_len:, :-1],
+                                             x_mark_enc, x_mark_dec[:, -self.pred_len:, :],
+                                             probability_range=probability_range)
         return None
 
     # noinspection DuplicatedCode
@@ -245,8 +229,7 @@ class Model(nn.Module):
 
         # only select the last hidden state
         # embedding encoder
-        enc_hidden = enc_hidden.view(batch_size, self.pred_start,
-                                     self.enc_lstm_layers * self.lstm_hidden_size)
+        enc_hidden = enc_hidden.view(batch_size, self.pred_start, self.enc_lstm_layers * self.lstm_hidden_size)
         enc_hidden = self.enc_embedding(enc_hidden, mark_enc)
         enc_hidden_attn = enc_hidden.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
