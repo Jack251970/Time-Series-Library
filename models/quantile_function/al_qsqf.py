@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
+from torch.nn.functional import pad
 
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_cq import sample_pred
+from models.quantile_function.lstm_cq import phase_gamma_and_eta_k
 
 
 class Model(nn.Module):
@@ -92,6 +93,7 @@ class Model(nn.Module):
         self.out_norm = nn.LayerNorm([self.L_dec, self.H, out_size])
 
         # QSQM
+        device = torch.device("cuda" if params.use_gpu else "cpu")
         self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
         self._lambda = -1e-3  # make sure all data is not on the left point
         if self.algorithm_type == '2':
@@ -104,9 +106,7 @@ class Model(nn.Module):
             raise ValueError("algorithm_type must be '1', '2', or '1+2'")
         self.linear_eta_k = nn.Linear(self.qsqm_input_size, self.num_spline)
         self.soft_plus = nn.Softplus()  # make sure parameter is positive
-        device = torch.device("cuda" if params.use_gpu else "cpu")
-        y = torch.ones(self.num_spline) / self.num_spline
-        self.alpha_prime_k = y.repeat(self.batch_size, 1).to(device)  # [256, 20]
+        self.alpha_prime_k = torch.ones(self.batch_size, self.num_spline).to(device) / self.num_spline  # [256, 20]
 
     @staticmethod
     def init_lstm(lstm):
@@ -374,3 +374,217 @@ class Model(nn.Module):
                 # use uniform samples to calculate the mean
                 return (samples, samples_mu, samples_std, samples_high, samples_low, attention_map,
                         (samples_lambda, samples_gamma, samples_eta_k))
+
+
+# noinspection DuplicatedCode
+def get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
+    """
+    Formula
+    2:
+    int{Q(alpha)} = lambda * (max_alpha - min_alpha) + 1/2 * gamma * (max_alpha ^ 2 - min_alpha ^ 2)
+    + sum(1/3 * beta_k * (max_alpha - alpha_0_k) ^ 3)
+    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
+
+    1+2:
+    int{Q(alpha)} = lambda * (max_alpha - min_alpha) + sum(1/2 * gamma_k * (max_alpha - alpha_0_k) ^ 2)
+    + sum(1/3 * beta_k * (max_alpha - alpha_0_k) ^ 3)
+    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
+
+    1:
+    int {Q(alpha)} = lambda * (max_alpha - min_alpha) + sum(1/2 * gamma_k * (max_alpha - alpha_0_k) ^ 2)
+    y_hat = int{Q(alpha)} / (max_alpha - min_alpha)
+    """
+    # init min_alpha and max_alpha
+    device = gamma.device
+    min_alpha = torch.Tensor([0]).to(device)  # [1]
+    max_alpha = torch.Tensor([1]).to(device)  # [1]
+
+    # get min pred and max pred
+    # indices = alpha_0_k < min_alpha  # [256, 20]
+    # min_pred0 = _lambda
+    # if algorithm_type == '2':
+    #     min_pred1 = (min_alpha * gamma).sum(dim=1)  # [256,]
+    #     min_pred2 = ((min_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
+    #     min_pred = min_pred0 + min_pred1 + min_pred2  # [256,]
+    # elif algorithm_type == '1+2':
+    #     min_pred1 = ((min_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
+    #     min_pred2 = ((min_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
+    #     min_pred = min_pred0 + min_pred1 + min_pred2  # [256,]
+    # elif algorithm_type == '1':
+    #     min_pred1 = ((min_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
+    #     min_pred = min_pred0 + min_pred1  # [256,]
+    # else:
+    #     raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+    # indices = alpha_0_k < max_alpha  # [256, 20]
+    # max_pred0 = _lambda
+    # if algorithm_type == '2':
+    #     max_pred1 = (max_alpha * gamma).sum(dim=1)  # [256,]
+    #     max_pred2 = ((max_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
+    #     max_pred = max_pred0 + max_pred1 + max_pred2  # [256,]
+    # elif algorithm_type == '1+2':
+    #     max_pred1 = ((max_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
+    #     max_pred2 = ((max_alpha - alpha_0_k).pow(2) * beta_k * indices).sum(dim=1)  # [256,]
+    #     max_pred = max_pred0 + max_pred1 + max_pred2  # [256,]
+    # elif algorithm_type == '1':
+    #     max_pred1 = ((max_alpha - alpha_0_k) * gamma * indices).sum(dim=1)  # [256,]
+    #     max_pred = max_pred0 + max_pred1  # [256,]
+    # else:
+    #     raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+    # total_area = ((max_alpha - min_alpha) * (max_pred - min_pred))  # [256,]
+
+    # get int{Q(alpha)}
+    if algorithm_type == '2':
+        integral0 = _lambda * (max_alpha - min_alpha)
+        integral1 = 1 / 2 * gamma.squeeze() * (max_alpha.pow(2) - min_alpha.pow(2))  # [256,]
+        integral2 = 1 / 3 * ((max_alpha - alpha_0_k).pow(3) * beta_k).sum(dim=1)  # [256,]
+        integral = integral0 + integral1 + integral2  # [256,]
+    elif algorithm_type == '1+2':
+        integral0 = _lambda * (max_alpha - min_alpha)
+        integral1 = 1 / 2 * ((max_alpha - alpha_0_k).pow(2) * gamma).sum(dim=1)  # [256,]
+        integral2 = 1 / 3 * ((max_alpha - alpha_0_k).pow(3) * beta_k).sum(dim=1)  # [256,]
+        integral = integral0 + integral1 + integral2  # [256,]
+    elif algorithm_type == '1':
+        integral0 = _lambda * (max_alpha - min_alpha)
+        integral1 = 1 / 2 * ((max_alpha - alpha_0_k).pow(2) * gamma).sum(dim=1)  # [256,]
+        integral = integral0 + integral1  # [256,]
+    else:
+        raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+    y_hat = integral / (max_alpha - min_alpha)  # [256,]
+
+    return y_hat
+
+
+# noinspection DuplicatedCode
+def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
+    """
+    Formula
+    2:
+    Q(alpha) = lambda + gamma * alpha + sum(beta_k * (alpha - alpha_k) ^ 2)
+
+    1+2:
+    Q(alpha) = lambda + sum(beta_k * (alpha - alpha_k)) + sum(beta_k * (alpha - alpha_k) ^ 2)
+
+    1:
+    Q(alpha) = lambda + sum(beta_k * (alpha - alpha_k))
+    """
+    # phase parameter
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
+
+    if alpha is not None:
+        # get Q(alpha)
+        indices = alpha_0_k < alpha  # [256, 20]
+        pred0 = _lambda
+        if algorithm_type == '2':
+            pred1 = (gamma * alpha).sum(dim=1)  # [256,]
+            pred2 = (beta_k * (alpha - alpha_0_k).pow(2) * indices).sum(dim=1)  # [256,]
+            pred = pred0 + pred1 + pred2  # [256,]
+        elif algorithm_type == '1+2':
+            pred1 = (gamma * (alpha - alpha_0_k) * indices).sum(dim=1)  # [256,]
+            pred2 = (beta_k * (alpha - alpha_0_k).pow(2) * indices).sum(dim=1)  # [256,]
+            pred = pred0 + pred1 + pred2  # [256,]
+        elif algorithm_type == '1':
+            pred1 = (gamma * (alpha - alpha_0_k) * indices).sum(dim=1)  # [256,]
+            pred = pred0 + pred1  # [256,]
+        else:
+            raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+
+        return pred
+    else:
+        # get pred mean value
+        y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
+
+        return y_hat
+
+
+def loss_fn_crps(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # labels
+    labels = labels.unsqueeze(1)  # [256, 1]
+
+    # calculate loss
+    crpsLoss = get_crps(alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type)
+
+    return crpsLoss
+
+
+# noinspection DuplicatedCode
+def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
+    # [256, 1], [256, 20], [256, 20], [256, 20], [256, 1]
+    alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
+    alpha_1_k1 = pad(alpha_0_k, pad=(0, 1), value=1)[:, 1:]  # [256, 20]
+
+    # calculate the maximum for each segment of the spline and get l
+    df1 = alpha_1_k1.expand(alpha_prime_k.shape[1], alpha_prime_k.shape[0],
+                            alpha_prime_k.shape[1]).T.clone()  # [20, 256, 20]
+    knots = df1 - alpha_0_k  # [20, 256, 20]
+    knots[knots < 0] = 0  # [20, 256, 20]
+    if algorithm_type == '2':
+        df2 = alpha_1_k1.T.unsqueeze(2)
+        knots = _lambda + (df2 * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)  # [20, 256]
+    elif algorithm_type == '1+2':
+        knots = _lambda + (knots * gamma).sum(dim=2) + (knots.pow(2) * beta_k).sum(dim=2)  # [20, 256]
+    elif algorithm_type == '1':
+        knots = _lambda + (knots * gamma).sum(dim=2)  # [20, 256]
+    else:
+        raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+    knots = pad(knots.T, (1, 0), value=_lambda)[:, :-1]  # F(alpha_{1~K})=0~max  # [256, 20]
+    diff = y - knots  # [256, 20]
+    alpha_l = diff > 0  # [256, 20]
+
+    # calculate the parameter for quadratic equation
+    y = y.squeeze()  # [256,]
+    if algorithm_type == '2':
+        A = torch.sum(alpha_l * beta_k, dim=1)  # [256,]
+        B = gamma[:, 0] - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)  # [256,]
+        C = _lambda - y + torch.sum(alpha_l * beta_k * alpha_0_k * alpha_0_k, dim=1)  # [256,]
+    elif algorithm_type == '1+2':
+        A = torch.sum(alpha_l * beta_k, dim=1)  # [256,]
+        B = torch.sum(alpha_l * gamma, dim=1) - 2 * torch.sum(alpha_l * beta_k * alpha_0_k, dim=1)  # [256,]
+        C = _lambda - y - torch.sum(alpha_l * gamma * alpha_0_k, dim=1) + torch.sum(
+            alpha_l * beta_k * alpha_0_k * alpha_0_k, dim=1)  # [256,]
+    elif algorithm_type == '1':
+        A = torch.zeros_like(y)  # [256,]
+        B = torch.sum(alpha_l * gamma, dim=1)
+        C = _lambda - y - torch.sum(alpha_l * gamma * alpha_0_k, dim=1)
+    else:
+        raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+
+    # solve the quadratic equation: since A may be zero, roots can be from different methods.
+    not_zero = (A != 0)  # [256,]
+    alpha_plus = torch.zeros_like(A)  # [256,]
+    # since there may be numerical calculation error  #0
+    idx = (B ** 2 - 4 * A * C) < 0  # 0  # [256,]
+    diff = diff.abs()  # [256,]
+    index = diff == (diff.min(dim=1)[0].view(-1, 1))  # [256,]
+    index[~idx, :] = False  # [256,]
+    # index=diff.abs()<1e-4  # 0,1e-4 is a threshold
+    # idx=index.sum(dim=1)>0  # 0
+    alpha_plus[idx] = alpha_0_k[index]  # 0  # [256,]
+    alpha_plus[~not_zero] = -C[~not_zero] / B[~not_zero]  # [256,]
+    not_zero = ~(~not_zero | idx)  # 0  # [256,]
+    delta = B[not_zero].pow(2) - 4 * A[not_zero] * C[not_zero]  # [232,]
+    alpha_plus[not_zero] = (-B[not_zero] + torch.sqrt(delta)) / (2 * A[not_zero])  # [256,]
+
+    # get CRPS
+    crps_1 = (_lambda - y) * (1 - 2 * alpha_plus)  # [256,]
+    if algorithm_type == '2':
+        crps_2 = gamma[:, 0] * (1 / 3 - alpha_plus.pow(2))
+        crps_3 = torch.sum(1 / 6 * beta_k * (1 - alpha_0_k).pow(4), dim=1)
+        crps_4 = torch.sum(2 / 3 * alpha_l * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)
+        crps = crps_1 + crps_2 + crps_3 - crps_4
+    elif algorithm_type == '1+2':
+        crps_2 = torch.sum(1 / 3 * gamma * (1 - alpha_0_k).pow(3), dim=1)  # [256,]
+        crps_3 = torch.sum(alpha_l * gamma * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(2), dim=1)  # [256,]
+        crps_4 = torch.sum(1 / 6 * beta_k * (1 - alpha_0_k).pow(4), dim=1)  # [256,]
+        crps_5 = torch.sum(2 / 3 * alpha_l * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)  # [256,]
+        crps = crps_1 + crps_2 - crps_3 + crps_4 - crps_5  # [256, 256]
+    elif algorithm_type == '1':
+        crps_2 = torch.sum(1 / 3 * gamma * (1 - alpha_0_k).pow(3), dim=1)  # [256,]
+        crps_3 = torch.sum(alpha_l * gamma * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(2), dim=1)  # [256,]
+        crps = crps_1 + crps_2 - crps_3  # [256,]
+    else:
+        raise ValueError("algorithm_type must be '1', '2', or '1+2'")
+
+    crps = torch.mean(crps)  # [256,]
+    return crps
