@@ -485,60 +485,6 @@ def loss_fn_crps(tuple_param):
     return crpsLoss
 
 
-def loss_fn_mse(tuple_param):
-    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
-
-    # get y_hat
-    y_hat = sample_pred(alpha_prime_k, None, _lambda, gamma, eta_k, algorithm_type)  # [256,]
-
-    # calculate loss
-    loss = nn.MSELoss()
-    mseLoss = loss(y_hat, labels)
-
-    return mseLoss
-
-
-def loss_fn_mae(tuple_param):
-    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
-
-    # get y_hat
-    y_hat = sample_pred(alpha_prime_k, None, _lambda, gamma, eta_k, algorithm_type)  # [256,]
-
-    # calculate loss
-    loss = nn.L1Loss()
-    mseLoss = loss(y_hat, labels)
-
-    return mseLoss
-
-
-_quantiles_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-
-
-def loss_fn_quantiles(tuple_param):
-    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
-
-    # labels
-    labels = labels.unsqueeze(1)  # [256, 1]
-
-    # sample quantiles
-    global _quantiles_list
-    quantiles_number = len(_quantiles_list)
-    batch_size = labels.shape[0]
-    device = labels.device
-    quantiles = torch.Tensor(_quantiles_list).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 9]
-    quantiles_y_pred = torch.zeros(batch_size, quantiles_number, device=device)  # [256, 9]
-    for i in range(quantiles_number):
-        quantile = torch.Tensor([_quantiles_list[i]]).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 1]
-        samples = sample_pred(alpha_prime_k, quantile, _lambda, gamma, eta_k, algorithm_type)
-        quantiles_y_pred[:, i] = samples  # [256,]
-
-    # calculate loss
-    residual = quantiles_y_pred - labels  # [256, 9]
-    quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual).mean()
-
-    return quantilesLoss
-
-
 # noinspection DuplicatedCode
 def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
     # [256, 1], [256, 20], [256, 20], [256, 20], [256, 1]
@@ -619,3 +565,57 @@ def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
 
     crps = torch.mean(crps)  # [256,]
     return crps
+
+
+def loss_fn_mse(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # get y_hat
+    y_hat = sample_pred(alpha_prime_k, None, _lambda, gamma, eta_k, algorithm_type)  # [256,]
+
+    # calculate loss
+    loss = nn.MSELoss()
+    mseLoss = loss(y_hat, labels)
+
+    return mseLoss
+
+
+def loss_fn_mae(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # get y_hat
+    y_hat = sample_pred(alpha_prime_k, None, _lambda, gamma, eta_k, algorithm_type)  # [256,]
+
+    # calculate loss
+    loss = nn.L1Loss()
+    mseLoss = loss(y_hat, labels)
+
+    return mseLoss
+
+
+_quantiles_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+
+def loss_fn_quantiles(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # labels
+    labels = labels.unsqueeze(1)  # [256, 1]
+
+    # sample quantiles
+    global _quantiles_list
+    quantiles_number = len(_quantiles_list)
+    batch_size = labels.shape[0]
+    device = labels.device
+    quantiles = torch.Tensor(_quantiles_list).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 9]
+    quantiles_y_pred = torch.zeros(batch_size, quantiles_number, device=device)  # [256, 9]
+    for i in range(quantiles_number):
+        quantile = torch.Tensor([_quantiles_list[i]]).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 1]
+        samples = sample_pred(alpha_prime_k, quantile, _lambda, gamma, eta_k, algorithm_type)
+        quantiles_y_pred[:, i] = samples  # [256,]
+
+    # calculate loss
+    residual = quantiles_y_pred - labels  # [256, 9]
+    quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual).mean()
+
+    return quantilesLoss
