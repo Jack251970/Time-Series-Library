@@ -152,7 +152,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                     scaler.update()
                 else:
                     loss.backward()
-                    # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 20)
+                    # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=20, norm_type=2)
                     model_optim.step()
 
             current_epoch_time = time.time() - epoch_time
