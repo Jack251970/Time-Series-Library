@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from layers.AutoCorrelation import AutoCorrelation
-from layers.Embed import DataEmbedding
+from layers.Embed import DataEmbedding, DataEmbedding_wo_pos
 from layers.SelfAttention_Family import FullAttention
 from models.quantile_function.lstm_cq import ConvLayer, sample_pred
 
@@ -173,11 +173,16 @@ class Model(nn.Module):
                 if self.attention_projection == 'ap':
                     self.enc_embedding = nn.Linear(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model)
                     self.dec_embedding = nn.Linear(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model)
-                else:
+                elif self.attention_projection == 'ap1':
                     self.enc_embedding = DataEmbedding(self.enc_lstm_layers * self.lstm_hidden_size, self.d_model,
-                                                       params.embed, params.freq, 0)
+                                                       params.embed, params.freq, self.lstm_dropout)
                     self.dec_embedding = DataEmbedding(self.dec_lstm_layers * self.lstm_hidden_size, self.d_model,
-                                                       params.embed, params.freq, 0)
+                                                       params.embed, params.freq, self.lstm_dropout)
+                else:
+                    self.enc_embedding = DataEmbedding_wo_pos(self.enc_lstm_layers * self.lstm_hidden_size,
+                                                              self.d_model, params.embed, params.freq, self.lstm_dropout)
+                    self.dec_embedding = DataEmbedding_wo_pos(self.dec_lstm_layers * self.lstm_hidden_size,
+                                                              self.d_model, params.embed, params.freq, self.lstm_dropout)
                 if not self.dec_hidden_separate:
                     out_size = self.dec_lstm_layers * self.lstm_hidden_size // self.n_heads
                     self.out_projection = nn.Linear(self.E_dec, out_size)
