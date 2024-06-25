@@ -193,6 +193,7 @@ def get_search_space():
         'label_len': {'_type': 'single', '_value': 0},
         'lag': {'_type': 'single', '_value': 3},
         'dropout': {'_type': 'single', '_value': 0},
+        'moving_avg': {'_type': 'single', '_value': 5},
 
         'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
         'reindex': {'_type': 'single', '_value': 0},
