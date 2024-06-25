@@ -71,7 +71,8 @@ class Model(nn.Module):
 
         # Series decomposition
         self.decomp_enc = series_decomp(kernel_size=params.moving_avg)
-        self.decomp_dec = series_decomp(kernel_size=params.moving_avg)
+        self.decomp_dec1 = series_decomp(kernel_size=params.moving_avg)
+        self.decomp_dec2 = series_decomp(kernel_size=params.moving_avg)
 
         # Attention
         self.attention = FullAttention(mask_flag=False, output_attention=True, attention_dropout=self.dropout)
@@ -100,8 +101,8 @@ class Model(nn.Module):
         # QSQM
         device = torch.device("cuda" if params.use_gpu else "cpu")
         self.qsqm_input_size = self.lstm_hidden_size * self.dec_lstm_layers
-        # - 1e-3 make sure all data is not on the left point
-        self._lambda = torch.zeros(self.batch_size, self.pred_steps, 1).to(device) - 1e-3
+        self.linear_lambda = nn.Linear(self.qsqm_input_size, 1)
+        self.linear_lambda.weight.data.fill_(0.0)
         if self.algorithm_type == '2':
             self.linear_gamma = nn.Linear(self.qsqm_input_size, 1)
         elif self.algorithm_type == '1+2':
@@ -149,20 +150,29 @@ class Model(nn.Module):
         return hidden, cell
 
     # noinspection DuplicatedCode
-    def run_lstm_dec(self, x, x_mark_dec_step, hidden, cell, enc_hidden_attn):
+    def run_lstm_dec(self, t, dec_hidden, x, x_mark_dec_step, hidden, cell, enc_hidden_attn):
         _, (hidden, cell) = self.lstm_dec(x, (hidden, cell))  # [1, 256, 64], [1, 256, 64]
-        # embedding decoder
-        dec_hidden_attn = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
-        dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
+        # series decomposition & embedding decoder
+        dec_hidden_step = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
+        if t == 0:
+            dec_hidden = dec_hidden_step
+        else:
+            dec_hidden_front = dec_hidden[0:t].clone().view(self.batch_size, t,
+                                                            self.dec_lstm_layers * self.lstm_hidden_size)
+            dec_hidden = torch.cat([dec_hidden_front, dec_hidden_step], dim=1)
+        dec_hidden_uncertainty, dec_hidden_attn_trend = self.decomp_dec1(dec_hidden)
+        dec_hidden_uncertainty_step = dec_hidden_uncertainty[:, -1:, :]
+        dec_hidden_attn_trend_step = dec_hidden_attn_trend[:, -1, :]
+        dec_hidden_uncertainty_embed = self.dec_embedding(dec_hidden_uncertainty_step, x_mark_dec_step)
         # attention
-        dec_hidden_attn = dec_hidden_attn.view(self.batch_size, self.L_dec, self.H, self.E_dec)  # [256, 1, 2, 20]
+        dec_hidden_attn = dec_hidden_uncertainty_embed.view(self.batch_size, self.L_dec, self.H, self.E_dec)
         enc_hidden_attn = self.enc_norm(enc_hidden_attn)
         dec_hidden_attn = self.dec_norm(dec_hidden_attn)
         y, attn = self.attention(dec_hidden_attn, enc_hidden_attn, enc_hidden_attn, None)
         y = self.out_projection(y)
         y = self.out_norm(y)
         y = y.view(self.dec_lstm_layers, self.batch_size, -1)
-        return y, y, cell, attn
+        return y, y, cell, attn, dec_hidden_attn_trend_step
 
     @staticmethod
     def get_hidden_permute(hidden):
@@ -214,13 +224,15 @@ class Model(nn.Module):
 
         enc_in = enc_in.permute(1, 0, 2)  # [96, 256, 4]
         dec_in = dec_in.permute(1, 0, 2)  # [16, 256, 7]
-        dec_in_trend = self._lambda.permute(1, 0, 2)  # [16, 256, 1]
         if labels is not None:
             labels = labels.permute(1, 0, 2)  # [12, 256]
 
-        # hidden and cell are initialized to zero
-        hidden = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
-        cell = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)  # [2, 256, 40]
+        # initialize encoder hidden and cell
+        enc_hidden_init = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+        enc_cell_init = torch.zeros(self.enc_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+
+        # initialize hidden and cell
+        hidden, cell = enc_hidden_init.clone(), enc_cell_init.clone()
 
         # run encoder
         enc_hidden = torch.zeros(self.pred_start, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
@@ -235,22 +247,30 @@ class Model(nn.Module):
         enc_hidden_uncertainty = self.enc_embedding(enc_hidden_uncertainty, mark_enc)
         enc_hidden_attn = enc_hidden_uncertainty.view(batch_size, self.L_enc, self.H, self.E_enc)  # [256, 96, 8, 5]
 
-        # initialize decoder input
-        dec_hidden = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
-        dec_cell = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+        # initialize decoder hidden and cell
+        dec_hidden_init = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
+        dec_cell_init = torch.zeros(self.dec_lstm_layers, batch_size, self.lstm_hidden_size, device=device)
 
         if labels is not None:
             # train mode or validate mode
             hidden_permutes = torch.zeros(batch_size, self.pred_steps, self.qsqm_input_size, device=device)
 
             # initialize hidden and cell
-            hidden, cell = dec_hidden.clone(), dec_cell.clone()
+            hidden, cell = dec_hidden_init.clone(), dec_cell_init.clone()
 
             # decoder
+            dec_hidden = torch.zeros(self.pred_steps, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+                                     device=device)  # [16, 1, 256, 40]
+            dec_out_trend = torch.zeros(self.pred_steps, batch_size, 1, device=device)  # [16, 256, 1]
             for t in range(self.pred_steps):
                 x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(),
-                                                                 x_mark_dec_step, hidden, cell, enc_hidden_attn)
+                hidden_qsqm, hidden, cell, _, dec_trend = self.run_lstm_dec(t, dec_hidden,
+                                                                            dec_in[t].unsqueeze_(0).clone(),
+                                                                            x_mark_dec_step,
+                                                                            hidden, cell, enc_hidden_attn)
+                _lambda = self.linear_lambda(dec_trend)
+                dec_out_trend[t] = _lambda
+                dec_hidden[t] = hidden
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 hidden_permutes[:, t, :] = hidden_permute
 
@@ -271,7 +291,7 @@ class Model(nn.Module):
                     break
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)  # [256, 20], [256, 20]
                 y = labels[t].clone()  # [256,]
-                loss_list.append((self.alpha_prime_k, dec_in_trend[t], gamma, eta_k, y, self.algorithm_type))
+                loss_list.append((self.alpha_prime_k, dec_out_trend[t], gamma, eta_k, y, self.algorithm_type))
 
             return loss_list, stop_flag
         else:
@@ -295,13 +315,21 @@ class Model(nn.Module):
                 x_dec_clone = dec_in.clone()  # [16, 256, 7]
 
                 # initialize hidden and cell
-                hidden, cell = dec_hidden.clone(), dec_cell.clone()
+                hidden, cell = dec_hidden_init.clone(), dec_cell_init.clone()
 
                 # decoder
+                dec_hidden = torch.zeros(self.pred_steps, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+                                         device=device)  # [16, 1, 256, 40]
+                dec_out_trend = torch.zeros(self.pred_steps, batch_size, 1, device=device)  # [16, 256, 1]
                 for t in range(self.pred_steps):
                     x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                    hidden_qsqm, hidden, cell, _ = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(),
-                                                                     x_mark_dec_step, hidden, cell, enc_hidden_attn)
+                    hidden_qsqm, hidden, cell, _, dec_trend = self.run_lstm_dec(t, dec_hidden,
+                                                                                dec_in[t].unsqueeze_(0).clone(),
+                                                                                x_mark_dec_step,
+                                                                                hidden, cell, enc_hidden_attn)
+                    dec_hidden[t] = hidden
+                    _lambda = self.linear_lambda(dec_trend)
+                    dec_out_trend[t] = _lambda
                     hidden_permute = self.get_hidden_permute(hidden_qsqm)
                     gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
 
@@ -316,7 +344,7 @@ class Model(nn.Module):
                             torch.tensor([1.0], device=device))
                         pred_alpha = uniform.sample(torch.Size([batch_size]))  # [256, 1]
 
-                    pred = sample_pred(self.alpha_prime_k, pred_alpha, dec_in_trend[t], gamma, eta_k,
+                    pred = sample_pred(self.alpha_prime_k, pred_alpha, dec_out_trend[t], gamma, eta_k,
                                        self.algorithm_type)
                     if j < probability_range_len:
                         samples_low[j, :, t] = pred
@@ -347,19 +375,27 @@ class Model(nn.Module):
             samples_lambda, samples_gamma, samples_eta_k = self.initialize_sample_parameters(batch_size, device)
 
             # initialize hidden and cell
-            hidden, cell = dec_hidden.clone(), dec_cell.clone()
+            hidden, cell = dec_hidden_init.clone(), dec_cell_init.clone()
 
             # decoder
+            dec_hidden = torch.zeros(self.pred_steps, self.enc_lstm_layers, batch_size, self.lstm_hidden_size,
+                                     device=device)  # [16, 1, 256, 40]
+            dec_out_trend = torch.zeros(self.pred_steps, batch_size, 1, device=device)  # [16, 256, 1]
             for t in range(self.pred_steps):
                 x_mark_dec_step = mark_dec[:, t, :].unsqueeze(1).clone()  # [256, 1, 5]
-                hidden_qsqm, hidden, cell, attn = self.run_lstm_dec(dec_in[t].unsqueeze_(0).clone(),
-                                                                    x_mark_dec_step, hidden, cell, enc_hidden_attn)
+                hidden_qsqm, hidden, cell, attn, dec_trend = self.run_lstm_dec(t, dec_hidden,
+                                                                               dec_in[t].unsqueeze_(0).clone(),
+                                                                               x_mark_dec_step,
+                                                                               hidden, cell, enc_hidden_attn)
+                dec_hidden[t] = hidden
+                _lambda = self.linear_lambda(dec_trend)
+                dec_out_trend[t] = _lambda
                 hidden_permute = self.get_hidden_permute(hidden_qsqm)
                 gamma, eta_k = self.get_qsqm_parameter(hidden_permute)
                 attention_map[t] = attn
 
-                pred = sample_pred(self.alpha_prime_k, None, dec_in_trend[t], gamma, eta_k, self.algorithm_type)
-                samples_lambda[t] = dec_in_trend[t]
+                pred = sample_pred(self.alpha_prime_k, None, dec_out_trend[t], gamma, eta_k, self.algorithm_type)
+                samples_lambda[t] = dec_out_trend[t]
                 samples_gamma[t] = gamma
                 samples_eta_k[t] = eta_k
                 samples_mu1[:, t, 0] = pred
@@ -450,7 +486,7 @@ def loss_fn_crps(tuple_param):
 
 
 # noinspection DuplicatedCode
-def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
+def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type, punish=2.0):
     # [256, 1], [256, 20], [256, 20], [256, 20], [256, 1]
     alpha_0_k, beta_k = phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type)
     alpha_1_k1 = pad(alpha_0_k, pad=(0, 1), value=1)[:, 1:]  # [256, 20]
@@ -497,38 +533,46 @@ def get_crps(alpha_prime_k, _lambda, gamma, eta_k, y, algorithm_type):
         raise ValueError("algorithm_type must be '1', '2', or '1+2'")
 
     # solve the quadratic equation: since A may be zero, roots can be from different methods.
-    not_zero = (A != 0)  # [256,]
+    a_not_zero = (A != 0)  # [256,]
     alpha_plus = torch.zeros_like(A)  # [256,]
-    # since there may be numerical calculation error  #0
-    idx = (B ** 2 - 4 * A * C) < 0  # 0  # [256,]
+    # get alpha_plus when A is not zero and delta is smaller than zero
+    delta_smaller_zero = (B ** 2 - 4 * A * C) < 0  # [256,]
+    delta_error = delta_smaller_zero & a_not_zero  # [256,]
     diff = diff.abs()  # [256,]
-    index = diff == (diff.min(dim=1)[0].view(-1, 1))  # [256,]
-    index[~idx, :] = False  # [256,]
+    # fix: use argmin instead of min to make sure only one minimum value is selected
+    min_indices = torch.argmin(diff, dim=1)
+    index = torch.zeros_like(diff, dtype=torch.bool)
+    for i, min_index in enumerate(min_indices):
+        index[i, min_index] = True
+    index[~delta_error, :] = False  # [256,]
     # index=diff.abs()<1e-4  # 0,1e-4 is a threshold
-    # idx=index.sum(dim=1)>0  # 0
-    alpha_plus[idx] = alpha_0_k[index]  # 0  # [256,]
-    alpha_plus[~not_zero] = -C[~not_zero] / B[~not_zero]  # [256,]
-    not_zero = ~(~not_zero | idx)  # 0  # [256,]
-    delta = B[not_zero].pow(2) - 4 * A[not_zero] * C[not_zero]  # [232,]
-    alpha_plus[not_zero] = (-B[not_zero] + torch.sqrt(delta)) / (2 * A[not_zero])  # [256,]
+    # delta_smaller_zero=index.sum(dim=1)>0  # 0
+    alpha_plus[delta_error] = alpha_0_k[index]  # 0  # [256,]
+    # get alpha_plus when A is zero
+    alpha_plus[~a_not_zero] = -C[~a_not_zero] / B[~a_not_zero]  # [256,]
+    # get alpha_plus when A is not zero and delta is larger than zero
+    a_not_zero = ~(~a_not_zero | delta_smaller_zero)  # 0  # [256,]
+    delta = B[a_not_zero].pow(2) - 4 * A[a_not_zero] * C[a_not_zero]  # [232,]
+    alpha_plus[a_not_zero] = (-B[a_not_zero] + torch.sqrt(delta)) / (2 * A[a_not_zero])  # [256,]
 
     # get CRPS
     crps_1 = (_lambda - y) * (1 - 2 * alpha_plus)  # [256,]
+    lambda_punish = punish * _lambda.abs()  # [256,]
     if algorithm_type == '2':
         crps_2 = gamma[:, 0] * (1 / 3 - alpha_plus.pow(2))
         crps_3 = torch.sum(1 / 6 * beta_k * (1 - alpha_0_k).pow(4), dim=1)
         crps_4 = torch.sum(2 / 3 * alpha_l * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)
-        crps = crps_1 + crps_2 + crps_3 - crps_4
+        crps = crps_1 + crps_2 + crps_3 - crps_4 + lambda_punish  # [256,]
     elif algorithm_type == '1+2':
         crps_2 = torch.sum(1 / 3 * gamma * (1 - alpha_0_k).pow(3), dim=1)  # [256,]
         crps_3 = torch.sum(alpha_l * gamma * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(2), dim=1)  # [256,]
         crps_4 = torch.sum(1 / 6 * beta_k * (1 - alpha_0_k).pow(4), dim=1)  # [256,]
         crps_5 = torch.sum(2 / 3 * alpha_l * beta_k * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(3), dim=1)  # [256,]
-        crps = crps_1 + crps_2 - crps_3 + crps_4 - crps_5  # [256, 256]
+        crps = crps_1 + crps_2 - crps_3 + crps_4 - crps_5 + lambda_punish  # [256,]
     elif algorithm_type == '1':
         crps_2 = torch.sum(1 / 3 * gamma * (1 - alpha_0_k).pow(3), dim=1)  # [256,]
         crps_3 = torch.sum(alpha_l * gamma * (alpha_plus.unsqueeze(1) - alpha_0_k).pow(2), dim=1)  # [256,]
-        crps = crps_1 + crps_2 - crps_3  # [256,]
+        crps = crps_1 + crps_2 - crps_3 + lambda_punish # [256,]
     else:
         raise ValueError("algorithm_type must be '1', '2', or '1+2'")
 
