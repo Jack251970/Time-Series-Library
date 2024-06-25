@@ -136,11 +136,11 @@ def get_search_space():
         'data': {'_type': 'single', '_value': 'custom'},
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': './dataset/'},
-        'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
+        # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'traffic/traffic.csv'},
-        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-        #                                             'traffic/traffic.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+                                                    'traffic/traffic.csv']},
     }
 
     learning_config = {
@@ -151,7 +151,8 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 1},
-        'pred_len': {'_type': 'single', '_value': 16},
+        # 'pred_len': {'_type': 'single', '_value': 16},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 64]},
         # 'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
@@ -167,11 +168,11 @@ def get_search_space():
         'learning_rate': {'_type': 'single', '_value': 0.001},
         'train_epochs': {'_type': 'single', '_value': 10},
 
-        # 'num_spline': {'_type': 'single', '_value': 20},
-        'num_spline': {'_type': 'choice', '_value': range(5, 60, 1)},
+        'num_spline': {'_type': 'single', '_value': 20},
+        # 'num_spline': {'_type': 'choice', '_value': range(5, 60, 1)},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm'},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap2_norm'},
     }
 
     model_configs = {
@@ -183,5 +184,5 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_num_spline.csv',
+h.config_optimizer_settings(root_path='.', data_csv_file='data_no_pos.csv',
                             scan_all_csv=False, try_model=False, force_exp=False)
