@@ -166,13 +166,14 @@ def get_search_space():
         'reindex': {'_type': 'single', '_value': 0},
 
         'learning_rate': {'_type': 'single', '_value': 0.001},
-        'train_epochs': {'_type': 'single', '_value': 10},
+        'train_epochs': {'_type': 'single', '_value': 50},
 
         'num_spline': {'_type': 'single', '_value': 20},
         # 'num_spline': {'_type': 'choice', '_value': range(5, 60, 1)},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap2_norm'},
+        # 'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap2_norm'},
+        'custom_params': {'_type': 'choice', '_value': ['AA_attn_dhz_ap1_norm', 'AA_attn_dhz_ap2_norm']},
     }
 
     model_configs = {
