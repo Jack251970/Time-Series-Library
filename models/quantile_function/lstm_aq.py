@@ -346,7 +346,7 @@ class Model(nn.Module):
         if self.use_attn is not None:
             if self.attention_projection is not None:
                 dec_hidden_attn = hidden.clone().view(self.batch_size, 1, self.dec_lstm_layers * self.lstm_hidden_size)
-                if self.attention_projection == 'ap1':
+                if self.attention_projection == 'ap1' or self.attention_projection == 'ap2':
                     dec_hidden_attn = self.dec_embedding(dec_hidden_attn, x_mark_dec_step)
                 else:
                     dec_hidden_attn = self.dec_embedding(dec_hidden_attn)
@@ -465,7 +465,7 @@ class Model(nn.Module):
             if self.attention_projection is not None:
                 enc_hidden = enc_hidden.view(batch_size, self.pred_start,
                                              self.enc_lstm_layers * self.lstm_hidden_size)
-                if self.attention_projection == 'ap1':
+                if self.attention_projection == 'ap1' or self.attention_projection == 'ap2':
                     enc_hidden = self.enc_embedding(enc_hidden, mark_enc)
                 else:
                     enc_hidden = self.enc_embedding(enc_hidden)
