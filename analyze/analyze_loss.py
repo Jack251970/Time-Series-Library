@@ -31,3 +31,24 @@ output_loss_figure('LSTM-AQ_Electricity_96')
 output_loss_figure('LSTM-AQ2_Electricity_96')
 output_loss_figure('LSTM-AQ3_Electricity_96')
 output_loss_figure('LSTM-AQ4_Electricity_96')
+
+
+def output_multi_loss_figure(_list):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.clf()
+    for i in _list:
+        exp_name, color, label = i
+        train_loss, vali_loss, test_loss = get_loss(exp_name)
+        plt.plot(train_loss.squeeze(), color=color, label=label)
+    plt.xlabel('Epoch')
+    plt.ylabel('Train Loss')
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, f'multi loss.png'))
+
+
+output_multi_loss_figure([['LSTM-AQ_Electricity_96', 'blue', 'CRPS'],
+                          ['LSTM-AQ2_Electricity_96', 'red', 'MSE'],
+                          ['LSTM-AQ3_Electricity_96', 'green', 'MAE'],
+                          ['LSTM-AQ4_Electricity_96', 'purple', 'MQL']])
