@@ -135,6 +135,8 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
             draw_density_figure(samples=samples_value_inverse[:, i, j],
                                 true=true_value_inverse[i, j],
                                 path=file_path,
+                                xlabel='Power/KW',
+                                ylabel='Probability',
                                 xlim=xlim,
                                 ylim=ylim)
 
@@ -159,7 +161,9 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
 
                 draw_density_figure(samples=samples_value_inverse[:, i, j],
                                     true=true_value_inverse[i, j],
-                                    path=file_path)
+                                    path=file_path,
+                                    xlabel='Power/KW',
+                                    ylabel='Probability')
 
 
 draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
@@ -174,7 +178,7 @@ draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
                                   draw_all=False,
                                   folder='AL-QSQF',
                                   replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
-                                  use_cupy=True)
+                                  use_cupy=False)
 
 draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
                                   samples_index=[15, 31, 63, 95],
@@ -188,4 +192,4 @@ draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
                                   draw_all=False,
                                   folder='QSQF-C',
                                   replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
-                                  use_cupy=True)
+                                  use_cupy=False)
