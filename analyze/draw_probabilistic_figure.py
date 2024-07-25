@@ -22,12 +22,12 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
     color_index = 0
     if pred_range is not None:
         for j in range(len(pred_range)):
-            confidence_level1 = pred_range[j]
-            if confidence_level1 == selected_pred_range:
-                plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({1 - confidence_level1}) ', color=colors[color_index], linestyle='--')
+            confidence_level = pred_range[j]
+            if confidence_level == selected_pred_range:
+                plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
                 plt.plot(selected_x, low1[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
                 color_index += 1
-                plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({1 - confidence_level1}) ', color=colors[color_index], linestyle='--')
+                plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
                 plt.plot(selected_x, low2[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
                 color_index += 1
     if xlabel is not None:
@@ -47,7 +47,7 @@ def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data
     config_row = get_config_row(exp_name)
     pred_length = config_row['pred_len']
     data_length = pred_value.shape[1]
-    probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    probability_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 
     # draw selected figures
     if selected_data is not None:
@@ -100,7 +100,7 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
     config_row = get_config_row(exp_name1)
     pred_length = config_row['pred_len']
     data_length = pred_value1.shape[1]
-    probability_range = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    probability_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
     selected_probability_range = 0.2
 
     # draw selected figures

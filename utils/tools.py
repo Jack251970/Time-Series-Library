@@ -126,7 +126,7 @@ def draw_figure(x, pred, true, high, low, pred_range, path, xlabel=None, ylabel=
     if pred_range is not None:
         for j in range(len(pred_range)):
             plt.fill_between(x, high[j, :].squeeze(), low[j, :].squeeze(), color='gray',
-                             alpha=1 - pred_range[j])
+                             alpha=pred_range[j])
     if xlabel is not None:
         plt.xlabel(xlabel)
     if ylabel is not None:

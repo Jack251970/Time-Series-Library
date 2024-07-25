@@ -19,8 +19,8 @@ out_dir = 'probabilistic_density_figure'
 def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true2, pred2, path,
                              xlabel=None, ylabel=None, draw_pred=False):
     model_name1, model_name2 = model_names
-    true_color = 'blue'
-    pred1_color = 'green'
+    true_color = 'green'
+    pred1_color = 'blue'
     pred2_color = 'red'
     plt.clf()
     plt.figure(figsize=(7, 5.25))  # Adjust the figure size to increase resolution
