@@ -167,7 +167,7 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
     plt.savefig(path)
 
 
-def draw_density_figure(samples, true, path, xlabel=None, ylabel=None, xlim=None, ylim=None):  # [99], []
+def draw_density_figure(samples, true, path, xlabel=None, ylabel=None, xlim=None, ylim=None):
     plt.clf()
     plt.figure(figsize=(7, 5.25))  # Adjust the figure size to increase resolution
     sns.kdeplot(samples.squeeze(), fill=True, label='Probability Density ')
