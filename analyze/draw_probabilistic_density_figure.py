@@ -149,7 +149,7 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
             xlim = k[2] if len(k) >= 3 else None
             ylim = k[3] if len(k) >= 4 else None
 
-            _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
+            _path = out_dir
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
@@ -222,7 +222,7 @@ def draw_comp_probabilistic_density_figure(exp_names, samples_index, sample_time
             i = k[0]
             j = k[1] - 1
 
-            _path = os.path.join(out_dir, f'step {samples_index[i] + 1}')
+            _path = out_dir
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
@@ -261,7 +261,7 @@ draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
                                                [2, 181, [-500, 5000], [0, 0.00200]],
                                                [3, 235, [-500, 5000], [0, 0.00225]]],
                                   draw_all=False,
-                                  folder='AL-QSQF',
+                                  folder=None,
                                   replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
                                   use_cupy=False)
 
@@ -276,7 +276,7 @@ draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
                                                [2, 181, [-500, 5000], [0, 0.00200]],
                                                [3, 235, [-500, 5000], [0, 0.00225]]],
                                   draw_all=False,
-                                  folder='QSQF-C',
+                                  folder=None,
                                   replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
                                   use_cupy=False)
 
@@ -292,7 +292,7 @@ draw_comp_probabilistic_density_figure(exp_names=['LSTM-AQ_Electricity_96', 'QSQ
                                                     [1, 91],
                                                     [2, 181],
                                                     [3, 235]],
-                                       folder='comp',
+                                       folder=None,
                                        replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
                                                       ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
                                        use_cupy=False)

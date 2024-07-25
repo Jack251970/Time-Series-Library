@@ -1,11 +1,41 @@
 import os
 
+from matplotlib import pyplot as plt
+
 from analyze.test_data_factory import get_all_value_inverse, get_config_row
-from utils.tools import draw_figure, set_times_new_roman_font, draw_comp_figure
+from utils.tools import draw_figure, set_times_new_roman_font
 
 set_times_new_roman_font()
 
 out_dir = 'probabilistic_figure'
+
+
+def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred2, true2, high2, low2, pred_range,
+                     selected_pred_range, path, xlabel=None, ylabel=None):
+    model_name1, model_name2 = model_names
+    plt.clf()
+    selected_x = list(selected_x)  # Convert range to list if necessary
+    plt.plot(selected_x, true1[selected_x].squeeze(), label=f'True Value', color='blue')
+    plt.plot(selected_x, pred1[selected_x].squeeze(), label=f'{model_name1} Predicted Value ', color='red')
+    plt.plot(selected_x, pred2[selected_x].squeeze(), label=f'{model_name2} Predicted Value ', color='green')
+    colors = ['orange', 'purple', 'yellow', 'gray', 'pink', 'brown']
+    color_index = 0
+    if pred_range is not None:
+        for j in range(len(pred_range)):
+            confidence_level1 = pred_range[j]
+            if confidence_level1 == selected_pred_range:
+                plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({1 - confidence_level1}) ', color=colors[color_index], linestyle='--')
+                plt.plot(selected_x, low1[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
+                color_index += 1
+                plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({1 - confidence_level1}) ', color=colors[color_index], linestyle='--')
+                plt.plot(selected_x, low2[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
+                color_index += 1
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+    plt.legend(fontsize='small')
+    plt.savefig(path)
 
 
 def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data=None, replace_regex=None):
@@ -27,7 +57,7 @@ def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data
             xlim = k[2] if len(k) >= 3 else None
             ylim = k[3] if len(k) >= 4 else None
 
-            _path = os.path.join(out_dir, f'step {i + 1}')
+            _path = out_dir
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
@@ -81,7 +111,7 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
             x1 = k[2]
             x2 = k[3]
 
-            _path = os.path.join(out_dir, f'step {i + 1}')
+            _path = out_dir
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
@@ -121,7 +151,7 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
 # AL-QSQF
 draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
                           interval=128,
-                          folder='AL-QSQF',
+                          folder=None,
                           selected_data=[[16, 11, None, [1500, 5500]],
                                          [32, 19, None, [1500, 5500]],
                                          [64, 17, None, [1500, 5000]],
@@ -131,7 +161,7 @@ draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
 # QSQF-C
 draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
                           interval=128,
-                          folder='QSQF-C',
+                          folder=None,
                           selected_data=[[16, 11, None, [1500, 5500]],
                                          [32, 19, None, [1500, 5500]],
                                          [64, 17, None, [1500, 5000]],
@@ -143,7 +173,7 @@ draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
                                exp_name2='QSQF-C_Electricity_96',
                                model_names=['AL-QSQF', 'QSQF-C'],
                                interval=128,
-                               folder='comp',
+                               folder=None,
                                selected_data=[[16, 11, 84, 97],
                                               [32, 19, 86, 99],
                                               [64, 17, 40, 53],

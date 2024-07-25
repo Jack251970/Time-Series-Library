@@ -139,34 +139,6 @@ def draw_figure(x, pred, true, high, low, pred_range, path, xlabel=None, ylabel=
     plt.savefig(path)
 
 
-def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred2, true2, high2, low2, pred_range,
-                     selected_pred_range, path, xlabel=None, ylabel=None):
-    model_name1, model_name2 = model_names
-    plt.clf()
-    selected_x = list(selected_x)  # Convert range to list if necessary
-    plt.plot(selected_x, true1[selected_x].squeeze(), label=f'True Value', color='blue')
-    plt.plot(selected_x, pred1[selected_x].squeeze(), label=f'{model_name1} Predicted Value ', color='red')
-    plt.plot(selected_x, pred2[selected_x].squeeze(), label=f'{model_name2} Predicted Value ', color='green')
-    colors = ['orange', 'purple', 'yellow', 'gray', 'pink', 'brown']
-    color_index = 0
-    if pred_range is not None:
-        for j in range(len(pred_range)):
-            confidence_level1 = pred_range[j]
-            if confidence_level1 == selected_pred_range:
-                plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({1 - confidence_level1}) ', color=colors[color_index], linestyle='--')
-                plt.plot(selected_x, low1[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
-                color_index += 1
-                plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({1 - confidence_level1}) ', color=colors[color_index], linestyle='--')
-                plt.plot(selected_x, low2[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
-                color_index += 1
-    if xlabel is not None:
-        plt.xlabel(xlabel)
-    if ylabel is not None:
-        plt.ylabel(ylabel)
-    plt.legend(fontsize='small')
-    plt.savefig(path)
-
-
 def draw_density_figure(samples, true, path, xlabel=None, ylabel=None, xlim=None, ylim=None):
     plt.clf()
     plt.figure(figsize=(7, 5.25))  # Adjust the figure size to increase resolution
