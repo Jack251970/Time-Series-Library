@@ -11,25 +11,31 @@ out_dir = 'probabilistic_figure'
 
 
 def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred2, true2, high2, low2, pred_range,
-                     selected_pred_range, path, xlabel=None, ylabel=None):
+                     selected_pred_range, path, xlabel=None, ylabel=None, use_window=False):
     model_name1, model_name2 = model_names
     plt.clf()
-    selected_x = list(selected_x)  # Convert range to list if necessary
-    plt.plot(selected_x, true1[selected_x].squeeze(), label=f'True Value', color='blue')
-    plt.plot(selected_x, pred1[selected_x].squeeze(), label=f'{model_name1} Predicted Value ', color='red')
-    plt.plot(selected_x, pred2[selected_x].squeeze(), label=f'{model_name2} Predicted Value ', color='green')
-    colors = ['orange', 'purple', 'yellow', 'gray', 'pink', 'brown']
-    color_index = 0
-    if pred_range is not None:
-        for j in range(len(pred_range)):
-            confidence_level = pred_range[j]
-            if confidence_level == selected_pred_range:
-                plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
-                plt.plot(selected_x, low1[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
-                color_index += 1
-                plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
-                plt.plot(selected_x, low2[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
-                color_index += 1
+    if use_window:
+        selected_x = list(selected_x)
+    else:
+        selected_x = list(x)
+    true_color = 'green'
+    pred1_color = 'blue'
+    pred2_color = 'red'
+    plt.plot(selected_x, true1[selected_x].squeeze(), label=f'True Value', color=true_color)
+    plt.plot(selected_x, pred1[selected_x].squeeze(), label=f'{model_name1} Predicted Value ', color=pred1_color)
+    plt.plot(selected_x, pred2[selected_x].squeeze(), label=f'{model_name2} Predicted Value ', color=pred2_color)
+    # colors = ['orange', 'purple', 'yellow', 'gray', 'pink', 'brown']
+    # color_index = 0
+    # if pred_range is not None:
+    #     for j in range(len(pred_range)):
+    #         confidence_level = pred_range[j]
+    #         if confidence_level == selected_pred_range:
+    #             plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
+    #             plt.plot(selected_x, low1[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
+    #             color_index += 1
+    #             plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
+    #             plt.plot(selected_x, low2[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
+    #             color_index += 1
     if xlabel is not None:
         plt.xlabel(xlabel)
     if ylabel is not None:
@@ -108,8 +114,8 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
         for k in selected_data:
             i = k[0] - 1
             j = k[1] - 1
-            x1 = k[2]
-            x2 = k[3]
+            x1 = k[2] if len(k) >= 3 else None
+            x2 = k[3] if len(k) >= 4 else None
 
             _path = out_dir
             if not os.path.exists(_path):
@@ -119,7 +125,11 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
             if j * interval >= data_length:
                 continue
 
-            file_name = f'PF Comp Pred {pred_length} CL {selected_probability_range} Step {i + 1} Data {j + 1} ({x1}-{x2}).png'
+            if x1 is not None and x2 is not None:
+                file_name = (f'PF Comp Pred {pred_length} CL {selected_probability_range} Step {i + 1} Data {j + 1}'
+                             f' ({x1}-{x2}).png')
+            else:
+                file_name = f'PF Comp Pred {pred_length} CL {selected_probability_range} Step {i + 1} Data {j + 1} .png'
             for regex in replace_regex:
                 file_name = file_name.replace(regex[0], regex[1])
 
@@ -132,7 +142,7 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
 
             draw_comp_figure(model_names,
                              range(interval),
-                             range(x1, x2),
+                             range(x1, x2) if x1 is not None and x2 is not None else None,
                              pred_value1[i, j * interval: (j + 1) * interval],
                              true_value1[i, j * interval: (j + 1) * interval],
                              high_value1[i, :, j * interval: (j + 1) * interval],
@@ -145,7 +155,8 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
                              selected_probability_range,
                              file_path,
                              xlabel='Timestamp/Step',
-                             ylabel='Power/KW')
+                             ylabel='Power/KW',
+                             use_window=x1 is not None and x2 is not None)
 
 
 # AL-QSQF
@@ -169,6 +180,17 @@ draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
 
 # AL-QSQF & QSQF-C
+draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
+                               exp_name2='QSQF-C_Electricity_96',
+                               model_names=['AL-QSQF', 'QSQF-C'],
+                               interval=128,
+                               folder=None,
+                               selected_data=[[16, 11],
+                                              [32, 19],
+                                              [64, 17],
+                                              [96, 20]],
+                               replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
+
 draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
                                exp_name2='QSQF-C_Electricity_96',
                                model_names=['AL-QSQF', 'QSQF-C'],
