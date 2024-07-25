@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, PowerTransformer
-from sktime.datasets import load_from_tsfile_to_dataframe
 from torch.utils.data import Dataset
 
 from data_provider.m4 import M4Dataset, M4Meta
@@ -1001,6 +1000,7 @@ class UEAloader(Dataset):
         return all_df, labels_df
 
     def load_single(self, filepath):
+        from sktime.datasets import load_from_tsfile_to_dataframe
         df, labels = load_from_tsfile_to_dataframe(filepath, return_separate_X_and_y=True,
                                                    replace_missing_vals_with='NaN')
         labels = pd.Series(labels, dtype="category")
