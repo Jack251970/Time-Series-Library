@@ -24,18 +24,36 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
     plt.plot(selected_x, true1[selected_x].squeeze(), label=f'True Value', color=true_color)
     plt.plot(selected_x, pred1[selected_x].squeeze(), label=f'{model_name1} Predicted Value ', color=pred1_color)
     plt.plot(selected_x, pred2[selected_x].squeeze(), label=f'{model_name2} Predicted Value ', color=pred2_color)
+
+    draw_label = False
+    if pred_range is not None:
+        for j in range(len(pred_range)):
+            confidence_level = pred_range[j]
+            if confidence_level in selected_pred_range:
+                plt.fill_between(selected_x, high1[j, selected_x].squeeze(), low1[j, selected_x].squeeze(),
+                                 alpha=pred_range[j])
+
+                plt.fill_between(selected_x, high2[j, selected_x].squeeze(), low2[j, selected_x].squeeze(),
+                                 alpha=pred_range[j])
+
+    # # draw intervals with lines
     # colors = ['orange', 'purple', 'yellow', 'gray', 'pink', 'brown']
     # color_index = 0
     # if pred_range is not None:
     #     for j in range(len(pred_range)):
     #         confidence_level = pred_range[j]
     #         if confidence_level == selected_pred_range:
-    #             plt.plot(selected_x, high1[j, selected_x].squeeze(), label=f'{model_name1} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
+    #             plt.plot(selected_x, high1[j, selected_x].squeeze(),
+    #                      label=f'{model_name1} Confidence Interval ({confidence_level}) ',
+    #                      color=colors[color_index], linestyle='--')
     #             plt.plot(selected_x, low1[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
     #             color_index += 1
-    #             plt.plot(selected_x, high2[j, selected_x].squeeze(), label=f'{model_name2} Confidence Interval ({confidence_level}) ', color=colors[color_index], linestyle='--')
+    #             plt.plot(selected_x, high2[j, selected_x].squeeze(),
+    #                      label=f'{model_name2} Confidence Interval ({confidence_level}) ',
+    #                      color=colors[color_index], linestyle='--')
     #             plt.plot(selected_x, low2[j, selected_x].squeeze(), color=colors[color_index], linestyle='--')
     #             color_index += 1
+
     if xlabel is not None:
         plt.xlabel(xlabel)
     if ylabel is not None:
@@ -107,7 +125,16 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
     pred_length = config_row['pred_len']
     data_length = pred_value1.shape[1]
     probability_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
-    selected_probability_range = 0.2
+    selected_probability_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]
+
+    def contact_list_to_str(contact_list):
+        _str = ''
+        for t in range(len(contact_list)):
+            if t == 0:
+                _str += f'{contact_list[t]}'
+            else:
+                _str += f'-{contact_list[t]}'
+        return _str
 
     # draw selected figures
     if selected_data is not None:
@@ -126,10 +153,12 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, interval=1
                 continue
 
             if x1 is not None and x2 is not None:
-                file_name = (f'PF Comp Pred {pred_length} CL {selected_probability_range} Step {i + 1} Data {j + 1}'
+                file_name = (f'PF Comp Pred {pred_length} CL {contact_list_to_str(selected_probability_range)} '
+                             f'Step {i + 1} Data {j + 1}'
                              f' ({x1}-{x2}).png')
             else:
-                file_name = f'PF Comp Pred {pred_length} CL {selected_probability_range} Step {i + 1} Data {j + 1} .png'
+                file_name = (f'PF Comp Pred {pred_length} CL {contact_list_to_str(selected_probability_range)} '
+                             f'Step {i + 1} Data {j + 1}.png')
             for regex in replace_regex:
                 file_name = file_name.replace(regex[0], regex[1])
 
