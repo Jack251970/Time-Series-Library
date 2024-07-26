@@ -3,7 +3,8 @@ import torch.nn as nn
 
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_yjqr import sample_yjqr
+
+from models.quantile_function.qf_func import sample_pred
 
 
 class Model(nn.Module):

@@ -8,6 +8,7 @@ from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer
                     FreTS, TimeMixer, TSMixer, SegRNN, MambaSimple, Mamba, TemporalFusionTransformer, LSTM)
 from models.quantile_function import (rnn_sf, lstm_cq, lstm_aq, lstm_aq1, lstm_aq2, lstm_aq3, lstm_aq4, lstm_yjqr,
                                       lstm_ed_yjqr, qsqf_c, qsqf_c1, al_qsqf)
+from models.quantile_function.qf_func import loss_fn_crps, loss_fn_mse, loss_fn_mae, loss_fn_quantiles
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 
@@ -126,17 +127,17 @@ class Exp_Basic(object):
 
     def _select_criterion(self):
         criterion_dict = {
-            'QSQF-C': lstm_cq.loss_fn_crps,
-            'RNN-SF': lstm_cq.loss_fn_crps,
-            'LSTM-CQ': lstm_cq.loss_fn_crps,
-            'LSTM-AQ': lstm_cq.loss_fn_crps,
+            'QSQF-C': loss_fn_crps,
+            'RNN-SF': loss_fn_crps,
+            'LSTM-CQ': loss_fn_crps,
+            'LSTM-AQ': loss_fn_crps,
             'LSTM-YJQR': lstm_yjqr.loss_fn,
             'LSTM-ED-YJQR': lstm_yjqr.loss_fn,
-            'LSTM-AQ1': lstm_cq.loss_fn_crps,
-            'LSTM-AQ2': lstm_cq.loss_fn_mse,
-            'LSTM-AQ3': lstm_cq.loss_fn_mae,
-            'LSTM-AQ4': lstm_cq.loss_fn_quantiles,
-            'QSQF-C1': lstm_cq.loss_fn_crps,
+            'LSTM-AQ1': loss_fn_crps,
+            'LSTM-AQ2': loss_fn_mse,
+            'LSTM-AQ3': loss_fn_mae,
+            'LSTM-AQ4': loss_fn_quantiles,
+            'QSQF-C1': loss_fn_crps,
             'AL-QSQF': al_qsqf.loss_fn_crps,
         }
 

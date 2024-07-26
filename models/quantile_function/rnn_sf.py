@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.quantile_function.lstm_cq import sample_pred
+from models.quantile_function.qf_func import sample_pred
 
 
 class Model(nn.Module):

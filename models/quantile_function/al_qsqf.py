@@ -5,7 +5,8 @@ from torch.nn.functional import pad
 from layers.ALQSQF_EncDec import series_decomp
 from layers.Embed import DataEmbedding
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_cq import phase_gamma_and_eta_k
+
+from models.quantile_function.qf_func import phase_gamma_and_eta_k
 
 
 class Model(nn.Module):

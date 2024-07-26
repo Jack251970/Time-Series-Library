@@ -4,7 +4,9 @@ import torch.nn as nn
 from layers.AutoCorrelation import AutoCorrelation
 from layers.Embed import DataEmbedding, DataEmbedding_wo_pos
 from layers.SelfAttention_Family import FullAttention
-from models.quantile_function.lstm_cq import ConvLayer, sample_pred
+
+from models.quantile_function.lstm_cq import ConvLayer
+from models.quantile_function.qf_func import sample_pred
 
 
 class Model(nn.Module):
