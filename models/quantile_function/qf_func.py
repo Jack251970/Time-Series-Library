@@ -43,7 +43,7 @@ def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type):
 
 
 # noinspection DuplicatedCode
-def get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
+def _get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type):
     """
     Formula
     2:
@@ -156,8 +156,11 @@ def sample_pred(alpha_prime_k, alpha, _lambda, gamma, eta_k, algorithm_type):
 
         return pred
     else:
-        # get pred mean value
-        y_hat = get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)  # [256,]
+        # get medium estimated value
+        y_hat = sample_pred(alpha_prime_k, 0.5, _lambda, gamma, eta_k, algorithm_type)
+
+        # get mean estimated value
+        # y_hat = _get_y_hat(alpha_0_k, _lambda, gamma, beta_k, algorithm_type)
 
         return y_hat
 

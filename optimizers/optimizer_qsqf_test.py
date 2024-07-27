@@ -140,8 +140,8 @@ def get_search_space():
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
         'label_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'single', '_value': 96},
-        # 'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
+        # 'pred_len': {'_type': 'single', '_value': 96},
+        'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
     }
@@ -173,4 +173,5 @@ def get_search_space():
 h = HyperParameterOptimizer(script_mode=False, models=['QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data,
                             get_custom_test_time=get_custom_test_time)
-h.config_optimizer_settings(root_path='.', scan_all_csv=False, try_model=False, force_exp=True, save_process=False)
+h.config_optimizer_settings(root_path='.', data_csv_file='data_test.csv',
+                            scan_all_csv=False, try_model=False, force_exp=True, save_process=True)
