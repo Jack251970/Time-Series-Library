@@ -198,11 +198,9 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
                                     ylabel='Probability')
 
 
-def draw_comp_probabilistic_density_figure(exp_names, samples_index, sample_times, _lambda1, algorithm_type1,
-                                           _lambda2, algorithm_type2, select_data=None, folder=None,
+def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, samples_index, sample_times, _lambda1,
+                                           algorithm_type1, _lambda2, algorithm_type2, select_data=None, folder=None,
                                            replace_regex=None, use_cupy=False):
-    exp_name1, exp_name2 = exp_names
-
     if replace_regex is None:
         replace_regex = []
 
@@ -226,7 +224,7 @@ def draw_comp_probabilistic_density_figure(exp_names, samples_index, sample_time
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
-            file_name = f'PDF Comp Pred {pred_length1} Step {samples_index[i] + 1} Data {j + 1}.png'
+            file_name = f'PDF Comp {comp_tag} Pred {pred_length1} Step {samples_index[i] + 1} Data {j + 1}.png'
             for regex in replace_regex:
                 file_name = file_name.replace(regex[0], regex[1])
 
@@ -281,7 +279,9 @@ draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
                                   use_cupy=False)
 
 # AL-QSQF & QSQF-C
-draw_comp_probabilistic_density_figure(exp_names=['LSTM-AQ_Electricity_96', 'QSQF-C_Electricity_96'],
+draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ_Electricity_96',
+                                       exp_name2='QSQF-C_Electricity_96',
+                                       comp_tag='Electricity',
                                        samples_index=[15, 31, 63, 95],
                                        sample_times=500,
                                        _lambda1=-0.001,
