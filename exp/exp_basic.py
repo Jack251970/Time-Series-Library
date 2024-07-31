@@ -8,7 +8,7 @@ from models import (Autoformer, Transformer, TimesNet, Nonstationary_Transformer
                     FreTS, TimeMixer, TSMixer, SegRNN, MambaSimple, Mamba, TemporalFusionTransformer, LSTM)
 from models.quantile_function import (rnn_sf, lstm_cq, lstm_aq, lstm_aq1, lstm_aq2, lstm_aq3, lstm_aq4, lstm_yjqr,
                                       lstm_ed_yjqr, qsqf_c, qsqf_c1, al_qsqf)
-from models.quantile_function.qf_func import loss_fn_crps, loss_fn_mse, loss_fn_mae, loss_fn_quantiles
+from models.quantile_function.qf_func import loss_fn_crps, loss_fn_mse, loss_fn_mae, loss_fn_quantiles, loss_fn_hybird
 from utils.losses import mape_loss, mase_loss, smape_loss
 
 
@@ -138,7 +138,7 @@ class Exp_Basic(object):
             'LSTM-AQ3': loss_fn_mae,
             'LSTM-AQ4': loss_fn_quantiles,
             'QSQF-C1': loss_fn_crps,
-            'AL-QSQF': al_qsqf.loss_fn_crps,
+            'AL-QSQF': loss_fn_hybird,
         }
 
         loss = self.args.loss

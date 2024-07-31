@@ -311,3 +311,7 @@ def loss_fn_quantiles(tuple_param):
     quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual).mean()
 
     return quantilesLoss
+
+
+def loss_fn_hybird(tuple_param, w_mql=0):
+    return loss_fn_crps(tuple_param) + w_mql * loss_fn_quantiles(tuple_param)
