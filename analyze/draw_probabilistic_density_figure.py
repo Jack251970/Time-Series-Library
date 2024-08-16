@@ -248,35 +248,35 @@ def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, sampl
                                      draw_pred=False)
 
 
-# AL-QSQF
-draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
-                                  samples_index=[15, 31, 63, 95],
-                                  sample_times=500,
-                                  _lambda=-0.001,
-                                  algorithm_type='1+2',
-                                  select_data=[[0, 97, [-500, 4000], [0, 0.00250]],
-                                               [1, 91, [-500, 4500], [0, 0.00225]],
-                                               [2, 181, [-500, 5000], [0, 0.00200]],
-                                               [3, 235, [-500, 5000], [0, 0.00225]]],
-                                  draw_all=False,
-                                  folder=None,
-                                  replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
-                                  use_cupy=False)
-
-# QSQF-C
-draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
-                                  samples_index=[15, 31, 63, 95],
-                                  sample_times=500,
-                                  _lambda=-0.001,
-                                  algorithm_type='2',
-                                  select_data=[[0, 97, [-500, 4000], [0, 0.00250]],
-                                               [1, 91, [-500, 4500], [0, 0.00225]],
-                                               [2, 181, [-500, 5000], [0, 0.00200]],
-                                               [3, 235, [-500, 5000], [0, 0.00225]]],
-                                  draw_all=False,
-                                  folder=None,
-                                  replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
-                                  use_cupy=False)
+# # AL-QSQF
+# draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
+#                                   samples_index=[15, 31, 63, 95],
+#                                   sample_times=500,
+#                                   _lambda=-0.001,
+#                                   algorithm_type='1+2',
+#                                   select_data=[[0, 97, [-500, 4000], [0, 0.00250]],
+#                                                [1, 91, [-500, 4500], [0, 0.00225]],
+#                                                [2, 181, [-500, 5000], [0, 0.00200]],
+#                                                [3, 235, [-500, 5000], [0, 0.00225]]],
+#                                   draw_all=False,
+#                                   folder=None,
+#                                   replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
+#                                   use_cupy=False)
+#
+# # QSQF-C
+# draw_probabilistic_density_figure(exp_name='QSQF-C_Electricity_96',
+#                                   samples_index=[15, 31, 63, 95],
+#                                   sample_times=500,
+#                                   _lambda=-0.001,
+#                                   algorithm_type='2',
+#                                   select_data=[[0, 97, [-500, 4000], [0, 0.00250]],
+#                                                [1, 91, [-500, 4500], [0, 0.00225]],
+#                                                [2, 181, [-500, 5000], [0, 0.00200]],
+#                                                [3, 235, [-500, 5000], [0, 0.00225]]],
+#                                   draw_all=False,
+#                                   folder=None,
+#                                   replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+#                                   use_cupy=False)
 
 # AL-QSQF & QSQF-C
 draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ_Electricity_96',

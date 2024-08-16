@@ -220,25 +220,25 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
                              draw_color_bar=True)
 
 
-# AL-QSQF
-draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
-                          interval=128,
-                          folder=None,
-                          selected_data=[[16, 11, None, [1500, 5500]],
-                                         [32, 19, None, [1500, 5500]],
-                                         [64, 17, None, [1500, 5000]],
-                                         [96, 20, None, [1500, 5000]]],
-                          replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
-
-# QSQF-C
-draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
-                          interval=128,
-                          folder=None,
-                          selected_data=[[16, 11, None, [1500, 5500]],
-                                         [32, 19, None, [1500, 5500]],
-                                         [64, 17, None, [1500, 5000]],
-                                         [96, 20, None, [1500, 5000]]],
-                          replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
+# # AL-QSQF
+# draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
+#                           interval=128,
+#                           folder=None,
+#                           selected_data=[[16, 11, None, [1500, 5500]],
+#                                          [32, 19, None, [1500, 5500]],
+#                                          [64, 17, None, [1500, 5000]],
+#                                          [96, 20, None, [1500, 5000]]],
+#                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
+#
+# # QSQF-C
+# draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
+#                           interval=128,
+#                           folder=None,
+#                           selected_data=[[16, 11, None, [1500, 5500]],
+#                                          [32, 19, None, [1500, 5500]],
+#                                          [64, 17, None, [1500, 5000]],
+#                                          [96, 20, None, [1500, 5000]]],
+#                           replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
 
 # AL-QSQF & QSQF-C
 draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
@@ -254,15 +254,15 @@ draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
                                replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
                                               ['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
 
-draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
-                               exp_name2='QSQF-C_Electricity_96',
-                               comp_tag='Electricity',
-                               model_names=['AL-QSQF', 'QSQF-C'],
-                               interval=128,
-                               folder=None,
-                               selected_data=[[16, 11, 84, 97],
-                                              [32, 19, 86, 99],
-                                              [64, 17, 40, 53],
-                                              [96, 20, 84, 97]],
-                               replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
-                                              ['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
+# draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
+#                                exp_name2='QSQF-C_Electricity_96',
+#                                comp_tag='Electricity',
+#                                model_names=['AL-QSQF', 'QSQF-C'],
+#                                interval=128,
+#                                folder=None,
+#                                selected_data=[[16, 11, 84, 97],
+#                                               [32, 19, 86, 99],
+#                                               [64, 17, 40, 53],
+#                                               [96, 20, 84, 97]],
+#                                replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
+#                                               ['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
