@@ -140,7 +140,7 @@ def get_custom_test_time(_args):
 def get_search_space():
     default_config = {
         'task_name': {'_type': 'single', '_value': 'probability_forecast'},
-        'is_training': {'_type': 'single', '_value': 0},
+        'is_training': {'_type': 'single', '_value': 1},
         'des': {'_type': 'single', '_value': 'Exp'},
         'use_gpu': {'_type': 'single', '_value': True},
         'embed': {'_type': 'single', '_value': 'timeF'},
@@ -207,15 +207,34 @@ def get_search_space():
         'custom_params': {'_type': 'single', '_value': ''},
     }
 
+    qsqf_c_config = {
+        'label_len': {'_type': 'single', '_value': 0},
+        'lag': {'_type': 'single', '_value': 3},
+        'dropout': {'_type': 'single', '_value': 0},
+
+        'scaler': {'_type': 'single', '_value': 'MinMaxScaler'},
+        'reindex': {'_type': 'single', '_value': 0},
+
+        'learning_rate': {'_type': 'single', '_value': 0.001},
+        'train_epochs': {'_type': 'single', '_value': 50},
+
+        'num_spline': {'_type': 'single', '_value': 20},
+        'sample_times': {'_type': 'single', '_value': 99},
+
+        'lstm_hidden_size': {'_type': 'single', '_value': 40},
+        'lstm_layers': {'_type': 'single', '_value': 2},
+    }
+
     model_configs = {
         'LSTM-AQ': lstm_aq_config,
-        'AL-QSQF': al_qsqf_config
+        'AL-QSQF': al_qsqf_config,
+        'QSQF-C': qsqf_c_config
     }
 
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ'],
+h = HyperParameterOptimizer(script_mode=False, models=['QSQF-C'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data,
                             get_custom_test_time=get_custom_test_time)
 h.config_optimizer_settings(root_path='.', data_csv_file='data_test.csv',
