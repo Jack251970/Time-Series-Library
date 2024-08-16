@@ -36,7 +36,7 @@ class Model(nn.Module):
         self.train_window = self.pred_steps + self.pred_start
 
         # phase custom_params
-        custom_params = params.custom_params
+        custom_params = "AA_attn_dhz_ap1_norm_label1"
         custom_params = custom_params.split('_')
         if len(custom_params) > 0 and custom_params[0] == 'cnn':
             self.use_cnn = True
