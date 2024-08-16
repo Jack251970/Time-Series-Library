@@ -62,7 +62,7 @@ _exp_time_dict = {
     # LSTM-AQ2
     'LSTM-AQ2_Electricity_96': '2024-06-14 15-17-50',
     # LSTM-AQ3
-    'LSTM-AQ3_Electricity_96': '2024-06-14 15-17-50',
+    'LSTM-AQ3_Electricity_96': '2024-06-14 19-19-02',
     # LSTM-AQ4
     'LSTM-AQ4_Electricity_96': '2024-06-15 02-53-21',
     # QSQF-C1
