@@ -17,13 +17,13 @@ out_dir = 'probabilistic_density_figure'
 
 
 def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true2, pred2, path,
-                             xlabel=None, ylabel=None, draw_pred=False):
+                             xlabel=None, ylabel=None, font_size=18, draw_pred=False):
     model_name1, model_name2 = model_names
     true_color = 'green'
     pred1_color = 'blue'
     pred2_color = 'red'
     plt.clf()
-    plt.figure(figsize=(7, 5.25))  # Adjust the figure size to increase resolution
+    plt.figure(figsize=(7.8, 5.25))  # Adjust the figure size to increase resolution
     plt.axvline(true1.squeeze(), color=true_color, linestyle='--', label='True Value')
     if draw_pred:
         plt.axvline(pred1.squeeze(), color=pred1_color, linestyle='--', label=f'{model_name1} Predicted Value')
@@ -32,10 +32,13 @@ def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true
         plt.axvline(pred2.squeeze(), color=pred2_color, linestyle='--', label=f'{model_name2} Predicted Value')
     sns.kdeplot(samples2.squeeze(), fill=True, label=f'{model_name2} Probability Density', alpha=0.5)
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        plt.xlabel(xlabel, fontsize=font_size)
     if ylabel is not None:
-        plt.ylabel(ylabel)
-    plt.legend(fontsize='small')
+        plt.ylabel(ylabel, fontsize=font_size)
+    plt.legend(fontsize=font_size)
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
+    plt.tight_layout()  # Adjust the layout to prevent ylabel from being cut off
     plt.savefig(path)
 
 
