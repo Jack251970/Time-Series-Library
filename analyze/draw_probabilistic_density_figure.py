@@ -250,7 +250,7 @@ def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, sampl
                                              samples2=samples_value_inverse2[:, i, t],
                                              true2=true_value_inverse2[i, t],
                                              pred2=pred_value_inverse2[i, t],
-                                             path=file_path.replace('Data 0.png', f' Data {t + 1}.png'),
+                                             path=file_path.replace('Data 0.png', f'Data {t + 1}.png'),
                                              xlabel=xlabel,
                                              ylabel='Probability',
                                              draw_pred=False)
