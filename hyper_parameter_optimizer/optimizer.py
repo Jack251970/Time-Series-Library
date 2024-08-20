@@ -633,6 +633,9 @@ class HyperParameterOptimizer(object):
             crps = eva_config.get('crps', None)
             mre = eva_config.get('mre', None)
             naps = eva_config.get('naps', None)
+            picp = eva_config.get('picp', None)
+            pinaw = eva_config.get('pinaw', None)
+            cwc = eva_config.get('cwc', None)
 
             # load criteria data
             config['mse'] = mse
@@ -643,6 +646,9 @@ class HyperParameterOptimizer(object):
             config['crps'] = crps
             config['mre'] = mre
             config['naps'] = naps
+            config['picp'] = picp
+            config['pinaw'] = pinaw
+            config['cwc'] = cwc
 
             # load setting and run time
             config['setting'] = setting
