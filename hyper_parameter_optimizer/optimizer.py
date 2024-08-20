@@ -632,7 +632,7 @@ class HyperParameterOptimizer(object):
             f_score = eva_config.get('f_score', None)
             crps = eva_config.get('crps', None)
             mre = eva_config.get('mre', None)
-            pinaw = eva_config.get('pinaw', None)
+            naps = eva_config.get('naps', None)
 
             # load criteria data
             config['mse'] = mse
@@ -642,7 +642,7 @@ class HyperParameterOptimizer(object):
             config['f_score'] = f_score
             config['crps'] = crps
             config['mre'] = mre
-            config['pinaw'] = pinaw
+            config['naps'] = naps
 
             # load setting and run time
             config['setting'] = setting
@@ -748,7 +748,8 @@ class HyperParameterOptimizer(object):
                             default_data_dict = self._build_config_dict(default_args)
                             for row in new_data:
                                 for non_exist_header in non_exist_headers:
-                                    row[non_exist_header] = default_data_dict[non_exist_header]
+                                    if non_exist_header in default_data_dict:
+                                        row[non_exist_header] = default_data_dict[non_exist_header]
 
                     # write new data if not correct
                     if new_data is not None:

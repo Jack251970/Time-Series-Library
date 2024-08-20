@@ -721,7 +721,7 @@ def _check_custom_test_time(latest_time, custom_time, _format):
 def get_fieldnames(mode='all'):
     # init the all fieldnames
     all_fieldnames = ['model', 'data_path', 'custom_params', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre',
-                      'pinaw', 'setting', 'seed', 'task_name', 'is_training', 'model_id', 'data', 'features', 'target',
+                      'naps', 'setting', 'seed', 'task_name', 'is_training', 'model_id', 'data', 'features', 'target',
                       'freq', 'lag', 'scaler', 'reindex', 'reindex_tolerance', 'pin_memory', 'seq_len', 'label_len',
                       'pred_len', 'seasonal_patterns', 'inverse', 'mask_rate', 'anomaly_ratio', 'expand', 'd_conv',
                       'top_k', 'num_kernels', 'enc_in', 'dec_in', 'c_out', 'd_model', 'n_heads', 'e_layers', 'd_layers',
@@ -736,7 +736,7 @@ def get_fieldnames(mode='all'):
                       'sample_times', 'run_time']
 
     # init the fieldnames need to be checked
-    _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'pinaw', 'setting',
+    _removed_fieldnames = ['model_id', 'mse', 'mae', 'acc', 'smape', 'f_score', 'crps', 'mre', 'naps', 'setting',
                            'is_training', 'root_path', 'pin_memory', 'output_attention', 'num_workers',
                            'stop_epochs', 'use_gpu', 'gpu', 'use_multi_gpu', 'devices', 'run_time']
     checked_fieldnames = [field for field in all_fieldnames if field not in _removed_fieldnames]

@@ -207,11 +207,11 @@ def get_prob_metrics(exp_name, use_cupy=False):
 
     crps = metrics_data[0]
     crps_steps = metrics_data[1:pred_len + 1]
-    pinaw = metrics_data[pred_len + 1]
+    naps = metrics_data[pred_len + 1]
     mre = metrics_data[pred_len + 2]
-    pinaw_steps = metrics_data[pred_len + 3:]
+    naps_steps = metrics_data[pred_len + 3:]
 
-    return crps, crps_steps, mre, pinaw, pinaw_steps
+    return crps, crps_steps, mre, naps, naps_steps
 
 
 def get_parameter(exp_name, use_cupy=False):
