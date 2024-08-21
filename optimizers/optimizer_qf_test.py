@@ -154,7 +154,7 @@ def get_search_space():
         'features': {'_type': 'single', '_value': 'MS'},
         'root_path': {'_type': 'single', '_value': './dataset/'},
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'traffic/traffic.csv']},
         # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
         #                                             'traffic/traffic.csv']},
     }
@@ -220,7 +220,7 @@ def get_search_space():
     return [default_config, dataset_config, learning_config, period_config], model_configs
 
 
-h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ', 'LSTM-AQ1', 'LSTM-AQ2', 'LSTM-AQ3', 'LSTM-AQ4'],
+h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ2', 'LSTM-AQ3', 'LSTM-AQ4'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data,
                             get_custom_test_time=get_custom_test_time)
 h.config_optimizer_settings(root_path='.', data_csv_file='data_comp_lf.csv',
