@@ -12,6 +12,9 @@ def init_metrics(pred_len, device):
         metrics[f'naps_{i}'] = torch.zeros(1, device=device)
     for i in range(pred_len):
         metrics[f'picp_{i}'] = torch.zeros(1, device=device)
+    for i in range(1, 10, 1):
+        alpha = i / 20
+        metrics[f'picp_alpha{alpha}'] = torch.zeros(pred_len, device=device)
     for i in range(pred_len):
         metrics[f'pinaw_{i}'] = torch.zeros(1, device=device)
     for i in range(pred_len):
@@ -31,19 +34,13 @@ def update_metrics(metrics, samples, labels, filter_nan=False):  # [99, 256, 96]
     batch_size = samples.shape[1]
     metrics['num'] = metrics['num'] + batch_size
     metrics['CRPS'] = metrics['CRPS'] + accuracy_CRPS(samples, labels)
-    # for i in range(pred_len):
-    #     metrics[f'CRPS_{i}'] = metrics[f'CRPS_{i}'] + accuracy_CRPS(samples[:, :, i].unsqueeze(-1),
-    #                                                                 labels[:, i].unsqueeze(-1))
     metrics['mre'] = metrics['mre'] + accuracy_MRE(samples, labels)
     metrics['naps'] = metrics['naps'] + accuracy_NAPS(samples)
-    # for i in range(pred_len):
-    #     metrics[f'naps_{i}'] = metrics[f'naps_{i}'] + accuracy_NAPS(samples[:, :, i].unsqueeze(-1))
     metrics['picp'] = metrics['picp'] + accuracy_PICP(samples)
-    # for i in range(pred_len):
-    #     metrics[f'picp_{i}'] = metrics[f'picp_{i}'] + accuracy_PICP(samples[:, :, i].unsqueeze(-1))
+    for i in range(1, 10, 1):
+        alpha = i / 20
+        metrics[f'picp_alpha{alpha}'] = metrics[f'picp_alpha{alpha}'] + accuracy_PICP(samples, alpha)
     metrics['pinaw'] = metrics['pinaw'] + accuracy_PINAW(samples)
-    # for i in range(pred_len):
-    #     metrics[f'pinaw_{i}'] = metrics[f'pinaw_{i}'] + accuracy_PINAW(samples[:, :, i].unsqueeze(-1))
     return metrics
 
 
@@ -75,6 +72,10 @@ def final_metrics(metrics, seq_len):
     for i in range(seq_len):
         summary[f'cwc_{i}'] = summary['cwc'][i]
     summary['cwc'] = summary['cwc'].mean()
+    # picp alpha
+    for i in range(1, 10, 1):
+        alpha = i / 20
+        summary[f'picp_alpha{alpha}'] = (metrics[f'picp_alpha{alpha}'] / metrics['num']).mean()
     return summary
 
 

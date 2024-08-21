@@ -70,7 +70,7 @@ _exp_time_dict = {
     'LSTM-AQ3_Exchange_96': '2024-06-14 20-57-56',
     'LSTM-AQ3_Traffic_96': '2024-06-14 23-59-06',
     # LSTM-AQ4
-    'LSTM-AQ4_Electricity_96': '2024-06-15 02-53-21',
+    'LSTM-AQ4_Electricity_96': '2024-08-21 11-28-47',
     'LSTM-AQ4_Exchange_96': '2024-06-15 04-20-41',
     'LSTM-AQ4_Traffic_96': '2024-06-15 05-20-56',
     # QSQF-C1

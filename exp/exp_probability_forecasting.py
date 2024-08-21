@@ -523,6 +523,9 @@ class Exp_Probability_Forecast(Exp_Basic):
         strings += '\nCWC:' + str(summary['cwc'].item())
         for i in range(pred_length):
             strings += '\nCWC_' + str(i) + ': ' + str(summary[f'cwc_{i}'].item())
+        for i in range(1, 10, 1):
+            alpha = i / 20
+            strings += '\nPICP(alpha:' + str(alpha) + '): ' + str(summary[f'picp_alpha{alpha}'].item())
         self.print_content('Full test metrics: ' + strings)
 
         ss_metric = {
