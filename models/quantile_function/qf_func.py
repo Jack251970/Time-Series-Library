@@ -313,5 +313,5 @@ def loss_fn_quantiles(tuple_param):
     return quantilesLoss
 
 
-def loss_fn_hybird(tuple_param, w_mql=0):
+def loss_fn_hybrid(tuple_param, w_mql=0):
     return loss_fn_crps(tuple_param) + w_mql * loss_fn_quantiles(tuple_param)
