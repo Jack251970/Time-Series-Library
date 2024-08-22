@@ -80,6 +80,8 @@ _exp_dict = {}
 
 
 def get_exp_time(key):
+    if key not in _exp_time_dict:
+        return ''
     return _exp_time_dict[key]
 
 
