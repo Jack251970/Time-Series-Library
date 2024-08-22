@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 
@@ -312,6 +313,16 @@ def loss_fn_quantiles(tuple_param):
 
     return quantilesLoss
 
+file = 'temp'
+w_mql = 0
 
-def loss_fn_hybrid(tuple_param, w_mql=0):
+def loss_fn_hybrid(tuple_param):
+    global file, w_mql
+    # read w_mql from a file
+    if os.path.exists(file):
+        with open(file, 'r') as f:
+            _w_mql = f.read()
+            w_mql = float(_w_mql)
+        # remove the file after reading
+        os.remove(file)
     return loss_fn_crps(tuple_param) + w_mql * loss_fn_quantiles(tuple_param)
