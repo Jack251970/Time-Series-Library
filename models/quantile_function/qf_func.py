@@ -314,7 +314,7 @@ def loss_fn_quantiles(tuple_param):
 
     return quantilesLoss
 
-w_mql = 0
+w_mql = 0.2
 
 
 def loss_fn_punish(tuple_param):
@@ -342,8 +342,8 @@ def loss_fn_punish(tuple_param):
     return quantilesLoss
 
 def loss_fn_hybrid(tuple_param):
-    global w_mql
-    _w_mql = read_parameter('w_mql', True)
-    if _w_mql is not None:
-        w_mql = _w_mql
+    # global w_mql
+    # _w_mql = read_parameter('w_mql', True)
+    # if _w_mql is not None:
+    #     w_mql = _w_mql
     return loss_fn_crps(tuple_param) + w_mql * loss_fn_punish(tuple_param)
