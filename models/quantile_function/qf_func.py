@@ -316,6 +316,31 @@ def loss_fn_quantiles(tuple_param):
 file = 'temp'
 w_mql = 0
 
+
+def loss_fn_punish(tuple_param):
+    alpha_prime_k, _lambda, gamma, eta_k, labels, algorithm_type = tuple_param
+
+    # labels
+    labels = labels.unsqueeze(1)  # [256, 1]
+
+    # sample quantiles
+    quantiles_list = [0.3, 0.4, 0.5, 0.6, 0.7]
+    quantiles_number = len(quantiles_list)
+    batch_size = labels.shape[0]
+    device = labels.device
+    quantiles = torch.Tensor(quantiles_list).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 9]
+    quantiles_y_pred = torch.zeros(batch_size, quantiles_number, device=device)  # [256, 9]
+    for i in range(quantiles_number):
+        quantile = torch.Tensor([quantiles_list[i]]).unsqueeze(0).expand(batch_size, -1).to(device)  # [256, 1]
+        samples = sample_pred(alpha_prime_k, quantile, _lambda, gamma, eta_k, algorithm_type)
+        quantiles_y_pred[:, i] = samples  # [256,]
+
+    # calculate loss
+    residual = quantiles_y_pred - labels  # [256, 9]
+    quantilesLoss = torch.max((quantiles - 1) * residual, quantiles * residual).mean()
+
+    return quantilesLoss
+
 def loss_fn_hybrid(tuple_param):
     global file, w_mql
     # read w_mql from a file
@@ -325,4 +350,4 @@ def loss_fn_hybrid(tuple_param):
             w_mql = float(_w_mql)
         # remove the file after reading
         os.remove(file)
-    return loss_fn_crps(tuple_param) + w_mql * loss_fn_quantiles(tuple_param)
+    return loss_fn_crps(tuple_param) + w_mql * loss_fn_punish(tuple_param)
