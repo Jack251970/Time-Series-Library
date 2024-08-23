@@ -1,8 +1,9 @@
-import os
 import torch
 import torch.nn as nn
 
 from torch.nn.functional import pad
+
+from utils.pass_parameter import read_parameter
 
 
 def phase_gamma_and_eta_k(alpha_prime_k, gamma, eta_k, algorithm_type):
@@ -313,7 +314,6 @@ def loss_fn_quantiles(tuple_param):
 
     return quantilesLoss
 
-file = 'temp'
 w_mql = 0
 
 
@@ -342,12 +342,8 @@ def loss_fn_punish(tuple_param):
     return quantilesLoss
 
 def loss_fn_hybrid(tuple_param):
-    global file, w_mql
-    # read w_mql from a file
-    if os.path.exists(file):
-        with open(file, 'r') as f:
-            _w_mql = f.read()
-            w_mql = float(_w_mql)
-        # remove the file after reading
-        os.remove(file)
+    global w_mql
+    _w_mql = read_parameter('w_mql', True)
+    if _w_mql is not None:
+        w_mql = _w_mql
     return loss_fn_crps(tuple_param) + w_mql * loss_fn_punish(tuple_param)
