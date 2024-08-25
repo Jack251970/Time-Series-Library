@@ -27,10 +27,11 @@ def output_loss_figure(exp_name):
     plt.savefig(os.path.join(output_dir, f'{exp_name} loss.png'))
 
 
-output_loss_figure('LSTM-AQ_Electricity_96')
-output_loss_figure('LSTM-AQ2_Electricity_96')
-output_loss_figure('LSTM-AQ3_Electricity_96')
-output_loss_figure('LSTM-AQ4_Electricity_96')
+# output_loss_figure('LSTM-AQ(HLF)_Electricity_96')
+# output_loss_figure('LSTM-AQ_Electricity_96')
+# output_loss_figure('LSTM-AQ2_Electricity_96')
+# output_loss_figure('LSTM-AQ3_Electricity_96')
+# output_loss_figure('LSTM-AQ4_Electricity_96')
 
 
 def output_multi_loss_figure(_list):
@@ -48,7 +49,8 @@ def output_multi_loss_figure(_list):
     plt.savefig(os.path.join(output_dir, f'multi loss.png'))
 
 
-output_multi_loss_figure([['LSTM-AQ_Electricity_96', 'blue', 'CRPS'],
+output_multi_loss_figure([['LSTM-AQ(HLF)_Electricity_96', 'blue', 'Ours'],
+                          ['LSTM-AQ_Electricity_96', 'blue', 'CRPS'],
                           ['LSTM-AQ2_Electricity_96', 'red', 'MSE'],
                           ['LSTM-AQ3_Electricity_96', 'green', 'MAE'],
                           ['LSTM-AQ4_Electricity_96', 'purple', 'MQL']])
