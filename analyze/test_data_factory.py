@@ -43,8 +43,8 @@ _exp_time_dict = {
     'LSTM-AQ_Traffic_64': '2024-06-02 11-49-53',
     'LSTM-AQ_Traffic_96': '2024-06-02 01-57-16',
     # HLF
-    'LSTM-AQ(HLF)_Electricity_96': '2024-08-23 20-21-57',
-    'LSTM-AQ(HLF)_Traffic_96': '2024-08-23 21-43-04',
+    'LSTM-AQ(HLF)_Electricity_96': '2024-08-24 21-08-11',
+    'LSTM-AQ(HLF)_Traffic_96': '2024-08-23 21-04-53',
     # AL-QSQF
     'AL-QSQF_Exchange_16': '2024-04-28 05-04-11',
     # QSQF-C
