@@ -288,19 +288,19 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
 #                                               ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
 #                                ylabel='Power/KW')
 #
-# draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
-#                                exp_name2='QSQF-C_Electricity_96',
-#                                comp_tag='Electricity',
-#                                model_names=['AL-QSQF', 'QSQF-C'],
-#                                interval=128,
-#                                folder=None,
-#                                selected_data=[[16, 11, 0, 61],
-#                                               [32, 19, 20, 81],
-#                                               [64, 17, 0, 61],
-#                                               [96, 20, 0, 61]],
-#                                replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
-#                                               ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
-#                                ylabel='Power/KW')
+draw_comp_probabilistic_figure(exp_name1='LSTM-AQ(HLF)_Electricity_96',
+                               exp_name2='QSQF-C_Electricity_96',
+                               comp_tag='Electricity',
+                               model_names=['AL-QSQF', 'QSQF-C'],
+                               interval=128,
+                               folder=None,
+                               selected_data=[[16, 11, 0, 61],
+                                              [32, 19, 20, 81],
+                                              [64, 17, 0, 61],
+                                              [96, 20, 0, 61]],
+                               replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
+                                              ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+                               ylabel='Power/KW')
 
 # # Traffic
 # # AL-QSQF
@@ -341,7 +341,7 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
 #                                               ['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
 #                                ylabel='Road occupancy')
 #
-draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Traffic_96',
+draw_comp_probabilistic_figure(exp_name1='LSTM-AQ(HLF)_Traffic_96',
                                exp_name2='QSQF-C_Traffic_96',
                                comp_tag='Traffic',
                                model_names=['AL-QSQF', 'QSQF-C'],
