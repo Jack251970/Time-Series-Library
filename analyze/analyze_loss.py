@@ -34,7 +34,9 @@ def output_loss_figure(exp_name):
 # output_loss_figure('LSTM-AQ4_Electricity_96')
 
 
-def output_multi_loss_figure(_list):
+def output_multi_loss_figure(_list, _file):
+    plt.figure(figsize=(12.8, 9.6))
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -46,11 +48,12 @@ def output_multi_loss_figure(_list):
     plt.xlabel('Epoch')
     plt.ylabel('Train Loss')
     plt.legend()
-    plt.savefig(os.path.join(output_dir, f'multi loss.png'))
+    plt.savefig(os.path.join(output_dir, _file))
 
 
 output_multi_loss_figure([['LSTM-AQ(HLF)_Electricity_96', 'blue', 'Ours'],
-                          ['LSTM-AQ_Electricity_96', 'blue', 'CRPS'],
-                          ['LSTM-AQ2_Electricity_96', 'red', 'MSE'],
-                          ['LSTM-AQ3_Electricity_96', 'green', 'MAE'],
-                          ['LSTM-AQ4_Electricity_96', 'purple', 'MQL']])
+                          ['LSTM-AQ_Electricity_96', 'red', 'CRPS'],
+                          ['LSTM-AQ2_Electricity_96', 'green', 'MSE'],
+                          ['LSTM-AQ3_Electricity_96', 'gray', 'MAE'],
+                          ['LSTM-AQ4_Electricity_96', 'purple', 'MQL']],
+                         'LF AL-QSQF Multi Electricity Pred 96.png')
