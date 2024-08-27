@@ -139,8 +139,9 @@ def get_search_space():
         # 'data_path': {'_type': 'single', '_value': 'electricity/electricity.csv'},
         # 'data_path': {'_type': 'single', '_value': 'exchange_rate/exchange_rate.csv'},
         # 'data_path': {'_type': 'single', '_value': 'traffic/traffic.csv'},
-        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
-                                                    'traffic/traffic.csv']},
+        'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'traffic/traffic.csv']},
+        # 'data_path': {'_type': 'choice', '_value': ['electricity/electricity.csv', 'exchange_rate/exchange_rate.csv',
+        #                                             'traffic/traffic.csv']},
     }
 
     learning_config = {
@@ -150,9 +151,9 @@ def get_search_space():
 
     period_config = {
         'seq_len': {'_type': 'single', '_value': 96},
-        'label_len': {'_type': 'single', '_value': 1},
-        # 'pred_len': {'_type': 'single', '_value': 16},
-        'pred_len': {'_type': 'choice', '_value': [16, 32, 64]},
+        'label_len': {'_type': 'single', '_value': 0},
+        'pred_len': {'_type': 'single', '_value': 96},
+        # 'pred_len': {'_type': 'choice', '_value': [16, 32, 64]},
         # 'pred_len': {'_type': 'choice', '_value': [16, 32, 64, 96]},
         'e_layers': {'_type': 'single', '_value': 1},
         'd_layers': {'_type': 'single', '_value': 1},
@@ -172,7 +173,7 @@ def get_search_space():
         # 'num_spline': {'_type': 'choice', '_value': range(5, 60, 1)},
         'sample_times': {'_type': 'single', '_value': 99},
 
-        'custom_params': {'_type': 'single', '_value': 'qrnn1_AA_attn_dhz_ap2_norm'},
+        'custom_params': {'_type': 'single', '_value': 'AA_attn_dhz_ap1_norm_label1'},
         # 'custom_params': {'_type': 'choice', '_value': ['AA_attn_dhz_ap1_norm', 'AA_attn_dhz_ap2_norm']},
     }
 
@@ -185,5 +186,5 @@ def get_search_space():
 
 h = HyperParameterOptimizer(script_mode=False, models=['LSTM-AQ'],
                             get_search_space=get_search_space, link_fieldnames_data=link_fieldnames_data)
-h.config_optimizer_settings(root_path='.', data_csv_file='data_qrnn.csv',
-                            scan_all_csv=False, try_model=False, force_exp=False)
+h.config_optimizer_settings(root_path='.', data_csv_file='data_hlf.csv',
+                            scan_all_csv=False, try_model=False, force_exp=True)

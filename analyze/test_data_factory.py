@@ -42,6 +42,9 @@ _exp_time_dict = {
     'LSTM-AQ_Traffic_32': '2024-06-02 22-01-15',
     'LSTM-AQ_Traffic_64': '2024-06-02 11-49-53',
     'LSTM-AQ_Traffic_96': '2024-06-02 01-57-16',
+    # HLF
+    'LSTM-AQ(HLF)_Electricity_96': '2024-08-24 21-08-11',
+    'LSTM-AQ(HLF)_Traffic_96': '2024-08-24 22-22-46',
     # AL-QSQF
     'AL-QSQF_Exchange_16': '2024-04-28 05-04-11',
     # QSQF-C
@@ -59,12 +62,20 @@ _exp_time_dict = {
     'QSQF-C_Traffic_96': '2024-06-16 01-14-15',
     # LSTM-AQ1
     'LSTM-AQ1_Electricity_96': '2024-06-14 10-58-29',
+    'LSTM-AQ1_Exchange_96': '2024-06-14 12-13-15',
+    'LSTM-AQ1_Traffic_96': '2024-06-14 13-31-53',
     # LSTM-AQ2
     'LSTM-AQ2_Electricity_96': '2024-06-14 15-17-50',
+    'LSTM-AQ2_Exchange_96': '2024-06-14 16-32-39',
+    'LSTM-AQ2_Traffic_96': '2024-06-14 17-54-21',
     # LSTM-AQ3
     'LSTM-AQ3_Electricity_96': '2024-06-14 19-19-02',
+    'LSTM-AQ3_Exchange_96': '2024-06-14 20-57-56',
+    'LSTM-AQ3_Traffic_96': '2024-06-14 23-59-06',
     # LSTM-AQ4
-    'LSTM-AQ4_Electricity_96': '2024-06-15 02-53-21',
+    'LSTM-AQ4_Electricity_96': '2024-08-21 11-28-47',
+    'LSTM-AQ4_Exchange_96': '2024-06-15 04-20-41',
+    'LSTM-AQ4_Traffic_96': '2024-06-15 05-20-56',
     # QSQF-C1
     'QSQF-C1_Electricity_96': '2024-06-16 03-22-26',
 }
@@ -72,6 +83,8 @@ _exp_dict = {}
 
 
 def get_exp_time(key):
+    if key not in _exp_time_dict:
+        return ''
     return _exp_time_dict[key]
 
 
@@ -207,11 +220,11 @@ def get_prob_metrics(exp_name, use_cupy=False):
 
     crps = metrics_data[0]
     crps_steps = metrics_data[1:pred_len + 1]
-    pinaw = metrics_data[pred_len + 1]
+    naps = metrics_data[pred_len + 1]
     mre = metrics_data[pred_len + 2]
-    pinaw_steps = metrics_data[pred_len + 3:]
+    naps_steps = metrics_data[pred_len + 3:]
 
-    return crps, crps_steps, mre, pinaw, pinaw_steps
+    return crps, crps_steps, mre, naps, naps_steps
 
 
 def get_parameter(exp_name, use_cupy=False):

@@ -136,7 +136,7 @@ dmypy.json
 
 .idea
 /tv_result.xlsx
-/test.py
+/test*py
 /m4_results/
 /test_results/
 /PatchTST_results.xlsx
@@ -194,3 +194,5 @@ data_loader_all.py
 /analyze/probabilistic_density_figure/
 
 run_optimizers.py
+
+temp

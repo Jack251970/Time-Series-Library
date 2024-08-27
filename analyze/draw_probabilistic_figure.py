@@ -1,6 +1,7 @@
 import os
 
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 from analyze.test_data_factory import get_all_value_inverse, get_config_row
 from utils.tools import draw_figure, set_times_new_roman_font
@@ -12,13 +13,14 @@ out_dir = 'probabilistic_figure'
 
 def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred2, true2, high2, low2,
                      pred_range, selected_pred_range, path, xlabel=None, ylabel=None, use_window=False,
-                     draw_label=False, label_pred_range=0.5, draw_color_bar=False):
+                     draw_label=False, label_pred_range=0.5, font_size=18, draw_color_bar=False):
     model_name1, model_name2 = model_names
     plt.clf()
-    plt.figure(figsize=(12.8, 7.2))
     if use_window:
+        plt.figure(figsize=(11, 7.2))
         selected_x = list(selected_x)
     else:
+        plt.figure(figsize=(12.8, 7.2))
         selected_x = list(x)
 
     true_color = 'green'
@@ -56,12 +58,14 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
             sm1 = plt.cm.ScalarMappable(cmap=cmap1, norm=norm)
             sm1.set_array([])
             cbar1 = plt.colorbar(sm1, ax=plt.gca(), fraction=0.046, pad=0.04)
-            cbar1.set_label(f'Confidence Level')
+            cbar1.set_label(f'Confidence Level', fontsize=font_size)
+            cbar1.ax.tick_params(labelsize=font_size)
 
             sm2 = plt.cm.ScalarMappable(cmap=cmap2, norm=norm)
             sm2.set_array([])
             cbar2 = plt.colorbar(sm2, ax=plt.gca(), fraction=0.046, pad=0.04)
-            cbar2.set_label('')
+            cbar2.set_label('', fontsize=font_size)
+            cbar2.ax.tick_params(labelsize=font_size)
 
     # # draw intervals with lines
     # colors = ['orange', 'purple', 'yellow', 'gray', 'pink', 'brown']
@@ -82,14 +86,17 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
     #             color_index += 1
 
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        plt.xlabel(xlabel, fontsize=font_size)
     if ylabel is not None:
-        plt.ylabel(ylabel)
-    plt.legend(fontsize='small')
+        plt.ylabel(ylabel, fontsize=font_size)
+    plt.legend(fontsize=font_size)
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
+    plt.tight_layout()  # Adjust the layout to prevent ylabel from being cut off
     plt.savefig(path)
 
 
-def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data=None, replace_regex=None):
+def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data=None, replace_regex=None, ylabel=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -135,13 +142,13 @@ def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data
                         probability_range,
                         file_path,
                         xlabel='Timestamp/Step',
-                        ylabel='Power/KW',
+                        ylabel=ylabel,
                         xlim=xlim,
                         ylim=ylim)
 
 
 def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, interval=128, folder=None,
-                                   selected_data=None, replace_regex=None):
+                                   selected_data=None, replace_regex=None, max_data_length=1, ylabel=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -167,7 +174,7 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
     if selected_data is not None:
         for k in selected_data:
             i = k[0] - 1
-            j = k[1] - 1
+            j = k[1] - 1 if len(k) >= 2 else -1
             x1 = k[2] if len(k) >= 3 else None
             x2 = k[3] if len(k) >= 4 else None
 
@@ -198,28 +205,52 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
             else:
                 file_path = os.path.join(_path, file_name)
 
-            draw_comp_figure(model_names,
-                             range(interval),
-                             range(x1, x2) if x1 is not None and x2 is not None else None,
-                             pred_value1[i, j * interval: (j + 1) * interval],
-                             true_value1[i, j * interval: (j + 1) * interval],
-                             high_value1[i, :, j * interval: (j + 1) * interval],
-                             low_value1[i, :, j * interval: (j + 1) * interval],
-                             pred_value2[i, j * interval: (j + 1) * interval],
-                             true_value2[i, j * interval: (j + 1) * interval],
-                             high_value2[i, :, j * interval: (j + 1) * interval],
-                             low_value2[i, :, j * interval: (j + 1) * interval],
-                             probability_range,
-                             selected_probability_range,
-                             file_path,
-                             xlabel='Timestamp',
-                             ylabel='Power/KW',
-                             use_window=x1 is not None and x2 is not None,
-                             draw_label=True,
-                             label_pred_range=0.5,
-                             draw_color_bar=True)
+            if j == -1:
+                for t in tqdm(range(0, max_data_length if max_data_length > 0 else 1), desc=f'step {i}'):
+                    draw_comp_figure(model_names,
+                                     range(interval),
+                                     range(0, x2 - x1) if x1 is not None and x2 is not None else None,
+                                     pred_value1[i, t * interval: (t + 1) * interval],
+                                     true_value1[i, t * interval: (t + 1) * interval],
+                                     high_value1[i, :, t * interval: (t + 1) * interval],
+                                     low_value1[i, :, t * interval: (t + 1) * interval],
+                                     pred_value2[i, t * interval: (t + 1) * interval],
+                                     true_value2[i, t * interval: (t + 1) * interval],
+                                     high_value2[i, :, t * interval: (t + 1) * interval],
+                                     low_value2[i, :, t * interval: (t + 1) * interval],
+                                     probability_range,
+                                     selected_probability_range,
+                                     file_path.replace('Data 0.png', f'Data {t + 1}.png'),
+                                     xlabel='Timestamp',
+                                     ylabel=ylabel,
+                                     use_window=x1 is not None and x2 is not None,
+                                     draw_label=True,
+                                     label_pred_range=0.5,
+                                     draw_color_bar=True)
+            else:
+                draw_comp_figure(model_names,
+                                 range(interval),
+                                 range(0, x2-x1) if x1 is not None and x2 is not None else None,
+                                 pred_value1[i, j * interval: (j + 1) * interval],
+                                 true_value1[i, j * interval: (j + 1) * interval],
+                                 high_value1[i, :, j * interval: (j + 1) * interval],
+                                 low_value1[i, :, j * interval: (j + 1) * interval],
+                                 pred_value2[i, j * interval: (j + 1) * interval],
+                                 true_value2[i, j * interval: (j + 1) * interval],
+                                 high_value2[i, :, j * interval: (j + 1) * interval],
+                                 low_value2[i, :, j * interval: (j + 1) * interval],
+                                 probability_range,
+                                 selected_probability_range,
+                                 file_path,
+                                 xlabel='Timestamp',
+                                 ylabel=ylabel,
+                                 use_window=x1 is not None and x2 is not None,
+                                 draw_label=True,
+                                 label_pred_range=0.5,
+                                 draw_color_bar=True)
 
 
+# # Electricity
 # # AL-QSQF
 # draw_probabilistic_figure(exp_name='LSTM-AQ_Electricity_96',
 #                           interval=128,
@@ -228,7 +259,8 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
 #                                          [32, 19, None, [1500, 5500]],
 #                                          [64, 17, None, [1500, 5000]],
 #                                          [96, 20, None, [1500, 5000]]],
-#                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']])
+#                           replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
+#                           ylabel='Power/KW')
 #
 # # QSQF-C
 # draw_probabilistic_figure(exp_name='QSQF-C_Electricity_96',
@@ -238,31 +270,87 @@ def draw_comp_probabilistic_figure(exp_name1, exp_name2, model_names, comp_tag, 
 #                                          [32, 19, None, [1500, 5500]],
 #                                          [64, 17, None, [1500, 5000]],
 #                                          [96, 20, None, [1500, 5000]]],
-#                           replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
-
-# AL-QSQF & QSQF-C
-draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
-                               exp_name2='QSQF-C_Electricity_96',
-                               model_names=['AL-QSQF', 'QSQF-C'],
-                               comp_tag='Electricity',
-                               interval=128,
-                               folder=None,
-                               selected_data=[[16, 11],
-                                              [32, 19],
-                                              [64, 17],
-                                              [96, 20]],
-                               replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
-                                              ['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
-
+#                           replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+#                           ylabel='Power/KW')
+#
+# # AL-QSQF & QSQF-C
 # draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Electricity_96',
 #                                exp_name2='QSQF-C_Electricity_96',
-#                                comp_tag='Electricity',
 #                                model_names=['AL-QSQF', 'QSQF-C'],
+#                                comp_tag='Electricity',
 #                                interval=128,
 #                                folder=None,
-#                                selected_data=[[16, 11, 84, 97],
-#                                               [32, 19, 86, 99],
-#                                               [64, 17, 40, 53],
-#                                               [96, 20, 84, 97]],
+#                                selected_data=[[16, 11],
+#                                               [32, 19],
+#                                               [64, 17],
+#                                               [96, 20]],
 #                                replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
-#                                               ['QSQF-C_Electricity_96', 'QSQF-C Electricity']])
+#                                               ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+#                                ylabel='Power/KW')
+#
+draw_comp_probabilistic_figure(exp_name1='LSTM-AQ(HLF)_Electricity_96',
+                               exp_name2='QSQF-C_Electricity_96',
+                               comp_tag='Electricity',
+                               model_names=['AL-QSQF', 'QSQF-C'],
+                               interval=128,
+                               folder=None,
+                               selected_data=[[16, 11, 0, 61],
+                                              [32, 19, 20, 81],
+                                              [64, 17, 0, 61],
+                                              [96, 20, 0, 61]],
+                               replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
+                                              ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+                               ylabel='Power/KW')
+
+# # Traffic
+# # AL-QSQF
+# draw_probabilistic_figure(exp_name='LSTM-AQ_Traffic_96',
+#                           interval=128,
+#                           folder=None,
+#                           selected_data=[[16, 11, None, [1500, 5500]],
+#                                          [32, 19, None, [1500, 5500]],
+#                                          [64, 17, None, [1500, 5000]],
+#                                          [96, 20, None, [1500, 5000]]],
+#                           replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic']],
+#                           ylabel='Road occupancy')
+#
+# # QSQF-C
+# draw_probabilistic_figure(exp_name='QSQF-C_Traffic_96',
+#                           interval=128,
+#                           folder=None,
+#                           selected_data=[[16, 11, None, [1500, 5500]],
+#                                          [32, 19, None, [1500, 5500]],
+#                                          [64, 17, None, [1500, 5000]],
+#                                          [96, 20, None, [1500, 5000]]],
+#                           replace_regex=[['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
+#                           ylabel='Road occupancy')
+#
+# # AL-QSQF & QSQF-C
+# draw_comp_probabilistic_figure(exp_name1='LSTM-AQ_Traffic_96',
+#                                exp_name2='QSQF-C_Traffic_96',
+#                                model_names=['AL-QSQF', 'QSQF-C'],
+#                                comp_tag='Traffic',
+#                                interval=256,
+#                                folder=None,
+#                                selected_data=[[16],
+#                                               [32],
+#                                               [64],
+#                                               [96]],
+#                                max_data_length=13,
+#                                replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic'],
+#                                               ['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
+#                                ylabel='Road occupancy')
+#
+draw_comp_probabilistic_figure(exp_name1='LSTM-AQ(HLF)_Traffic_96',
+                               exp_name2='QSQF-C_Traffic_96',
+                               comp_tag='Traffic',
+                               model_names=['AL-QSQF', 'QSQF-C'],
+                               interval=256,
+                               folder=None,
+                               selected_data=[[16, 7, 80, 141],
+                                              [32, 2, 0, 61],
+                                              [64, 13, 194, 255],
+                                              [96, 13, 150, 211]],
+                               replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic'],
+                                              ['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
+                               ylabel='Road occupancy')

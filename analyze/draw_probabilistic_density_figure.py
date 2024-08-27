@@ -17,13 +17,13 @@ out_dir = 'probabilistic_density_figure'
 
 
 def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true2, pred2, path,
-                             xlabel=None, ylabel=None, draw_pred=False):
+                             xlabel=None, ylabel=None, font_size=18, draw_pred=False):
     model_name1, model_name2 = model_names
     true_color = 'green'
     pred1_color = 'blue'
     pred2_color = 'red'
     plt.clf()
-    plt.figure(figsize=(7, 5.25))  # Adjust the figure size to increase resolution
+    plt.figure(figsize=(7.8, 5.25))  # Adjust the figure size to increase resolution
     plt.axvline(true1.squeeze(), color=true_color, linestyle='--', label='True Value')
     if draw_pred:
         plt.axvline(pred1.squeeze(), color=pred1_color, linestyle='--', label=f'{model_name1} Predicted Value')
@@ -32,10 +32,13 @@ def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true
         plt.axvline(pred2.squeeze(), color=pred2_color, linestyle='--', label=f'{model_name2} Predicted Value')
     sns.kdeplot(samples2.squeeze(), fill=True, label=f'{model_name2} Probability Density', alpha=0.5)
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        plt.xlabel(xlabel, fontsize=font_size)
     if ylabel is not None:
-        plt.ylabel(ylabel)
-    plt.legend(fontsize='small')
+        plt.ylabel(ylabel, fontsize=font_size)
+    plt.legend(fontsize=font_size)
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
+    plt.tight_layout()  # Adjust the layout to prevent ylabel from being cut off
     plt.savefig(path)
 
 
@@ -134,7 +137,8 @@ def _sample(exp_name, samples_index, sample_times, _lambda, algorithm_type, use_
 
 
 def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _lambda, algorithm_type, select_data=None,
-                                      draw_all=True, folder=None, replace_regex=None, use_cupy=False):
+                                      draw_all=True, max_data_length=0, folder=None, replace_regex=None, use_cupy=False,
+                                      xlabel=None):
     if replace_regex is None:
         replace_regex = []
 
@@ -167,7 +171,7 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
             draw_density_figure(samples=samples_value_inverse[:, i, j],
                                 true=true_value_inverse[i, j],
                                 path=file_path,
-                                xlabel='Power/KW',
+                                xlabel=xlabel,
                                 ylabel='Probability',
                                 xlim=xlim,
                                 ylim=ylim)
@@ -179,7 +183,8 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
             if not os.path.exists(_path):
                 os.makedirs(_path)
 
-            for j in tqdm(range(data_length), desc=f'step {samples_index[i] + 1}'):
+            for j in tqdm(range(0, max(data_length, max_data_length) if max_data_length > 0 else data_length),
+                          desc=f'step {samples_index[i] + 1}'):
                 file_name = f'PDF {exp_name} Pred {pred_length} Step {samples_index[i] + 1} Data {j + 1}.png'
                 for regex in replace_regex:
                     file_name = file_name.replace(regex[0], regex[1])
@@ -194,13 +199,13 @@ def draw_probabilistic_density_figure(exp_name, samples_index, sample_times, _la
                 draw_density_figure(samples=samples_value_inverse[:, i, j],
                                     true=true_value_inverse[i, j],
                                     path=file_path,
-                                    xlabel='Power/KW',
+                                    xlabel=xlabel,
                                     ylabel='Probability')
 
 
 def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, samples_index, sample_times, _lambda1,
-                                           algorithm_type1, _lambda2, algorithm_type2, select_data=None, folder=None,
-                                           replace_regex=None, use_cupy=False):
+                                           algorithm_type1, _lambda2, algorithm_type2, select_data=None, max_data_length=0,
+                                           folder=None, xlabel=None, replace_regex=None, use_cupy=False):
     if replace_regex is None:
         replace_regex = []
 
@@ -218,7 +223,7 @@ def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, sampl
     if select_data is not None:
         for k in select_data:
             i = k[0]
-            j = k[1] - 1
+            j = k[1] - 1 if len(k) >= 2 else -1
 
             _path = out_dir
             if not os.path.exists(_path):
@@ -235,19 +240,35 @@ def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, sampl
             else:
                 file_path = os.path.join(_path, file_name)
 
-            draw_comp_density_figure(model_names=['AL-QSQF', 'QSQF-C'],
-                                     samples1=samples_value_inverse1[:, i, j],
-                                     true1=true_value_inverse1[i, j],
-                                     pred1=pred_value_inverse1[i, j],
-                                     samples2=samples_value_inverse2[:, i, j],
-                                     true2=true_value_inverse2[i, j],
-                                     pred2=pred_value_inverse2[i, j],
-                                     path=file_path,
-                                     xlabel='Power/KW',
-                                     ylabel='Probability',
-                                     draw_pred=False)
+            if j == -1:
+                for t in tqdm(range(0, max_data_length if max_data_length > 0 else 1),
+                              desc=f'step {samples_index[i] + 1}'):
+                    draw_comp_density_figure(model_names=['AL-QSQF', 'QSQF-C'],
+                                             samples1=samples_value_inverse1[:, i, t],
+                                             true1=true_value_inverse1[i, t],
+                                             pred1=pred_value_inverse1[i, t],
+                                             samples2=samples_value_inverse2[:, i, t],
+                                             true2=true_value_inverse2[i, t],
+                                             pred2=pred_value_inverse2[i, t],
+                                             path=file_path.replace('Data 0.png', f'Data {t + 1}.png'),
+                                             xlabel=xlabel,
+                                             ylabel='Probability',
+                                             draw_pred=False)
+            else:
+                draw_comp_density_figure(model_names=['AL-QSQF', 'QSQF-C'],
+                                         samples1=samples_value_inverse1[:, i, j],
+                                         true1=true_value_inverse1[i, j],
+                                         pred1=pred_value_inverse1[i, j],
+                                         samples2=samples_value_inverse2[:, i, j],
+                                         true2=true_value_inverse2[i, j],
+                                         pred2=pred_value_inverse2[i, j],
+                                         path=file_path,
+                                         xlabel=xlabel,
+                                         ylabel='Probability',
+                                         draw_pred=False)
 
 
+# # Electricity
 # # AL-QSQF
 # draw_probabilistic_density_figure(exp_name='LSTM-AQ_Electricity_96',
 #                                   samples_index=[15, 31, 63, 95],
@@ -259,6 +280,7 @@ def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, sampl
 #                                                [2, 181, [-500, 5000], [0, 0.00200]],
 #                                                [3, 235, [-500, 5000], [0, 0.00225]]],
 #                                   draw_all=False,
+#                                   xlabel='Power/KW',
 #                                   folder=None,
 #                                   replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity']],
 #                                   use_cupy=False)
@@ -274,12 +296,13 @@ def draw_comp_probabilistic_density_figure(exp_name1, exp_name2, comp_tag, sampl
 #                                                [2, 181, [-500, 5000], [0, 0.00200]],
 #                                                [3, 235, [-500, 5000], [0, 0.00225]]],
 #                                   draw_all=False,
+#                                   xlabel='Power/KW',
 #                                   folder=None,
 #                                   replace_regex=[['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
 #                                   use_cupy=False)
-
-# AL-QSQF & QSQF-C
-draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ_Electricity_96',
+#
+# # AL-QSQF & QSQF-C
+draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ(HLF)_Electricity_96',
                                        exp_name2='QSQF-C_Electricity_96',
                                        comp_tag='Electricity',
                                        samples_index=[15, 31, 63, 95],
@@ -292,7 +315,75 @@ draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ_Electricity_96',
                                                     [1, 91],
                                                     [2, 181],
                                                     [3, 235]],
+                                       xlabel='Power/KW',
                                        folder=None,
                                        replace_regex=[['LSTM-AQ_Electricity_96', 'AL-QSQF Electricity'],
                                                       ['QSQF-C_Electricity_96', 'QSQF-C Electricity']],
+                                       use_cupy=False)
+
+# # Traffic
+# AL-QSQF
+# draw_probabilistic_density_figure(exp_name='LSTM-AQ_Traffic_96',
+#                                   samples_index=[15, 31, 63, 95],
+#                                   sample_times=500,
+#                                   _lambda=-0.001,
+#                                   algorithm_type='1+2',
+#                                   draw_all=True,
+#                                   max_data_length=200,
+#                                   folder=None,
+#                                   xlabel='Road occupancy',
+#                                   replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic']],
+#                                   use_cupy=False)
+#
+# # QSQF-C
+# draw_probabilistic_density_figure(exp_name='QSQF-C_Traffic_96',
+#                                   samples_index=[15, 31, 63, 95],
+#                                   sample_times=500,
+#                                   _lambda=-0.001,
+#                                   algorithm_type='2',
+#                                   draw_all=True,
+#                                   max_data_length=200,
+#                                   folder=None,
+#                                   xlabel='Road occupancy',
+#                                   replace_regex=[['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
+#                                   use_cupy=False)
+#
+# # AL-QSQF & QSQF-C
+# draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ(HLF)_Traffic_96',
+#                                        exp_name2='QSQF-C_Traffic_96',
+#                                        comp_tag='Traffic',
+#                                        samples_index=[15, 31, 63, 95],
+#                                        sample_times=500,
+#                                        _lambda1=-0.001,
+#                                        algorithm_type1='1+2',
+#                                        _lambda2=-0.001,
+#                                        algorithm_type2='2',
+#                                        select_data=[[0],
+#                                                     [1],
+#                                                     [2],
+#                                                     [3]],
+#                                        max_data_length=200,
+#                                        folder=None,
+#                                        xlabel='Road occupancy',
+#                                        replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic'],
+#                                                       ['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
+#                                        use_cupy=False)
+#
+draw_comp_probabilistic_density_figure(exp_name1='LSTM-AQ(HLF)_Traffic_96',
+                                       exp_name2='QSQF-C_Traffic_96',
+                                       comp_tag='Traffic',
+                                       samples_index=[15, 31, 63, 95],
+                                       sample_times=500,
+                                       _lambda1=-0.001,
+                                       algorithm_type1='1+2',
+                                       _lambda2=-0.001,
+                                       algorithm_type2='2',
+                                       select_data=[[0, 10],
+                                                    [1, 133],
+                                                    [2, 46],
+                                                    [3, 157]],
+                                       xlabel='Road occupancy',
+                                       folder=None,
+                                       replace_regex=[['LSTM-AQ_Traffic_96', 'AL-QSQF Traffic'],
+                                                      ['QSQF-C_Traffic_96', 'QSQF-C Traffic']],
                                        use_cupy=False)

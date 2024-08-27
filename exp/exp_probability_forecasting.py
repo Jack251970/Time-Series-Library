@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
-from utils.pf_utils import init_metrics, update_metrics, final_metrics
+from utils.pf_metrics import init_metrics, update_metrics, final_metrics
 from utils.tools import EarlyStopping, adjust_learning_rate, draw_figure, draw_attention_map, draw_density_figure
 
 warnings.filterwarnings('ignore')
@@ -458,7 +458,7 @@ class Exp_Probability_Forecast(Exp_Basic):
                     batch = torch.cat((batch_x, batch_y[:, -pred_length:, :]), dim=1)
 
                 labels = batch[:, -pred_length:, -1]  # [256, 96, 1]
-                metrics = update_metrics(metrics, samples, labels, pred_length)
+                metrics = update_metrics(metrics, samples, labels)
                 labels = labels.unsqueeze(-1)  # [256, 96, 1]
 
                 f_dim = -1 if self.args.features == 'MS' else 0
@@ -511,27 +511,54 @@ class Exp_Probability_Forecast(Exp_Basic):
         for i in range(pred_length):
             strings += '\nCRPS_' + str(i) + ': ' + str(summary[f'CRPS_{i}'])
         strings += '\nmre:' + str(summary['mre'].abs().max(dim=1)[0].mean().item())
+        strings += '\nNAPS:' + str(summary['naps'].item())
+        for i in range(pred_length):
+            strings += '\nNAPS_' + str(i) + ': ' + str(summary[f'naps_{i}'].item())
+        strings += '\nPICP:' + str(summary['picp'].item())
+        for i in range(pred_length):
+            strings += '\nPICP_' + str(i) + ': ' + str(summary[f'picp_{i}'].item())
         strings += '\nPINAW:' + str(summary['pinaw'].item())
         for i in range(pred_length):
             strings += '\nPINAW_' + str(i) + ': ' + str(summary[f'pinaw_{i}'].item())
+        strings += '\nCWC:' + str(summary['cwc'].item())
+        for i in range(pred_length):
+            strings += '\nCWC_' + str(i) + ': ' + str(summary[f'cwc_{i}'].item())
+        for i in range(1, 10, 1):
+            alpha = i / 20
+            strings += '\nPICP(alpha:' + str(alpha) + '): ' + str(summary[f'picp_alpha{alpha}'].item())
         self.print_content('Full test metrics: ' + strings)
 
         ss_metric = {
             'CRPS': summary['CRPS'].mean().detach().cpu(),
             'mre': summary['mre'].abs().mean().detach().cpu(),
-            'pinaw': summary['pinaw'].detach().cpu()
+            'naps': summary['naps'].detach().cpu(),
+            'picp': summary['picp'].detach().cpu(),
+            'pinaw': summary['pinaw'].detach().cpu(),
+            'cwc': summary['cwc'].detach().cpu()
         }
         for i in range(pred_length):
             ss_metric[f'CRPS_{i}'] = summary[f'CRPS_{i}'].mean().detach().cpu()
+            ss_metric[f'naps_{i}'] = summary[f'naps_{i}'].detach().cpu()
+            ss_metric[f'picp_{i}'] = summary[f'picp_{i}'].detach().cpu()
             ss_metric[f'pinaw_{i}'] = summary[f'pinaw_{i}'].detach().cpu()
+            ss_metric[f'cwc_{i}'] = summary[f'cwc_{i}'].detach().cpu()
 
         prob_metrics = np.array([ss_metric['CRPS']])
         for i in range(pred_length):
             prob_metrics = np.append(prob_metrics, ss_metric[f'CRPS_{i}'])
         prob_metrics = np.append(prob_metrics, ss_metric['mre'])
+        prob_metrics = np.append(prob_metrics, ss_metric['naps'])
+        for i in range(pred_length):
+            prob_metrics = np.append(prob_metrics, ss_metric[f'naps_{i}'])
+        prob_metrics = np.append(prob_metrics, ss_metric['picp'])
+        for i in range(pred_length):
+            prob_metrics = np.append(prob_metrics, ss_metric[f'picp_{i}'])
         prob_metrics = np.append(prob_metrics, ss_metric['pinaw'])
         for i in range(pred_length):
             prob_metrics = np.append(prob_metrics, ss_metric[f'pinaw_{i}'])
+        prob_metrics = np.append(prob_metrics, ss_metric['cwc'])
+        for i in range(pred_length):
+            prob_metrics = np.append(prob_metrics, ss_metric[f'cwc_{i}'])
         np.save(folder_path + 'prob_metrics.npy', prob_metrics)
 
         # save results in txt
@@ -731,14 +758,20 @@ class Exp_Probability_Forecast(Exp_Basic):
         # convert to float
         crps = float(ss_metric['CRPS'].item())
         mre = float(ss_metric['mre'].item())
+        naps = float(ss_metric['naps'].item())
+        picp = float(ss_metric['picp'].item())
         pinaw = float(ss_metric['pinaw'].item())
+        cwc = float(ss_metric['cwc'].item())
 
         return {
             'mse': mse,
             'mae': mae,
             'crps': crps,
             'mre': mre,
-            'pinaw': pinaw
+            'naps': naps,
+            'picp': picp,
+            'pinaw': pinaw,
+            'cwc': cwc
         }
 
 
