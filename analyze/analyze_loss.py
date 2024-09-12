@@ -52,7 +52,8 @@ def output_multi_loss_figure(_list, _file, xlabel=None, ylabel=None, font_size=1
     plt.legend(fontsize=font_size)
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
-    plt.savefig(os.path.join(output_dir, _file))
+    path = os.path.join(output_dir, _file)
+    plt.savefig(path.replace('.png', '.svg'), format='svg')
 
 
 output_multi_loss_figure([['LSTM-AQ(HLF)_Electricity_96', 'blue', 'Ours'],
