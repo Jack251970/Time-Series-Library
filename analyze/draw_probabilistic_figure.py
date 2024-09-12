@@ -93,7 +93,7 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
     plt.tight_layout()  # Adjust the layout to prevent ylabel from being cut off
-    plt.savefig(path.replace('.png', '.svg'), format='svg')
+    plt.savefig(path.replace('.png', '.pdf'), format='pdf')
 
 
 def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data=None, replace_regex=None, ylabel=None):
