@@ -13,7 +13,7 @@ out_dir = 'probabilistic_figure'
 
 def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred2, true2, high2, low2,
                      pred_range, selected_pred_range, path, xlabel=None, ylabel=None, use_window=False,
-                     draw_label=False, label_pred_range=0.5, font_size=18, draw_color_bar=False):
+                     draw_label=False, label_pred_range=0.5, font_size=19, draw_color_bar=False):
     model_name1, model_name2 = model_names
     plt.clf()
     if use_window:
@@ -93,7 +93,7 @@ def draw_comp_figure(model_names, x, selected_x, pred1, true1, high1, low1, pred
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
     plt.tight_layout()  # Adjust the layout to prevent ylabel from being cut off
-    plt.savefig(path)
+    plt.savefig(path.replace('.png', '.svg'), format='svg')
 
 
 def draw_probabilistic_figure(exp_name, interval=128, folder=None, selected_data=None, replace_regex=None, ylabel=None):

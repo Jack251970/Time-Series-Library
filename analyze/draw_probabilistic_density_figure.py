@@ -17,7 +17,7 @@ out_dir = 'probabilistic_density_figure'
 
 
 def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true2, pred2, path,
-                             xlabel=None, ylabel=None, font_size=18, draw_pred=False):
+                             xlabel=None, ylabel=None, font_size=19, draw_pred=False):
     model_name1, model_name2 = model_names
     true_color = 'green'
     pred1_color = 'blue'
@@ -39,7 +39,7 @@ def draw_comp_density_figure(model_names, samples1, true1, pred1, samples2, true
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
     plt.tight_layout()  # Adjust the layout to prevent ylabel from being cut off
-    plt.savefig(path)
+    plt.savefig(path.replace('.png', '.svg'), format='svg')
 
 
 def _sample(exp_name, samples_index, sample_times, _lambda, algorithm_type, use_cupy=False):
