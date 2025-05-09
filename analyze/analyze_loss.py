@@ -35,7 +35,7 @@ def output_loss_figure(exp_name):
 
 
 def output_multi_loss_figure(_list, _file, xlabel=None, ylabel=None, font_size=18):
-    plt.figure(figsize=(12.8, 7.2))
+    plt.figure(figsize=(12.8, 7))
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
